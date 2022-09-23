@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<window xmlns="http://jmix.io/schema/ui/window"
+        xmlns:c="http://jmix.io/schema/ui/jpql-condition"
+        caption="msg://prayerBrowse.caption"
+        focusComponent="prayersTable">
+    <data readOnly="true">
+        <collection id="prayersDc"
+                    class="com.company.shrine.entity.Prayer">
+            <fetchPlan extends="_base">
+                <property name="address" fetchPlan="_base"/>
+            </fetchPlan>
+            <loader id="prayersDl">
+                <query>
+                    <![CDATA[select e from miko_Prayer e]]>
+                </query>
+            </loader>
+        </collection>
+    </data>
+    <facets>
+        <dataLoadCoordinator auto="true"/>
+        <screenSettings id="settingsFacet" auto="true"/>
+    </facets>
+    <actions>
+        <action id="lookupSelectAction"
+                caption="msg:///actions.Select"
+                icon="LOOKUP_OK"
+                primary="true"
+                shortcut="${COMMIT_SHORTCUT}"/>
+        <action id="lookupCancelAction"
+                caption="msg:///actions.Cancel"
+                icon="LOOKUP_CANCEL"/>
+    </actions>
+    <dialogMode height="600"
+                width="800"/>
+    <layout expand="prayersTable" spacing="true">
+        <filter id="filter"
+                dataLoader="prayersDl">
+            <properties include=".*"/>
+        </filter>
+        <groupTable id="prayersTable"
+                    width="100%"
+                    dataContainer="prayersDc"
+                    multiselect="true">
+            <actions>
+                <action id="create" type="create"/>
+                <action id="edit" type="edit"/>
+                <action id="remove" type="remove"/>
+            </actions>
+            <columns>
+                <column id="firstName"/>
+                <column id="lastName"/>
+                <column id="email"/>
+                <column id="address.street"/>
+                <column id="address.postCode"/>
+                <column id="address.city"/>
+            </columns>
+            <simplePagination/>
+            <buttonsPanel id="buttonsPanel"
+                          alwaysVisible="true">
+                <button id="createBtn" action="prayersTable.create"/>
+                <button id="editBtn" action="prayersTable.edit"/>
+                <button id="removeBtn" action="prayersTable.remove"/>
+            </buttonsPanel>
+        </groupTable>
+        <hbox id="lookupActions" spacing="true" visible="false">
+            <button action="lookupSelectAction"/>
+            <button action="lookupCancelAction"/>
+        </hbox>
+    </layout>
+</window>
