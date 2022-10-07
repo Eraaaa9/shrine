@@ -7,6 +7,7 @@ import io.jmix.core.metamodel.annotation.JmixEntity;
 
 import javax.persistence.*;
 import javax.validation.constraints.Email;
+import javax.validation.constraints.NotNull;
 
 @JmixEntity
 @Table(name = "MIKO_PRAYER")
@@ -16,6 +17,7 @@ public class Prayer extends StandardEntity {
     @Column(name = "FIRST_NAME")
     private String firstName;
 
+    @NotNull
     @Column(name = "LAST_NAME")
     private String lastName;
 

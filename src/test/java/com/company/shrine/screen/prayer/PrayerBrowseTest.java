@@ -3,9 +3,12 @@ package com.company.shrine.screen.prayer;
 import com.company.shrine.ShrineApplication;
 import com.company.shrine.entity.Address;
 import com.company.shrine.entity.Prayer;
+import com.company.shrine.screen.prayer.support.TestDataCleanup;
 import io.jmix.core.DataManager;
 import io.jmix.ui.Screens;
+import io.jmix.ui.component.Button;
 import io.jmix.ui.component.GroupTable;
+import io.jmix.ui.screen.Screen;
 import io.jmix.ui.testassist.UiTestAssistConfiguration;
 import io.jmix.ui.testassist.junit.UiTest;
 import org.jetbrains.annotations.NotNull;
@@ -28,12 +31,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase
 class PrayerBrowseTest {
 
+    private Prayer prayer;
     @Autowired
     DataManager dataManager;
-    private Prayer prayer;
+    @Autowired
+    TestDataCleanup testDataCleanup;
 
     @BeforeEach
     void setUp() {
+
+        testDataCleanup.removeAllEntities(Prayer.class);
         prayer = dataManager.create(Prayer.class);
 
         prayer.setFirstName("Yerlen");
@@ -54,6 +61,44 @@ class PrayerBrowseTest {
 
         assertThat(firstLoadedPrayer(prayerBrowse))
                 .isEqualTo(prayer);
+    }
+
+    @Test
+    public void given_onePrayerExists_when_openEditPrayer_then_editorScreenIsShown(Screens screens) {
+
+        PrayerBrowse prayerBrowse = openPrayerBrowse(screens);
+
+        Prayer firstPrayer = firstLoadedPrayer(prayerBrowse);
+
+        selectPrayerInTable(prayerBrowse, firstPrayer);
+
+        button(prayerBrowse, "editBtn").click();
+
+        PrayerEdit prayerEdit = screenOfType(screens, PrayerEdit.class);
+
+        assertThat(prayerEdit.getEditedEntity())
+                .isEqualTo(prayer);
+    }
+
+    private void selectPrayerInTable(PrayerBrowse prayerBrowse, Prayer firstPrayer) {
+        GroupTable<Prayer> prayersTable = getPrayersTable(prayerBrowse);
+
+        prayersTable.setSelected(firstPrayer);
+    }
+
+    @NotNull
+    private <T> T screenOfType(Screens screens, Class<T> tClass) {
+        Screen screen = screens.getOpenedScreens().getActiveScreens().stream().findFirst().orElseThrow();
+
+        assertThat(screen)
+                .isInstanceOf(tClass);
+
+        return (T) screen;
+    }
+
+    @Nullable
+    private static Button button(PrayerBrowse prayerBrowse, String buttonId) {
+        return (Button) prayerBrowse.getWindow().getComponent(buttonId);
     }
 
     @NotNull

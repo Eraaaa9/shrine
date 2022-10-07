@@ -1,5 +1,6 @@
 package com.company.shrine.entity;
 
+import com.company.shrine.screen.prayer.support.TestDataCleanup;
 import io.jmix.core.DataManager;
 import io.jmix.core.security.SystemAuthenticator;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,10 +24,13 @@ class PrayerIntegrationTest {
     Validator validator;
     @Autowired
     SystemAuthenticator systemAuthenticator;
+    @Autowired
+    TestDataCleanup testDataCleanup;
     private Prayer prayer;
 
     @BeforeEach
     void setUp() {
+        testDataCleanup.removeAllEntities(Prayer.class);
         prayer = dataManager.create(Prayer.class);
     }
 
