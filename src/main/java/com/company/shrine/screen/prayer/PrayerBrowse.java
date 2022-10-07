@@ -7,4 +7,5 @@ import com.company.shrine.entity.Prayer;
 @UiDescriptor("prayer-browse.xml")
 @LookupComponent("prayersTable")
 public class PrayerBrowse extends StandardLookup<Prayer> {
+
 }

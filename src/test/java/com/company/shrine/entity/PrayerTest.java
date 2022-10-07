@@ -20,9 +20,9 @@ class PrayerIntegrationTest {
     @Autowired
     DataManager dataManager;
     @Autowired
-    SystemAuthenticator systemAuthenticator;
-    @Autowired
     Validator validator;
+    @Autowired
+    SystemAuthenticator systemAuthenticator;
     private Prayer prayer;
 
     @BeforeEach

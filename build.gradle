@@ -48,6 +48,8 @@ dependencies {
     implementation 'io.jmix.reports:jmix-reports-rest-starter'
     implementation 'io.jmix.reports:jmix-reports-starter'
     implementation 'org.postgresql:postgresql'
+    testImplementation 'io.jmix.ui:jmix-ui-test-assist'
+    testImplementation("org.hsqldb:hsqldb")
 }
 
 test {
