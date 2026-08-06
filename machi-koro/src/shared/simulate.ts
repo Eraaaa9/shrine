@@ -4,7 +4,16 @@
  * The simulation is the safety net for the engine: it plays whole games, checks
  * invariants after every action, and fails loudly on an illegal state.
  */
-import { cardsFor, describeRules, winLandmarks, type CardId, type RuleSet } from './cards';
+import { cardsFor, describeRules, landmarksFor, winLandmarks, type CardId, type RuleSet } from './cards';
+import {
+  LANGS,
+  cardName,
+  cardText,
+  hasTranslation,
+  landmarkName,
+  landmarkText,
+  t,
+} from './i18n';
 import { botAction } from './bot';
 import {
   activePlayer,
@@ -242,7 +251,7 @@ function baseRuleTests(): void {
     b.coins = 9;
     applyForcedRoll(g, [3, 3]);
     expect('TV Station waits for a target', g.phase, 'tv');
-    expect('non-active player cannot answer', applyAction(g, b.id, { t: 'tv', targetId: a.id }), 'It is not your turn.');
+    expect('non-active player cannot answer', applyAction(g, b.id, { t: 'tv', targetId: a.id }), 'err.notYourTurn');
     check('TV Station resolves', applyAction(g, a.id, { t: 'tv', targetId: b.id }) === null);
     expect('TV Station takes 5', b.coins, 4);
     expect('after the choice, it is time to build', g.phase, 'build');
@@ -258,7 +267,7 @@ function baseRuleTests(): void {
         targetId: g2.players[1].id,
         give: 'business_center',
         take: 'bakery',
-      }) === 'Major establishments cannot be swapped.'
+      }) === 'err.noMajorSwap'
     );
     check(
       'swap goes through',
@@ -274,11 +283,11 @@ function baseRuleTests(): void {
     // Buying, the Train Station gate, and the City Hall top-up.
     const g = createGame(seats(2), HARBOR, 37);
     const a = g.players[0];
-    expect('two dice need a Train Station', applyAction(g, a.id, { t: 'roll', dice: 2 }), 'The Train Station is needed to roll 2 dice.');
+    expect('two dice need a Train Station', applyAction(g, a.id, { t: 'roll', dice: 2 }), 'err.needTrainStation');
     a.coins = 0;
     applyForcedRoll(g, [5]);
     expect('City Hall tops a broke player up to 1', a.coins, 1);
-    expect('cannot afford the Forest', applyAction(g, a.id, { t: 'buy', cardId: 'forest' }), 'You cannot buy that.');
+    expect('cannot afford the Forest', applyAction(g, a.id, { t: 'buy', cardId: 'forest' }), 'err.cannotBuy');
     check('can buy a Wheat Field', applyAction(g, a.id, { t: 'buy', cardId: 'wheat_field' }) === null);
     expect('supply went down', g.supply.wheat_field, 5);
     expect('turn passed to the next player', g.turn, 1);
@@ -320,7 +329,7 @@ function baseRuleTests(): void {
     check('builds the Airport', applyAction(g, a.id, { t: 'landmark', landmarkId: 'airport' }) === null);
     expect('game is over', g.phase, 'over');
     expect('winner recorded', g.winnerId, a.id);
-    expect('no further actions', applyAction(g, a.id, { t: 'pass' }), 'The game is over.');
+    expect('no further actions', applyAction(g, a.id, { t: 'pass' }), 'err.gameOver');
   }
 
   {
@@ -330,7 +339,7 @@ function baseRuleTests(): void {
     expect('no Harbor cards in the supply', g.supply.tuna_boat, undefined);
     expect('no Millionaire’s Row cards either', g.supply.winery, undefined);
     applyForcedRoll(g, [5]);
-    expect('cannot buy expansion cards', applyAction(g, g.players[0].id, { t: 'buy', cardId: 'sushi_bar' }), 'You cannot buy that.');
+    expect('cannot buy expansion cards', applyAction(g, g.players[0].id, { t: 'buy', cardId: 'sushi_bar' }), 'err.cannotBuy');
   }
 }
 
@@ -566,6 +575,9 @@ function millionairesRuleTests(): void {
 // full games
 // ---------------------------------------------------------------------------
 
+/** Every message key the engine actually emitted, collected across all games. */
+const seenKeys = new Set<string>();
+
 function simulate(games: number, rules: RuleSet, playerCount: number): void {
   const turns: number[] = [];
   let stuck = 0;
@@ -590,6 +602,7 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
       steps++;
     }
     checkInvariants(state, `game ${i} end`);
+    for (const entry of state.log) seenKeys.add(entry.key);
     if (state.phase !== 'over') {
       stuck++;
       continue;
@@ -605,6 +618,41 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
     `${label.padEnd(34)} ${playerCount}p  games=${games}  turns avg=${avg.toFixed(1)} ` +
       `min=${sorted[0]} median=${sorted[Math.floor(sorted.length / 2)]} max=${sorted[sorted.length - 1]}`
   );
+}
+
+/**
+ * Every key the engine emitted during the games above must exist in both
+ * languages, and every card must be named in both.
+ */
+function translationTests(): void {
+  const beforeTranslations = failures;
+  console.log(`\nTranslations (${seenKeys.size} message keys seen in play)`);
+  for (const lang of LANGS) {
+    for (const key of seenKeys) {
+      check(`${lang}: log key ${key} is translated`, hasTranslation(lang, key));
+    }
+  }
+  for (const card of cardsFor(BRIGHT)) {
+    check(`ru: ${card.name} has a name`, cardName('ru', card.id) !== card.name);
+    check(`ru: ${card.name} has rules text`, cardText('ru', card.id) !== card.text);
+  }
+  for (const l of landmarksFor(BRIGHT)) {
+    check(`ru: ${l.name} has a name`, landmarkName('ru', l.id) !== l.name);
+    check(`ru: ${l.name} has rules text`, landmarkText('ru', l.id) !== l.text);
+  }
+  const shown = t('ru', 'log.turn', { n: 3, player: 'Аня', coins: 1 });
+  check('ru: coin plural for 1', shown.includes('1 монета'), shown);
+  check('ru: coin plural for 3', t('ru', 'log.turn', { n: 1, player: 'A', coins: 3 }).includes('3 монеты'));
+  check('ru: coin plural for 5', t('ru', 'log.turn', { n: 1, player: 'A', coins: 5 }).includes('5 монет'));
+  check('ru: coin plural for 11', t('ru', 'log.turn', { n: 1, player: 'A', coins: 11 }).includes('11 монет'));
+  check('ru: coin plural for 21', t('ru', 'log.turn', { n: 1, player: 'A', coins: 21 }).includes('21 монета'));
+  check(
+    'ru: card names resolve inside log lines',
+    t('ru', 'log.buy', { player: 'Аня', card: 'winery', cost: 3 }).includes('Винодельню') ||
+      t('ru', 'log.buy', { player: 'Аня', card: 'winery', cost: 3 }).includes('Винодельня')
+  );
+  check('ru: rules code expands', t('ru', 'log.gameOn', { rules: 'base+harbor' }).includes('Гавань'));
+  console.log(failures === beforeTranslations ? '  passed' : `  ${failures - beforeTranslations} failed`);
 }
 
 const count = Number(process.argv[2] ?? 100);
@@ -626,6 +674,8 @@ simulate(count, BRIGHT, 4);
 simulate(count, BRIGHT_VAR, 4);
 simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 5);
 simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 2);
+
+translationTests();
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`);

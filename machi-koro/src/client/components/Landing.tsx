@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DEFAULT_RULES, type RuleSet } from '../../shared/cards';
 import type { ClientMessage } from '../../shared/protocol';
+import { LangSwitch, useLang } from '../lang';
 import { roomFromUrl } from '../net';
 import RulesPicker from './RulesPicker';
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function Landing({ send }: Props) {
+  const { t } = useLang();
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
   const [code, setCode] = useState(roomFromUrl);
   const [rules, setRules] = useState<RuleSet>({ ...DEFAULT_RULES });
@@ -19,64 +21,65 @@ export default function Landing({ send }: Props) {
 
   const create = () => {
     remember();
-    send({ t: 'create', name: name.trim() || 'Player', rules });
+    send({ t: 'create', name: name.trim() || t('ui.playerPlaceholder'), rules });
   };
 
   const join = () => {
     remember();
-    send({ t: 'join', code: code.trim().toUpperCase(), name: name.trim() || 'Player' });
+    send({ t: 'join', code: code.trim().toUpperCase(), name: name.trim() || t('ui.playerPlaceholder') });
   };
 
   return (
     <div className="landing">
-      <h1>
-        <span className="die">⚂</span> Machi Koro
-      </h1>
-      <p className="tagline">Roll dice, build your city, beat your friends to all the landmarks.</p>
+      <div className="landing-head">
+        <h1>
+          <span className="die">⚂</span> {t('ui.title')}
+        </h1>
+        <LangSwitch />
+      </div>
+      <p className="tagline">{t('ui.tagline')}</p>
 
       <div className="panel">
         <label className="field">
-          <span>Your name</span>
+          <span>{t('ui.yourName')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={16}
-            placeholder="Player"
+            placeholder={t('ui.playerPlaceholder')}
             autoComplete="nickname"
           />
         </label>
 
         <div className="split">
           <section>
-            <h2>Start a game</h2>
+            <h2>{t('ui.startGame')}</h2>
             <RulesPicker rules={rules} onChange={setRules} />
             <button type="button" className="primary" onClick={create}>
-              Create room
+              {t('ui.createRoom')}
             </button>
           </section>
 
           <section>
-            <h2>Join a game</h2>
+            <h2>{t('ui.joinGame')}</h2>
             <input
               className="code-input"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 4))}
-              placeholder="CODE"
+              placeholder={t('ui.code')}
               maxLength={4}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && code.length === 4) join();
               }}
             />
             <button type="button" className="primary" disabled={code.trim().length !== 4} onClick={join}>
-              Join room
+              {t('ui.joinRoom')}
             </button>
           </section>
         </div>
       </div>
 
-      <p className="fineprint">
-        A fan implementation of the board game for private play. Rules only — no original artwork or card text.
-      </p>
+      <p className="fineprint">{t('ui.fineprint')}</p>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { ICON_GLYPH, cardsFor, landmarksFor, type RuleSet } from '../../shared/cards';
 import { closedCopies } from '../../shared/engine';
+import { cardName, cardText, landmarkName, landmarkShort, landmarkText } from '../../shared/i18n';
 import type { PlayerState } from '../../shared/types';
+import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export default function PlayerPanel({ player, rules, isActive, isYou, connected, diceTotal }: Props) {
+  const { lang, t } = useLang();
   const owned = cardsFor(rules).filter((c) => (player.cards[c.id] ?? 0) > 0);
   const landmarks = landmarksFor(rules).filter((l) => !l.free);
   const built = landmarks.filter((l) => player.landmarks[l.id]).length;
@@ -27,17 +30,15 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
         <span className="dot" data-on={connected || player.isBot} />
         <span className="player-name">
           {player.name}
-          {isYou && <span className="tag you-tag">you</span>}
-          {player.isBot && <span className="tag bot">bot</span>}
+          {isYou && <span className="tag you-tag">{t('ui.you')}</span>}
+          {player.isBot && <span className="tag bot">{t('ui.bot')}</span>}
         </span>
         {player.investment > 0 && (
-          <span className="investment" title={`${player.investment} invested in the Tech Startup`}>
+          <span className="investment" title={t('ui.investedTitle', { n: player.investment })}>
             🚀{player.investment}
           </span>
         )}
-        <span className="coins" title="coins">
-          {player.coins}
-        </span>
+        <span className="coins">{player.coins}</span>
       </div>
 
       <div className="landmarks">
@@ -45,9 +46,9 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
           <span
             key={l.id}
             className={player.landmarks[l.id] ? 'lm built' : 'lm'}
-            title={`${l.name} (${l.cost}) — ${l.text}`}
+            title={`${landmarkName(lang, l.id)} (${l.cost}) — ${landmarkText(lang, l.id)}`}
           >
-            {l.name.split(' ')[0]}
+            {landmarkShort(lang, l.id)}
             <em>{l.cost}</em>
           </span>
         ))}
@@ -68,7 +69,9 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
             <span
               key={c.id}
               className={classNames.join(' ')}
-              title={`${c.name} — ${c.text}${shut > 0 ? ` (${shut} closed for renovation)` : ''}`}
+              title={`${cardName(lang, c.id)} — ${cardText(lang, c.id)}${
+                shut > 0 ? ` ${t('ui.closedForRenovation', { n: shut })}` : ''
+              }`}
             >
               <b>{formatActivates(c.activates)}</b>
               {ICON_GLYPH[c.icon]}
@@ -77,10 +80,10 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
             </span>
           );
         })}
-        {owned.length === 0 && <span className="muted">no establishments</span>}
+        {owned.length === 0 && <span className="muted">{t('ui.noEstablishments')}</span>}
       </div>
 
-      {isActive && <div className="turn-flag">taking their turn</div>}
+      {isActive && <div className="turn-flag">{t('ui.takingTurn')}</div>}
     </div>
   );
 }

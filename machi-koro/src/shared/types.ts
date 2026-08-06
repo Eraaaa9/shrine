@@ -1,4 +1,5 @@
 import type { CardId, LandmarkId, RuleSet } from './cards';
+import type { Params } from './i18n';
 
 export interface PlayerState {
   id: string;
@@ -40,7 +41,9 @@ export type Phase =
 
 export interface LogEntry {
   id: number;
-  text: string;
+  /** Translation key; the client renders it in the reader's own language. */
+  key: string;
+  params?: Params;
   /** Player the line is about, for colouring. */
   who?: string;
   kind?: 'turn' | 'roll' | 'income' | 'build' | 'win';

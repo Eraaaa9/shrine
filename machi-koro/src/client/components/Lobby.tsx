@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { describeRules, maxPlayers } from '../../shared/cards';
+import { maxPlayers } from '../../shared/cards';
+import { rulesCode } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import { MIN_PLAYERS } from '../../shared/protocol';
+import { LangSwitch, useLang } from '../lang';
 import Chat from './Chat';
 import RulesPicker from './RulesPicker';
 
@@ -12,6 +14,7 @@ interface Props {
 }
 
 export default function Lobby({ room, youId, send }: Props) {
+  const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const isHost = room.hostId === youId;
   const max = maxPlayers(room.rules);
@@ -30,37 +33,41 @@ export default function Lobby({ room, youId, send }: Props) {
   return (
     <div className="lobby">
       <header>
-        <h1>Room {room.code}</h1>
+        <h1>{t('ui.room', { code: room.code })}</h1>
+        <LangSwitch />
         <button type="button" className="ghost" onClick={() => send({ t: 'leave' })}>
-          Leave
+          {t('ui.leave')}
         </button>
       </header>
 
       <div className="panel invite">
-        <p className="muted">Send this link to your friends:</p>
+        <p className="muted">{t('ui.inviteHint')}</p>
         <div className="invite-row">
           <input readOnly value={inviteUrl} onFocus={(e) => e.currentTarget.select()} />
           <button type="button" onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? t('ui.copied') : t('ui.copy')}
           </button>
         </div>
       </div>
 
       <div className="panel">
         <h2>
-          Players <span className="muted">{room.seats.length}/{max}</span>
+          {t('ui.players')}{' '}
+          <span className="muted">
+            {room.seats.length}/{max}
+          </span>
         </h2>
         <ul className="seats">
           {room.seats.map((seat) => (
             <li key={seat.id} className={seat.id === youId ? 'you' : undefined}>
               <span className="dot" data-on={seat.connected || seat.isBot} />
               <span className="seat-name">{seat.name}</span>
-              {seat.isHost && <span className="tag">host</span>}
-              {seat.isBot && <span className="tag bot">bot</span>}
-              {seat.id === youId && <span className="tag you-tag">you</span>}
+              {seat.isHost && <span className="tag">{t('ui.host')}</span>}
+              {seat.isBot && <span className="tag bot">{t('ui.bot')}</span>}
+              {seat.id === youId && <span className="tag you-tag">{t('ui.you')}</span>}
               {isHost && !seat.isHost && (
                 <button type="button" className="ghost small" onClick={() => send({ t: 'kick', playerId: seat.id })}>
-                  remove
+                  {t('ui.remove')}
                 </button>
               )}
             </li>
@@ -72,7 +79,7 @@ export default function Lobby({ room, youId, send }: Props) {
             <RulesPicker rules={room.rules} onChange={(rules) => send({ t: 'setRules', rules })} />
             <div className="row">
               <button type="button" onClick={() => send({ t: 'addBot' })} disabled={room.seats.length >= max}>
-                Add bot
+                {t('ui.addBot')}
               </button>
               <button
                 type="button"
@@ -80,14 +87,14 @@ export default function Lobby({ room, youId, send }: Props) {
                 onClick={() => send({ t: 'start' })}
                 disabled={room.seats.length < MIN_PLAYERS}
               >
-                Start game
+                {t('ui.startTheGame')}
               </button>
             </div>
           </>
         ) : (
           <>
             <RulesPicker rules={room.rules} onChange={() => undefined} disabled />
-            <p className="muted">Waiting for the host to start — {describeRules(room.rules)}…</p>
+            <p className="muted">{t('ui.waitingForHost', { rules: rulesCode(room.rules) })}</p>
           </>
         )}
       </div>

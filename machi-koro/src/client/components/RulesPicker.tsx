@@ -1,4 +1,5 @@
 import { cardsFor, maxPlayers, winLandmarks, type RuleSet } from '../../shared/cards';
+import { useLang } from '../lang';
 
 interface Props {
   rules: RuleSet;
@@ -7,6 +8,8 @@ interface Props {
 }
 
 export default function RulesPicker({ rules, onChange, disabled }: Props) {
+  const { t } = useLang();
+
   const set = (patch: Partial<RuleSet>) => {
     const next = { ...rules, ...patch };
     // the variable supply is what makes a 39-card game playable
@@ -14,40 +17,34 @@ export default function RulesPicker({ rules, onChange, disabled }: Props) {
     onChange(next);
   };
 
+  const options: { key: keyof RuleSet; name: string; blurb: string }[] = [
+    { key: 'harbor', name: t('ui.harborName'), blurb: t('ui.harborBlurb') },
+    { key: 'millionaires', name: t('ui.rowName'), blurb: t('ui.rowBlurb') },
+    { key: 'variableSupply', name: t('ui.supplyName'), blurb: t('ui.supplyBlurb') },
+  ];
+
   return (
     <div className="rules-picker">
       <div className="choices">
-        <button
-          type="button"
-          disabled={disabled}
-          className={rules.harbor ? 'chip on' : 'chip'}
-          onClick={() => set({ harbor: !rules.harbor })}
-        >
-          Harbor expansion <span className="switch">{rules.harbor ? 'on' : 'off'}</span>
-          <small>Boats, City Hall, Airport, and a 5th seat</small>
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          className={rules.millionaires ? 'chip on' : 'chip'}
-          onClick={() => set({ millionaires: !rules.millionaires })}
-        >
-          Millionaire’s Row <span className="switch">{rules.millionaires ? 'on' : 'off'}</span>
-          <small>Wineries, demolition, renovation, Tech Startup</small>
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          className={rules.variableSupply ? 'chip on' : 'chip'}
-          onClick={() => set({ variableSupply: !rules.variableSupply })}
-        >
-          Variable supply <span className="switch">{rules.variableSupply ? 'on' : 'off'}</span>
-          <small>Only 10 different cards on offer at a time, refilled from a deck</small>
-        </button>
+        {options.map((option) => (
+          <button
+            type="button"
+            key={option.key}
+            disabled={disabled}
+            className={rules[option.key] ? 'chip on' : 'chip'}
+            onClick={() => set({ [option.key]: !rules[option.key] } as Partial<RuleSet>)}
+          >
+            {option.name} <span className="switch">{rules[option.key] ? t('ui.on') : t('ui.off')}</span>
+            <small>{option.blurb}</small>
+          </button>
+        ))}
       </div>
       <p className="muted rules-summary">
-        {cardsFor(rules).length} establishments · {winLandmarks(rules).length} landmarks to win · up to{' '}
-        {maxPlayers(rules)} players
+        {t('ui.rulesSummary', {
+          cards: cardsFor(rules).length,
+          landmarks: winLandmarks(rules).length,
+          players: maxPlayers(rules),
+        })}
       </p>
     </div>
   );

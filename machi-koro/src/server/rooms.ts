@@ -95,9 +95,9 @@ export class Room {
   // -- game ----------------------------------------------------------------
 
   start(): string | null {
-    if (this.game && this.game.phase !== 'over') return 'The game has already started.';
-    if (this.seats.length < MIN_PLAYERS) return `You need at least ${MIN_PLAYERS} players.`;
-    if (this.seats.length > this.maxPlayers) return `That set-up supports at most ${this.maxPlayers} players.`;
+    if (this.game && this.game.phase !== 'over') return 'err.alreadyStarted';
+    if (this.seats.length < MIN_PLAYERS) return 'err.needPlayers';
+    if (this.seats.length > this.maxPlayers) return 'err.tooManyForRules';
     this.game = createGame(
       this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot })),
       this.rules
@@ -107,7 +107,7 @@ export class Room {
   }
 
   play(seatId: string, action: GameAction): string | null {
-    if (!this.game) return 'The game has not started.';
+    if (!this.game) return 'err.notStarted';
     const error = applyAction(this.game, seatId, action);
     if (!error) this.touch();
     return error;
@@ -146,7 +146,8 @@ export class Room {
     if (!seat.isBot) {
       this.game.log.push({
         id: this.game.nextLogId++,
-        text: `${seat.name} is away — playing automatically.`,
+        key: 'log.away',
+        params: { player: seat.name },
         who: seat.id,
       });
     }

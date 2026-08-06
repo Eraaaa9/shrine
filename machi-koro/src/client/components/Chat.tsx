@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChatLine, ClientMessage } from '../../shared/protocol';
+import { useLang } from '../lang';
 
 interface Props {
   chat: ChatLine[];
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function Chat({ chat, send }: Props) {
+  const { t } = useLang();
   const [text, setText] = useState('');
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -23,7 +25,7 @@ export default function Chat({ chat, send }: Props) {
   return (
     <div className="chat">
       <div className="chat-lines">
-        {chat.length === 0 && <p className="muted">Say hello…</p>}
+        {chat.length === 0 && <p className="muted">{t('ui.sayHello')}</p>}
         {chat.map((line) => (
           <p key={line.id}>
             <b>{line.from}</b> {line.text}
@@ -35,14 +37,14 @@ export default function Chat({ chat, send }: Props) {
         <input
           value={text}
           maxLength={200}
-          placeholder="Message"
+          placeholder={t('ui.message')}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') submit();
           }}
         />
         <button type="button" onClick={submit}>
-          Send
+          {t('ui.send')}
         </button>
       </div>
     </div>

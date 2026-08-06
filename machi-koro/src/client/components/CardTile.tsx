@@ -1,4 +1,6 @@
 import { ICON_GLYPH, type CardDef } from '../../shared/cards';
+import { cardName, cardText } from '../../shared/i18n';
+import { useLang } from '../lang';
 
 export function formatActivates(activates: number[]): string {
   if (activates.length === 1) return String(activates[0]);
@@ -16,10 +18,13 @@ interface Props {
 }
 
 export default function CardTile({ card, supply, owned, hot, buyable, onBuy }: Props) {
+  const { lang, t } = useLang();
   const classes = ['card', card.color];
   if (hot) classes.push('hot');
   if (buyable) classes.push('buyable');
   if (supply <= 0) classes.push('empty');
+
+  const name = cardName(lang, card.id);
 
   return (
     <button
@@ -27,25 +32,25 @@ export default function CardTile({ card, supply, owned, hot, buyable, onBuy }: P
       className={classes.join(' ')}
       disabled={!buyable}
       onClick={onBuy}
-      title={card.text}
-      aria-label={`${card.name}, activates on ${formatActivates(card.activates)}, costs ${card.cost}`}
+      title={cardText(lang, card.id)}
+      aria-label={t('ui.cardAria', { name, activates: formatActivates(card.activates), cost: card.cost })}
     >
       <span className="card-head">
         <span className="activates">{formatActivates(card.activates)}</span>
         <span className="icon">{ICON_GLYPH[card.icon]}</span>
         {card.cost < 0 ? (
-          <span className="cost paid" title="you are paid to build this">
+          <span className="cost paid" title={t('ui.paidToBuild')}>
             +{-card.cost}
           </span>
         ) : (
           <span className="cost">{card.cost}</span>
         )}
       </span>
-      <span className="card-name">{card.name}</span>
-      <span className="card-text">{card.text}</span>
+      <span className="card-name">{name}</span>
+      <span className="card-text">{cardText(lang, card.id)}</span>
       <span className="card-foot">
-        <span>{supply} left</span>
-        {owned > 0 && <span className="owned">you: {owned}</span>}
+        <span>{t('ui.cardsLeft', { n: supply })}</span>
+        {owned > 0 && <span className="owned">{t('ui.youOwn', { n: owned })}</span>}
       </span>
     </button>
   );

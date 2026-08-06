@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { cardsFor, describeRules } from '../../shared/cards';
+import { cardsFor } from '../../shared/cards';
 import { canBuy } from '../../shared/engine';
+import { describeRulesIn } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import type { GameAction } from '../../shared/types';
+import { LangSwitch, useLang } from '../lang';
 import CardTile from './CardTile';
 import Chat from './Chat';
 import ChoiceModal from './ChoiceModal';
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export default function GameView({ room, youId, send }: Props) {
+  const { lang, t } = useLang();
   const game = room.game!;
   const [tab, setTab] = useState<'log' | 'chat'>('log');
 
@@ -40,18 +43,21 @@ export default function GameView({ room, youId, send }: Props) {
         </span>
         <span className="turn-info">
           {game.phase === 'over' ? (
-            <b>🏆 {game.players.find((p) => p.id === game.winnerId)?.name} wins!</b>
+            <b>{t('ui.wins', { player: game.players.find((p) => p.id === game.winnerId)?.name ?? '' })}</b>
           ) : yourTurn ? (
-            <b className="your-turn">Your turn</b>
+            <b className="your-turn">{t('ui.yourTurn')}</b>
           ) : (
-            <span>{phaseHint(game)}…</span>
+            <span>{phaseHint(game, t)}…</span>
           )}
         </span>
-        <span className="rules-note" title={describeRules(game.rules)}>
-          {game.rules.variableSupply ? `${onOffer.length} stacks · ${game.deck.length} in deck` : describeRules(game.rules)}
+        <span className="rules-note" title={describeRulesIn(lang, game.rules)}>
+          {game.rules.variableSupply
+            ? t('ui.stacksAndDeck', { stacks: onOffer.length, deck: game.deck.length })
+            : describeRulesIn(lang, game.rules)}
         </span>
+        <LangSwitch />
         <button type="button" className="ghost small" onClick={() => send({ t: 'leave' })}>
-          Leave
+          {t('ui.leave')}
         </button>
       </header>
 
@@ -88,10 +94,11 @@ export default function GameView({ room, youId, send }: Props) {
 
         <div className="tabs">
           <button type="button" className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')}>
-            Log
+            {t('ui.log')}
           </button>
           <button type="button" className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>
-            Chat{room.chat.length > 0 ? ` (${room.chat.length})` : ''}
+            {t('ui.chat')}
+            {room.chat.length > 0 ? ` (${room.chat.length})` : ''}
           </button>
         </div>
         {tab === 'log' ? <LogPanel log={game.log} /> : <Chat chat={room.chat} send={send} />}

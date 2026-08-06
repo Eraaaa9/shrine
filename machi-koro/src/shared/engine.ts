@@ -10,6 +10,7 @@ import {
   type LandmarkId,
   type RuleSet,
 } from './cards';
+import { rulesCode, type Params } from './i18n';
 import type { GameAction, GameState, LogEntry, PendingChoice, PlayerState } from './types';
 
 const START_COINS = 3;
@@ -85,18 +86,11 @@ export function createGame(seats: Seat[], rules: RuleSet, seed = Date.now()): Ga
     for (const card of cardsFor(rules)) state.supply[card.id] = stock(card);
   }
 
-  log(state, `Game on — ${describeGame(rules)}.`, { kind: 'turn' });
-  log(state, `Turn order: ${state.players.map((p) => p.name).join(' → ')}.`);
-  if (rules.variableSupply) log(state, `Variable supply: ${SUPPLY_SLOTS} stacks are available at a time.`);
+  log(state, 'log.gameOn', { rules: rulesCode(rules) }, { kind: 'turn' });
+  log(state, 'log.turnOrder', { order: state.players.map((p) => p.name).join(' → ') });
+  if (rules.variableSupply) log(state, 'log.variableSupply', { n: SUPPLY_SLOTS });
   announceTurn(state);
   return state;
-}
-
-function describeGame(rules: RuleSet): string {
-  const parts = ['base game'];
-  if (rules.harbor) parts.push('Harbor');
-  if (rules.millionaires) parts.push('Millionaire’s Row');
-  return parts.join(' + ');
 }
 
 function newPlayer(seat: Seat, rules: RuleSet): PlayerState {
@@ -133,8 +127,13 @@ function uniqueOnOffer(state: GameState): number {
 // small helpers
 // ---------------------------------------------------------------------------
 
-function log(state: GameState, text: string, extra: { who?: string; kind?: LogEntry['kind'] } = {}): void {
-  state.log.push({ id: state.nextLogId++, text, who: extra.who, kind: extra.kind });
+function log(
+  state: GameState,
+  key: string,
+  params?: Params,
+  extra: { who?: string; kind?: LogEntry['kind'] } = {}
+): void {
+  state.log.push({ id: state.nextLogId++, key, params, who: extra.who, kind: extra.kind });
   if (state.log.length > 300) state.log.splice(0, state.log.length - 300);
 }
 
@@ -204,10 +203,7 @@ function wakeUp(state: GameState, p: PlayerState, card: CardDef): number {
   const shut = closedCopies(p, card.id);
   if (shut > 0) {
     p.closed[card.id] = 0;
-    log(state, `${p.name}'s ${card.name}${shut > 1 ? ` ×${shut}` : ''} reopens after renovation.`, {
-      who: p.id,
-      kind: 'income',
-    });
+    log(state, 'log.reopens', { player: p.name, card: card.id, times: times(shut) }, { who: p.id, kind: 'income' });
   }
   return copies(p, card.id) - shut;
 }
@@ -335,10 +331,12 @@ function resolveIncome(state: GameState): void {
         paid += pay(active, p, want);
       }
       if (wanted > 0) {
-        log(state, `${p.name} takes ${paid} from ${active.name} — ${card.name}${times(n)}${paid < wanted ? ` (${active.name} is broke)` : ''}`, {
-          who: p.id,
-          kind: 'income',
-        });
+        log(
+          state,
+          paid < wanted ? 'log.redTakeBroke' : 'log.redTake',
+          { player: p.name, amount: paid, from: active.name, card: card.id, times: times(n) },
+          { who: p.id, kind: 'income' }
+        );
       }
     }
   }
@@ -354,7 +352,7 @@ function resolveIncome(state: GameState): void {
       if (card.id === 'tuna_boat') {
         if (!tunaRoll) {
           tunaRoll = die(state) + die(state);
-          log(state, `Tuna Boat roll: ${tunaRoll}.`, { kind: 'roll' });
+          log(state, 'log.tunaRoll', { total: tunaRoll }, { kind: 'roll' });
         }
         amount = tunaRoll * n;
       } else {
@@ -362,7 +360,7 @@ function resolveIncome(state: GameState): void {
       }
       if (amount > 0) {
         p.coins += amount;
-        log(state, `${p.name} gets ${amount} — ${card.name}${times(n)}`, { who: p.id, kind: 'income' });
+        log(state, 'log.gets', { player: p.name, amount, card: card.id, times: times(n) }, { who: p.id, kind: 'income' });
       }
     }
   }
@@ -375,14 +373,14 @@ function resolveIncome(state: GameState): void {
     if (card.id === 'demolition_company') {
       for (let i = 0; i < n; i++) {
         if (landmarkCount(state, active) > 0) state.pending.push('demolish');
-        else log(state, `${active.name} has no landmark to demolish.`, { who: active.id, kind: 'income' });
+        else log(state, 'log.noDemolish', { player: active.name }, { who: active.id, kind: 'income' });
       }
       continue;
     }
     if (card.id === 'moving_company') {
       for (let i = 0; i < n; i++) {
         if (tradeableCards(active).length > 0) state.pending.push('moving');
-        else log(state, `${active.name} has nothing the Moving Company could shift.`, { who: active.id, kind: 'income' });
+        else log(state, 'log.noMoving', { player: active.name }, { who: active.id, kind: 'income' });
       }
       continue;
     }
@@ -390,16 +388,16 @@ function resolveIncome(state: GameState): void {
     const amount = greenAmount(state, card, active) * n;
     if (amount > 0) {
       active.coins += amount;
-      log(state, `${active.name} gets ${amount} — ${card.name}${times(n)}`, { who: active.id, kind: 'income' });
+      log(state, 'log.gets', { player: active.name, amount, card: card.id, times: times(n) }, { who: active.id, kind: 'income' });
     } else if (amount < 0) {
       const lost = Math.min(-amount, active.coins);
       active.coins -= lost;
-      log(state, `${active.name} pays ${lost} to the bank — ${card.name}${times(n)}`, { who: active.id, kind: 'income' });
+      log(state, 'log.pays', { player: active.name, amount: lost, card: card.id, times: times(n) }, { who: active.id, kind: 'income' });
     }
 
     if (card.id === 'winery') {
       active.closed.winery = n;
-      log(state, `${active.name}'s Winery closes for renovation.`, { who: active.id, kind: 'income' });
+      log(state, 'log.wineryCloses', { player: active.name }, { who: active.id, kind: 'income' });
     }
   }
 
@@ -433,17 +431,17 @@ function resolvePurple(state: GameState): void {
       case 'stadium': {
         let got = 0;
         for (const p of otherPlayers(state)) got += pay(p, active, 2);
-        log(state, `${active.name} collects ${got} from everyone — Stadium`, { who: active.id, kind: 'income' });
+        log(state, 'log.stadium', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
       }
       case 'tv_station': {
         if (otherPlayers(state).some((p) => p.coins > 0)) state.pending.push('tv');
-        else log(state, `TV Station: nobody has coins to take.`, { kind: 'income' });
+        else log(state, 'log.tvNobody', undefined, { kind: 'income' });
         break;
       }
       case 'business_center': {
         if (tradeIsPossible(state)) state.pending.push('trade');
-        else log(state, `Business Center: no establishment can be swapped.`, { kind: 'income' });
+        else log(state, 'log.bcNoSwap', undefined, { kind: 'income' });
         break;
       }
       case 'publisher': {
@@ -451,7 +449,7 @@ function resolvePurple(state: GameState): void {
         for (const p of otherPlayers(state)) {
           got += pay(p, active, countIcon(p, 'bread') + countIcon(p, 'cup'));
         }
-        log(state, `${active.name} collects ${got} — Publisher`, { who: active.id, kind: 'income' });
+        log(state, 'log.publisher', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
       }
       case 'renovation_company': {
@@ -463,32 +461,34 @@ function resolvePurple(state: GameState): void {
         for (const p of otherPlayers(state)) {
           if (p.coins >= 10) got += pay(p, active, Math.floor(p.coins / 2));
         }
-        log(state, `${active.name} collects ${got} — Tax Office`, { who: active.id, kind: 'income' });
+        log(state, 'log.taxOffice', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
       }
       case 'tech_startup': {
         if (active.investment <= 0) {
-          log(state, `Tech Startup has no investment yet.`, { kind: 'income' });
+          log(state, 'log.techNoInvestment', undefined, { kind: 'income' });
           break;
         }
         let got = 0;
         for (const p of otherPlayers(state)) got += pay(p, active, active.investment);
-        log(state, `${active.name} collects ${got} — Tech Startup (invested ${active.investment})`, {
-          who: active.id,
-          kind: 'income',
-        });
+        log(
+          state,
+          'log.techStartup',
+          { player: active.name, amount: got, invested: active.investment },
+          { who: active.id, kind: 'income' }
+        );
         break;
       }
       case 'exhibit_hall': {
         if (exhibitCandidates(state, active).length > 0) state.pending.push('exhibit');
-        else log(state, `Exhibit Hall: nothing worth activating.`, { kind: 'income' });
+        else log(state, 'log.exhibitNothing', undefined, { kind: 'income' });
         break;
       }
       case 'park': {
         const pot = state.players.reduce((sum, p) => sum + p.coins, 0);
         const each = Math.ceil(pot / state.players.length);
         for (const p of state.players) p.coins = each;
-        log(state, `The Park redistributes the coins — everyone now has ${each}.`, { who: active.id, kind: 'income' });
+        log(state, 'log.park', { each }, { who: active.id, kind: 'income' });
         break;
       }
     }
@@ -540,13 +540,13 @@ function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
   const amount = card.color === 'blue' ? blueAmount(state, card, p) : greenAmount(state, card, p);
   if (amount > 0) {
     p.coins += amount;
-    log(state, `${p.name} gets ${amount} — ${card.name} (via the Exhibit Hall)`, { who: p.id, kind: 'income' });
+    log(state, 'log.getsVia', { player: p.name, amount, card: id }, { who: p.id, kind: 'income' });
   } else if (amount < 0) {
     const lost = Math.min(-amount, p.coins);
     p.coins -= lost;
-    log(state, `${p.name} pays ${lost} — ${card.name} (via the Exhibit Hall)`, { who: p.id, kind: 'income' });
+    log(state, 'log.paysVia', { player: p.name, amount: lost, card: id }, { who: p.id, kind: 'income' });
   } else {
-    log(state, `${p.name} activates ${card.name} for nothing.`, { who: p.id, kind: 'income' });
+    log(state, 'log.activatesNothing', { player: p.name, card: id }, { who: p.id, kind: 'income' });
   }
   if (id === 'winery') p.closed.winery = Math.min(copies(p, 'winery'), closedCopies(p, 'winery') + 1);
 }
@@ -558,8 +558,12 @@ function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
 function announceTurn(state: GameState): void {
   state.turnCount++;
   const active = activePlayer(state);
-  const purse = active.coins === 1 ? '1 coin' : `${active.coins} coins`;
-  log(state, `— Turn ${state.turnCount}: ${active.name} (${purse}) —`, { who: active.id, kind: 'turn' });
+  log(
+    state,
+    'log.turn',
+    { n: state.turnCount, player: active.name, coins: active.coins },
+    { who: active.id, kind: 'turn' }
+  );
 }
 
 function startTurn(state: GameState, samePlayer: boolean): void {
@@ -576,10 +580,13 @@ function startTurn(state: GameState, samePlayer: boolean): void {
 function rollDice(state: GameState, count: number): void {
   state.dice = Array.from({ length: count }, () => die(state));
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
-  log(state, `${activePlayer(state).name} rolls ${state.dice.join(' + ')} = ${state.diceTotal}`, {
-    who: activePlayer(state).id,
-    kind: 'roll',
-  });
+  const active = activePlayer(state);
+  log(
+    state,
+    'log.roll',
+    { player: active.name, dice: state.dice.join(' + '), total: state.diceTotal },
+    { who: active.id, kind: 'roll' }
+  );
 }
 
 /**
@@ -589,7 +596,11 @@ function rollDice(state: GameState, count: number): void {
 export function applyForcedRoll(state: GameState, dice: number[]): void {
   state.dice = dice.slice();
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
-  log(state, `${activePlayer(state).name} rolls ${state.dice.join(' + ')} = ${state.diceTotal}`, { kind: 'roll' });
+  log(state, 'log.roll', {
+    player: activePlayer(state).name,
+    dice: state.dice.join(' + '),
+    total: state.diceTotal,
+  }, { kind: 'roll' });
   beginIncome(state);
 }
 
@@ -614,7 +625,7 @@ function beginIncome(state: GameState): void {
   const active = activePlayer(state);
   if (active.landmarks.amusement_park && state.dice.length === 2 && state.dice[0] === state.dice[1]) {
     state.extraTurn = true;
-    log(state, `${active.name} rolled doubles — Amusement Park grants another turn.`, { who: active.id, kind: 'roll' });
+    log(state, 'log.doubles', { player: active.name }, { who: active.id, kind: 'roll' });
   }
   resolveIncome(state);
   continueAfterIncome(state);
@@ -644,7 +655,7 @@ function choiceIsPossible(state: GameState, choice: PendingChoice): boolean {
 
 function continueAfterIncome(state: GameState): void {
   while (state.pending.length && !choiceIsPossible(state, state.pending[0])) {
-    log(state, `${activePlayer(state).name} has nothing left to choose — skipping.`, { kind: 'income' });
+    log(state, 'log.skipChoice', { player: activePlayer(state).name }, { kind: 'income' });
     state.pending.shift();
   }
   if (state.pending.length) {
@@ -658,7 +669,7 @@ function enterBuildPhase(state: GameState): void {
   const active = activePlayer(state);
   if (active.landmarks.city_hall && active.coins === 0) {
     active.coins += 1;
-    log(state, `${active.name} gets 1 coin — City Hall`, { who: active.id, kind: 'income' });
+    log(state, 'log.cityHall', { player: active.name }, { who: active.id, kind: 'income' });
   }
   state.phase = 'build';
 }
@@ -674,7 +685,7 @@ function endOfTurn(state: GameState): void {
   if (hasWon(state, active)) {
     state.winnerId = active.id;
     state.phase = 'over';
-    log(state, `🏆 ${active.name} completed the city and wins!`, { who: active.id, kind: 'win' });
+    log(state, 'log.win', { player: active.name }, { who: active.id, kind: 'win' });
     return;
   }
   if (copies(active, 'tech_startup') > 0 && active.coins >= 1) {
@@ -734,7 +745,7 @@ export function playerLimit(rules: RuleSet): number {
 }
 
 // ---------------------------------------------------------------------------
-// action entry point — returns an error message, or null on success
+// action entry point — returns a translation key for the error, or null
 // ---------------------------------------------------------------------------
 
 function expectPhase(state: GameState, phase: PendingChoice): boolean {
@@ -742,25 +753,25 @@ function expectPhase(state: GameState, phase: PendingChoice): boolean {
 }
 
 export function applyAction(state: GameState, playerId: string, action: GameAction): string | null {
-  if (state.phase === 'over') return 'The game is over.';
+  if (state.phase === 'over') return 'err.gameOver';
   const active = activePlayer(state);
-  if (playerId !== active.id) return 'It is not your turn.';
+  if (playerId !== active.id) return 'err.notYourTurn';
 
   switch (action.t) {
     case 'roll': {
-      if (state.phase !== 'roll') return 'You have already rolled.';
-      if (action.dice !== 1 && action.dice !== 2) return 'Roll 1 or 2 dice.';
-      if (action.dice === 2 && !active.landmarks.train_station) return 'The Train Station is needed to roll 2 dice.';
+      if (state.phase !== 'roll') return 'err.alreadyRolled';
+      if (action.dice !== 1 && action.dice !== 2) return 'err.rollOneOrTwo';
+      if (action.dice === 2 && !active.landmarks.train_station) return 'err.needTrainStation';
       rollDice(state, action.dice);
       afterRoll(state);
       return null;
     }
 
     case 'reroll': {
-      if (state.phase !== 'reroll') return 'Nothing to re-roll right now.';
+      if (state.phase !== 'reroll') return 'err.nothingToReroll';
       state.rerollUsed = true;
       if (action.again) {
-        log(state, `${active.name} uses the Radio Tower to re-roll.`, { who: active.id, kind: 'roll' });
+        log(state, 'log.reroll', { player: active.name }, { who: active.id, kind: 'roll' });
         rollDice(state, state.dice.length);
       }
       afterFinalRoll(state);
@@ -768,42 +779,43 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
     }
 
     case 'harbor': {
-      if (state.phase !== 'harbor') return 'The Harbor cannot be used right now.';
+      if (state.phase !== 'harbor') return 'err.harborNotNow';
       state.harborBonusUsed = true;
       if (action.add) {
         state.diceTotal += 2;
-        log(state, `${active.name} uses the Harbor: total becomes ${state.diceTotal}.`, { who: active.id, kind: 'roll' });
+        log(state, 'log.harborUsed', { player: active.name, total: state.diceTotal }, { who: active.id, kind: 'roll' });
       }
       beginIncome(state);
       return null;
     }
 
     case 'tv': {
-      if (!expectPhase(state, 'tv')) return 'The TV Station is not waiting on you.';
+      if (!expectPhase(state, 'tv')) return 'err.tvNotWaiting';
       const target = findPlayer(state, action.targetId);
-      if (!target) return 'Unknown player.';
-      if (target.id === active.id) return 'Pick another player.';
+      if (!target) return 'err.unknownPlayer';
+      if (target.id === active.id) return 'err.pickAnother';
       const took = pay(target, active, 5);
-      log(state, `${active.name} takes ${took} from ${target.name} — TV Station`, { who: active.id, kind: 'income' });
+      log(state, 'log.tvTake', { player: active.name, amount: took, target: target.name }, { who: active.id, kind: 'income' });
       advancePending(state);
       return null;
     }
 
     case 'trade': {
-      if (!expectPhase(state, 'trade')) return 'The Business Center is not waiting on you.';
+      if (!expectPhase(state, 'trade')) return 'err.bcNotWaiting';
       const target = findPlayer(state, action.targetId);
-      if (!target) return 'Unknown player.';
-      if (target.id === active.id) return 'Pick another player.';
+      if (!target) return 'err.unknownPlayer';
+      if (target.id === active.id) return 'err.pickAnother';
       if (CARD_BY_ID[action.give]?.icon === 'major' || CARD_BY_ID[action.take]?.icon === 'major') {
-        return 'Major establishments cannot be swapped.';
+        return 'err.noMajorSwap';
       }
-      if (copies(active, action.give) <= 0) return 'You do not own that establishment.';
-      if (copies(target, action.take) <= 0) return 'They do not own that establishment.';
+      if (copies(active, action.give) <= 0) return 'err.dontOwn';
+      if (copies(target, action.take) <= 0) return 'err.theyDontOwn';
       transferCard(active, target, action.give);
       transferCard(target, active, action.take);
       log(
         state,
-        `${active.name} swaps ${CARD_BY_ID[action.give].name} for ${target.name}'s ${CARD_BY_ID[action.take].name} — Business Center`,
+        'log.trade',
+        { player: active.name, card: action.give, target: target.name, card2: action.take },
         { who: active.id, kind: 'income' }
       );
       advancePending(state);
@@ -811,41 +823,39 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
     }
 
     case 'demolish': {
-      if (!expectPhase(state, 'demolish')) return 'Nothing is waiting to be demolished.';
-      if (!demolishable(state, active).includes(action.landmarkId)) return 'You have not built that landmark.';
+      if (!expectPhase(state, 'demolish')) return 'err.nothingToDemolish';
+      if (!demolishable(state, active).includes(action.landmarkId)) return 'err.notBuilt';
       active.landmarks[action.landmarkId] = false;
       active.coins += 8;
-      const name = landmarksFor(state.rules).find((l) => l.id === action.landmarkId)!.name;
-      log(state, `${active.name} demolishes the ${name} and gets 8 — Demolition Company`, {
-        who: active.id,
-        kind: 'build',
-      });
+      log(state, 'log.demolish', { player: active.name, landmark: action.landmarkId }, { who: active.id, kind: 'build' });
       advancePending(state);
       return null;
     }
 
     case 'moving': {
-      if (!expectPhase(state, 'moving')) return 'The Moving Company is not waiting on you.';
+      if (!expectPhase(state, 'moving')) return 'err.movingNotWaiting';
       const target = findPlayer(state, action.targetId);
-      if (!target) return 'Unknown player.';
-      if (target.id === active.id) return 'Pick another player.';
-      if (CARD_BY_ID[action.give]?.icon === 'major') return 'Major establishments cannot be moved.';
-      if (copies(active, action.give) <= 0) return 'You do not own that establishment.';
+      if (!target) return 'err.unknownPlayer';
+      if (target.id === active.id) return 'err.pickAnother';
+      if (CARD_BY_ID[action.give]?.icon === 'major') return 'err.noMajorMove';
+      if (copies(active, action.give) <= 0) return 'err.dontOwn';
       transferCard(active, target, action.give);
       active.coins += 4;
-      log(state, `${active.name} gives ${CARD_BY_ID[action.give].name} to ${target.name} and gets 4 — Moving Company`, {
-        who: active.id,
-        kind: 'income',
-      });
+      log(
+        state,
+        'log.moving',
+        { player: active.name, card: action.give, target: target.name },
+        { who: active.id, kind: 'income' }
+      );
       advancePending(state);
       return null;
     }
 
     case 'renovation': {
-      if (!expectPhase(state, 'renovation')) return 'The Renovation Company is not waiting on you.';
+      if (!expectPhase(state, 'renovation')) return 'err.renovationNotWaiting';
       const card = CARD_BY_ID[action.cardId];
-      if (!card || card.icon === 'major') return 'Choose a non-major establishment.';
-      if (!cardsFor(state.rules).includes(card)) return 'That card is not in this game.';
+      if (!card || card.icon === 'major') return 'err.chooseNonMajor';
+      if (!cardsFor(state.rules).includes(card)) return 'err.cardNotInGame';
       let collected = 0;
       let shut = 0;
       for (const p of state.players) {
@@ -855,89 +865,86 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         shut += newly;
         if (p.id !== active.id) collected += pay(p, active, newly);
       }
-      log(state, `${active.name} closes ${shut} ${card.name} for renovation and collects ${collected} — Renovation Company`, {
-        who: active.id,
-        kind: 'income',
-      });
+      log(
+        state,
+        'log.renovation',
+        { player: active.name, count: shut, card: action.cardId, amount: collected },
+        { who: active.id, kind: 'income' }
+      );
       advancePending(state);
       return null;
     }
 
     case 'exhibit': {
-      if (!expectPhase(state, 'exhibit')) return 'The Exhibit Hall is not waiting on you.';
+      if (!expectPhase(state, 'exhibit')) return 'err.exhibitNotWaiting';
       if (action.cardId === null) {
-        log(state, `${active.name} keeps the Exhibit Hall.`, { who: active.id, kind: 'income' });
+        log(state, 'log.exhibitKeep', { player: active.name }, { who: active.id, kind: 'income' });
         advancePending(state);
         return null;
       }
-      if (!exhibitCandidates(state, active).includes(action.cardId)) return 'You cannot activate that card.';
+      if (!exhibitCandidates(state, active).includes(action.cardId)) return 'err.cannotActivate';
       activateOnce(state, active, action.cardId);
       active.cards.exhibit_hall = copies(active, 'exhibit_hall') - 1;
       state.supply.exhibit_hall = (state.supply.exhibit_hall ?? 0) + 1;
-      log(state, `${active.name} returns the Exhibit Hall to the supply.`, { who: active.id, kind: 'build' });
+      log(state, 'log.exhibitReturn', { player: active.name }, { who: active.id, kind: 'build' });
       advancePending(state);
       return null;
     }
 
     case 'invest': {
-      if (state.phase !== 'invest') return 'There is nothing to invest in right now.';
+      if (state.phase !== 'invest') return 'err.noInvest';
       if (action.amount === 1) {
-        if (active.coins < 1) return 'You have no coin to invest.';
+        if (active.coins < 1) return 'err.noCoinToInvest';
         active.coins -= 1;
         active.investment += 1;
-        log(state, `${active.name} invests 1 in the Tech Startup (now ${active.investment}).`, {
-          who: active.id,
-          kind: 'build',
-        });
+        log(state, 'log.invest', { player: active.name, total: active.investment }, { who: active.id, kind: 'build' });
       }
       finishTurn(state);
       return null;
     }
 
     case 'buy': {
-      if (state.phase !== 'build') return 'You cannot build right now.';
-      if (!canBuy(state, active, action.cardId)) return 'You cannot buy that.';
+      if (state.phase !== 'build') return 'err.cannotBuildNow';
+      if (!canBuy(state, active, action.cardId)) return 'err.cannotBuy';
       const card = CARD_BY_ID[action.cardId];
       active.coins -= card.cost;
       active.cards[card.id] = copies(active, card.id) + 1;
       state.supply[card.id] = (state.supply[card.id] ?? 0) - 1;
-      log(
-        state,
-        card.cost < 0
-          ? `${active.name} takes on the ${card.name} and gets ${-card.cost}.`
-          : `${active.name} buys ${card.name} for ${card.cost}.`,
-        { who: active.id, kind: 'build' }
-      );
+      if (card.cost < 0) {
+        log(state, 'log.buyPaid', { player: active.name, card: card.id, amount: -card.cost }, { who: active.id, kind: 'build' });
+      } else {
+        log(state, 'log.buy', { player: active.name, card: card.id, cost: card.cost }, { who: active.id, kind: 'build' });
+      }
       refillSupply(state);
       endOfTurn(state);
       return null;
     }
 
     case 'landmark': {
-      if (state.phase !== 'build') return 'You cannot build right now.';
-      if (!canBuild(state, active, action.landmarkId)) return 'You cannot build that landmark.';
+      if (state.phase !== 'build') return 'err.cannotBuildNow';
+      if (!canBuild(state, active, action.landmarkId)) return 'err.cannotBuildLandmark';
       const l = landmarksFor(state.rules).find((x) => x.id === action.landmarkId)!;
       active.coins -= l.cost;
       active.landmarks[l.id] = true;
-      log(state, `${active.name} builds the ${l.name} for ${l.cost}!`, { who: active.id, kind: 'build' });
+      log(state, 'log.buildLandmark', { player: active.name, landmark: l.id, cost: l.cost }, { who: active.id, kind: 'build' });
       endOfTurn(state);
       return null;
     }
 
     case 'pass': {
-      if (state.phase !== 'build') return 'You cannot pass right now.';
+      if (state.phase !== 'build') return 'err.cannotPass';
       if (active.landmarks.airport) {
         active.coins += 10;
-        log(state, `${active.name} builds nothing and gets 10 — Airport`, { who: active.id, kind: 'build' });
+        log(state, 'log.passAirport', { player: active.name }, { who: active.id, kind: 'build' });
       } else {
-        log(state, `${active.name} builds nothing.`, { who: active.id, kind: 'build' });
+        log(state, 'log.pass', { player: active.name }, { who: active.id, kind: 'build' });
       }
       endOfTurn(state);
       return null;
     }
 
     default:
-      return 'Unknown action.';
+      return 'err.unknownAction';
   }
 }
 

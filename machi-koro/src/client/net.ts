@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Params } from '../shared/i18n';
 import type { ClientMessage, RoomView, ServerMessage } from '../shared/protocol';
+
+export interface UiError {
+  key: string;
+  params?: Params;
+}
 
 const STORAGE_KEY = 'machikoro.seat';
 
@@ -41,7 +47,7 @@ export interface Connection {
   status: 'connecting' | 'open' | 'closed';
   room: RoomView | null;
   youId: string | null;
-  error: string | null;
+  error: UiError | null;
   send: (message: ClientMessage) => void;
   dismissError: () => void;
 }
@@ -50,7 +56,7 @@ export function useConnection(): Connection {
   const [status, setStatus] = useState<Connection['status']>('connecting');
   const [room, setRoom] = useState<RoomView | null>(null);
   const [youId, setYouId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
 
   const socket = useRef<WebSocket | null>(null);
   const outbox = useRef<ClientMessage[]>([]);
@@ -107,7 +113,7 @@ export function useConnection(): Connection {
           case 'error':
             // A failed silent rejoin should not nag the player on page load.
             if (!joined.current) saveSeat(null);
-            else setError(message.message);
+            else setError({ key: message.key, params: message.params });
             break;
         }
       };

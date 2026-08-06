@@ -237,6 +237,32 @@ input:focus {
   border-color: var(--accent);
   background: #10312e;
 }
+.landing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+.lang-switch button {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.lang-switch button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.lobby header .lang-switch {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
 .rules-picker {
   display: grid;
   gap: 8px;

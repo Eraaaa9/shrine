@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { describeRules, maxPlayers, normaliseRules } from '../shared/cards';
+import type { Params } from '../shared/i18n';
 import type { ClientMessage, ServerMessage } from '../shared/protocol';
 import { MIN_PLAYERS } from '../shared/protocol';
 import { createRoom, getRoom, roomCount, sweepRooms, type Room, type Seat } from './rooms';
@@ -45,8 +46,8 @@ function send(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message));
 }
 
-function fail(ws: WebSocket, message: string): void {
-  send(ws, { t: 'error', message });
+function fail(ws: WebSocket, key: string, params?: Params): void {
+  send(ws, { t: 'error', key, params });
 }
 
 function attach(ws: WebSocket, room: Room, seat: Seat): void {
@@ -81,9 +82,16 @@ function detach(ws: WebSocket): void {
   room.broadcast();
 }
 
+/** Room errors that carry a number the player needs to see. */
+function failRoom(ws: WebSocket, room: Room, key: string): void {
+  if (key === 'err.tooManyForRules') return fail(ws, key, { max: room.maxPlayers });
+  if (key === 'err.needPlayers') return fail(ws, key, { min: MIN_PLAYERS });
+  return fail(ws, key);
+}
+
 function requireHost(ws: WebSocket, entry: Attachment): boolean {
   if (entry.room.hostId !== entry.seat.id) {
-    fail(ws, 'Only the host can do that.');
+    fail(ws, 'err.hostOnly');
     return false;
   }
   return true;
@@ -106,11 +114,11 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'join': {
       const room = getRoom(msg.code ?? '');
-      if (!room) return fail(ws, 'No room with that code.');
+      if (!room) return fail(ws, 'err.roomNotFound');
       if (room.game && room.game.phase !== 'over') {
-        return fail(ws, 'That game is already in progress. Ask for the rejoin link, or wait for the next game.');
+        return fail(ws, 'err.gameInProgress');
       }
-      if (room.seats.length >= room.maxPlayers) return fail(ws, 'That room is full.');
+      if (room.seats.length >= room.maxPlayers) return fail(ws, 'err.roomFull');
       if (entry) detach(ws);
       const seat = room.addSeat(msg.name, false, ws);
       attach(ws, room, seat);
@@ -120,25 +128,25 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'rejoin': {
       const room = getRoom(msg.code ?? '');
-      if (!room) return fail(ws, 'That room no longer exists.');
+      if (!room) return fail(ws, 'err.roomGone');
       const seat = room.seatByToken(msg.token ?? '');
-      if (!seat) return fail(ws, 'Your seat in that room is gone.');
+      if (!seat) return fail(ws, 'err.seatGone');
       attach(ws, room, seat);
       room.broadcast();
       return;
     }
   }
 
-  if (!entry) return fail(ws, 'You are not in a room.');
+  if (!entry) return fail(ws, 'err.notInRoom');
   const { room, seat } = entry;
 
   switch (msg.t) {
     case 'setRules': {
       if (!requireHost(ws, entry)) return;
-      if (room.game && room.game.phase !== 'over') return fail(ws, 'The game is already running.');
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
       const wanted = normaliseRules(msg.rules);
       if (room.seats.length > maxPlayers(wanted)) {
-        return fail(ws, `The base game seats only ${maxPlayers(wanted)} players — remove someone first.`);
+        return fail(ws, 'err.tooManyForRules', { max: maxPlayers(wanted) });
       }
       room.rules = wanted;
       break;
@@ -146,18 +154,18 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'addBot': {
       if (!requireHost(ws, entry)) return;
-      if (room.game && room.game.phase !== 'over') return fail(ws, 'The game is already running.');
-      if (room.seats.length >= room.maxPlayers) return fail(ws, 'The room is full.');
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
+      if (room.seats.length >= room.maxPlayers) return fail(ws, 'err.roomFull');
       room.addSeat(room.nextBotName(), true, null);
       break;
     }
 
     case 'kick': {
       if (!requireHost(ws, entry)) return;
-      if (room.game && room.game.phase !== 'over') return fail(ws, 'The game is already running.');
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
       const target = room.seat(msg.playerId);
-      if (!target) return fail(ws, 'No such player.');
-      if (target.id === room.hostId) return fail(ws, 'The host cannot be removed.');
+      if (!target) return fail(ws, 'err.noSuchPlayer');
+      if (target.id === room.hostId) return fail(ws, 'err.hostCannotBeRemoved');
       if (target.socket) send(target.socket, { t: 'left' });
       if (target.socket) attached.delete(target.socket);
       room.removeSeat(target.id);
@@ -166,18 +174,18 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'start': {
       if (!requireHost(ws, entry)) return;
-      if (room.seats.length < MIN_PLAYERS) return fail(ws, `You need at least ${MIN_PLAYERS} players.`);
+      if (room.seats.length < MIN_PLAYERS) return fail(ws, 'err.needPlayers', { min: MIN_PLAYERS });
       const error = room.start();
-      if (error) return fail(ws, error);
+      if (error) return failRoom(ws, room, error);
       console.log(`[${room.code}] game started with ${room.seats.length} players (${describeRules(room.rules)})`);
       break;
     }
 
     case 'rematch': {
       if (!requireHost(ws, entry)) return;
-      if (!room.game || room.game.phase !== 'over') return fail(ws, 'Finish this game first.');
+      if (!room.game || room.game.phase !== 'over') return fail(ws, 'err.finishFirst');
       const error = room.start();
-      if (error) return fail(ws, error);
+      if (error) return failRoom(ws, room, error);
       break;
     }
 
@@ -200,7 +208,12 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
       if (room.game && room.game.phase !== 'over') {
         seat.isBot = true;
         room.game.players.find((p) => p.id === seat.id)!.isBot = true;
-        room.game.log.push({ id: room.game.nextLogId++, text: `${seat.name} left — a bot takes over.`, who: seat.id });
+        room.game.log.push({
+          id: room.game.nextLogId++,
+          key: 'log.leftForBot',
+          params: { player: seat.name },
+          who: seat.id,
+        });
       }
       send(ws, { t: 'left' });
       detach(ws);
@@ -208,7 +221,7 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
     }
 
     default:
-      return fail(ws, 'Unknown message.');
+      return fail(ws, 'err.unknownMessage');
   }
 
   room.broadcast();
@@ -220,13 +233,13 @@ wss.on('connection', (ws) => {
     try {
       msg = JSON.parse(String(raw)) as ClientMessage;
     } catch {
-      return fail(ws, 'Malformed message.');
+      return fail(ws, 'err.malformed');
     }
     try {
       handle(ws, msg);
     } catch (err) {
       console.error('handler error', err);
-      fail(ws, 'Something went wrong on the server.');
+      fail(ws, 'err.serverError');
     }
   });
 

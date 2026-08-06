@@ -1,4 +1,5 @@
 import type { RuleSet } from './cards';
+import type { Params } from './i18n';
 import type { GameAction, GameState } from './types';
 
 export interface SeatView {
@@ -42,6 +43,7 @@ export type ServerMessage =
   | { t: 'joined'; code: string; youId: string; token: string }
   | { t: 'room'; room: RoomView }
   | { t: 'left' }
-  | { t: 'error'; message: string };
+  /** Errors travel as translation keys so each client shows them in its own language. */
+  | { t: 'error'; key: string; params?: Params };
 
 export const MIN_PLAYERS = 2;

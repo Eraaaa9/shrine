@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { CARD_BY_ID, ICON_GLYPH, cardsFor, type CardId } from '../../shared/cards';
 import { activationValue, closedCopies, copies, exhibitCandidates, openCopies, tradeableCards } from '../../shared/engine';
+import { cardName, cardText } from '../../shared/i18n';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
+import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
 
 interface Props {
@@ -15,37 +17,43 @@ function CardChips({
   owner,
   selected,
   onPick,
+  worth,
 }: {
   ids: CardId[];
   owner?: PlayerState;
   selected: CardId | null;
   onPick: (id: CardId) => void;
+  worth?: (id: CardId) => number;
 }) {
+  const { lang, t } = useLang();
   return (
     <div className="trade-cards">
       {ids.map((id) => {
         const card = CARD_BY_ID[id];
         const count = owner ? copies(owner, id) : 0;
+        const value = worth?.(id);
         return (
           <button
             type="button"
             key={id}
             className={selected === id ? `chip-card ${card.color} picked` : `chip-card ${card.color}`}
             onClick={() => onPick(id)}
-            title={card.text}
+            title={cardText(lang, id)}
           >
             <b>{formatActivates(card.activates)}</b>
-            {ICON_GLYPH[card.icon]} {card.name}
+            {ICON_GLYPH[card.icon]} {cardName(lang, id)}
             {count > 1 && <i>×{count}</i>}
+            {value !== undefined && <i>{value >= 0 ? `+${value}` : value}</i>}
           </button>
         );
       })}
-      {ids.length === 0 && <span className="muted">nothing available</span>}
+      {ids.length === 0 && <span className="muted">{t('ui.nothingAvailable')}</span>}
     </div>
   );
 }
 
 function Trade({ game, you, act }: Props) {
+  const { t } = useLang();
   const opponents = game.players.filter((p) => p.id !== you.id);
   const [targetId, setTargetId] = useState(opponents[0]?.id ?? '');
   const [give, setGive] = useState<CardId | null>(null);
@@ -54,16 +62,16 @@ function Trade({ game, you, act }: Props) {
 
   return (
     <>
-      <h2>Business Center</h2>
-      <p className="muted">Swap one of your establishments for one of theirs. Major establishments cannot be swapped.</p>
+      <h2>{t('ui.bcTitle')}</h2>
+      <p className="muted">{t('ui.bcBlurb')}</p>
 
       <div className="trade-side">
-        <h3>You give</h3>
+        <h3>{t('ui.youGive')}</h3>
         <CardChips ids={tradeableCards(you)} owner={you} selected={give} onPick={setGive} />
       </div>
 
       <div className="trade-side">
-        <h3>You take from</h3>
+        <h3>{t('ui.youTakeFrom')}</h3>
         <div className="choices tight">
           {opponents.map((p) => (
             <button
@@ -89,7 +97,7 @@ function Trade({ game, you, act }: Props) {
           disabled={!give || !take || !target}
           onClick={() => give && take && target && act({ t: 'trade', targetId: target.id, give, take })}
         >
-          Swap
+          {t('ui.swap')}
         </button>
       </div>
     </>
@@ -97,22 +105,23 @@ function Trade({ game, you, act }: Props) {
 }
 
 function Moving({ game, you, act }: Props) {
+  const { t } = useLang();
   const opponents = game.players.filter((p) => p.id !== you.id);
   const [targetId, setTargetId] = useState(opponents[0]?.id ?? '');
   const [give, setGive] = useState<CardId | null>(null);
 
   return (
     <>
-      <h2>Moving Company</h2>
-      <p className="muted">Give one establishment away, then take 4 coins from the bank.</p>
+      <h2>{t('ui.movingTitle')}</h2>
+      <p className="muted">{t('ui.movingBlurb')}</p>
 
       <div className="trade-side">
-        <h3>Give away</h3>
+        <h3>{t('ui.giveAway')}</h3>
         <CardChips ids={tradeableCards(you)} owner={you} selected={give} onPick={setGive} />
       </div>
 
       <div className="trade-side">
-        <h3>To</h3>
+        <h3>{t('ui.to')}</h3>
         <div className="choices tight">
           {opponents.map((p) => (
             <button
@@ -134,7 +143,7 @@ function Moving({ game, you, act }: Props) {
           disabled={!give || !targetId}
           onClick={() => give && act({ t: 'moving', targetId, give })}
         >
-          Hand it over (+4)
+          {t('ui.handOver')}
         </button>
       </div>
     </>
@@ -142,11 +151,11 @@ function Moving({ game, you, act }: Props) {
 }
 
 function Renovation({ game, you, act }: Props) {
+  const { t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
   const owned = cardsFor(game.rules).filter(
     (c) => c.icon !== 'major' && game.players.some((p) => openCopies(p, c.id) > 0)
   );
-  const target = pick ? CARD_BY_ID[pick] : null;
   const takings = pick
     ? game.players
         .filter((p) => p.id !== you.id)
@@ -155,30 +164,29 @@ function Renovation({ game, you, act }: Props) {
 
   return (
     <>
-      <h2>Renovation Company</h2>
-      <p className="muted">
-        Close every copy of one establishment for renovation. Each closed building skips its next activation, and every
-        opponent pays you 1 coin per building of theirs you close — including your own copies.
-      </p>
+      <h2>{t('ui.renovationTitle')}</h2>
+      <p className="muted">{t('ui.renovationBlurb')}</p>
 
       <div className="trade-side">
-        <h3>Close every</h3>
+        <h3>{t('ui.closeEvery')}</h3>
         <CardChips ids={owned.map((c) => c.id)} selected={pick} onPick={setPick} />
       </div>
 
-      {target && (
+      {pick && (
         <p className="muted">
-          {game.players
-            .filter((p) => openCopies(p, target.id) > 0)
-            .map((p) => `${p.name} ×${openCopies(p, target.id)}`)
-            .join(', ')}{' '}
-          — you collect about {takings}.
+          {t('ui.renovationPreview', {
+            owners: game.players
+              .filter((p) => openCopies(p, pick) > 0)
+              .map((p) => `${p.name} ×${openCopies(p, pick)}`)
+              .join(', '),
+            amount: takings,
+          })}
         </p>
       )}
 
       <div className="row end">
         <button type="button" className="primary" disabled={!pick} onClick={() => pick && act({ t: 'renovation', cardId: pick })}>
-          Close for renovation
+          {t('ui.closeForRenovation')}
         </button>
       </div>
     </>
@@ -186,45 +194,32 @@ function Renovation({ game, you, act }: Props) {
 }
 
 function Exhibit({ game, you, act }: Props) {
+  const { t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
   const candidates = exhibitCandidates(game, you);
 
   return (
     <>
-      <h2>Exhibit Hall</h2>
-      <p className="muted">
-        You may activate one of your own establishments instead. If you do, the Exhibit Hall goes back to the supply.
-      </p>
+      <h2>{t('ui.exhibitTitle')}</h2>
+      <p className="muted">{t('ui.exhibitBlurb')}</p>
 
       <div className="trade-side">
-        <h3>Activate</h3>
-        <div className="trade-cards">
-          {candidates.map((id) => {
-            const card = CARD_BY_ID[id];
-            const worth = activationValue(game, you, id);
-            return (
-              <button
-                type="button"
-                key={id}
-                className={pick === id ? `chip-card ${card.color} picked` : `chip-card ${card.color}`}
-                onClick={() => setPick(id)}
-                title={card.text}
-              >
-                <b>{formatActivates(card.activates)}</b>
-                {ICON_GLYPH[card.icon]} {card.name}
-                <i>{worth >= 0 ? `+${worth}` : worth}</i>
-              </button>
-            );
-          })}
-        </div>
+        <h3>{t('ui.activate')}</h3>
+        <CardChips
+          ids={candidates}
+          owner={you}
+          selected={pick}
+          onPick={setPick}
+          worth={(id) => activationValue(game, you, id)}
+        />
       </div>
 
       <div className="row end">
         <button type="button" className="ghost" onClick={() => act({ t: 'exhibit', cardId: null })}>
-          Keep the Exhibit Hall
+          {t('ui.keepExhibit')}
         </button>
         <button type="button" className="primary" disabled={!pick} onClick={() => pick && act({ t: 'exhibit', cardId: pick })}>
-          Activate it
+          {t('ui.activateIt')}
         </button>
       </div>
     </>
@@ -233,6 +228,7 @@ function Exhibit({ game, you, act }: Props) {
 
 /** The card effects that need a full-screen decision. */
 export default function ChoiceModal(props: Props) {
+  const { lang, t } = useLang();
   const { game, you } = props;
   const body =
     game.phase === 'trade' ? (
@@ -254,7 +250,7 @@ export default function ChoiceModal(props: Props) {
         {body}
         {closed.length > 0 && (
           <p className="muted small-note">
-            Closed for renovation: {closed.map((id) => CARD_BY_ID[id].name).join(', ')}
+            {t('ui.closedList', { cards: closed.map((id) => cardName(lang, id)).join(', ') })}
           </p>
         )}
       </div>
