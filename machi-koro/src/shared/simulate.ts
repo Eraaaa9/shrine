@@ -1,0 +1,634 @@
+/**
+ * Rule tests + bot-vs-bot simulation.  Run with `npm run simulate [games]`.
+ *
+ * The simulation is the safety net for the engine: it plays whole games, checks
+ * invariants after every action, and fails loudly on an illegal state.
+ */
+import { cardsFor, describeRules, winLandmarks, type CardId, type RuleSet } from './cards';
+import { botAction } from './bot';
+import {
+  activePlayer,
+  applyAction,
+  applyForcedRoll,
+  closedCopies,
+  copies,
+  createGame,
+  findPlayer,
+  hasWon,
+  type Seat,
+} from './engine';
+import type { GameState, PlayerState } from './types';
+
+const BASE: RuleSet = { harbor: false, millionaires: false, variableSupply: false };
+const HARBOR: RuleSet = { harbor: true, millionaires: false, variableSupply: false };
+const ROW: RuleSet = { harbor: false, millionaires: true, variableSupply: false };
+const BRIGHT: RuleSet = { harbor: true, millionaires: true, variableSupply: false };
+const BRIGHT_VAR: RuleSet = { harbor: true, millionaires: true, variableSupply: true };
+
+let failures = 0;
+
+function check(label: string, condition: boolean, detail = ''): void {
+  if (!condition) {
+    failures++;
+    console.error(`  ✗ ${label}${detail ? ` — ${detail}` : ''}`);
+  }
+}
+
+function expect(label: string, actual: unknown, wanted: unknown): void {
+  check(label, Object.is(actual, wanted), `expected ${String(wanted)}, got ${String(actual)}`);
+}
+
+function seats(n: number): Seat[] {
+  return Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, isBot: true }));
+}
+
+/** Hand a player some cards, taking them out of the supply so conservation still holds. */
+function give(state: GameState, p: PlayerState, id: CardId, n = 1): void {
+  p.cards[id] = (p.cards[id] ?? 0) + n;
+  state.supply[id] = (state.supply[id] ?? 0) - n;
+}
+
+function stacksOnOffer(state: GameState): number {
+  return Object.values(state.supply).filter((n) => (n ?? 0) > 0).length;
+}
+
+// ---------------------------------------------------------------------------
+// invariants
+// ---------------------------------------------------------------------------
+
+function checkInvariants(state: GameState, where: string): void {
+  for (const p of state.players) {
+    check(`${where}: ${p.name} coins never negative`, p.coins >= 0, `coins=${p.coins}`);
+    check(`${where}: ${p.name} investment never negative`, p.investment >= 0);
+    for (const [id, n] of Object.entries(p.cards)) {
+      check(`${where}: ${p.name} card count non-negative`, (n ?? 0) >= 0, `${id}=${n}`);
+    }
+    for (const [id, n] of Object.entries(p.closed)) {
+      check(
+        `${where}: ${p.name} cannot close more ${id} than they own`,
+        (n ?? 0) <= copies(p, id as CardId),
+        `${n} closed of ${copies(p, id as CardId)}`
+      );
+    }
+  }
+
+  // Card conservation: deck + supply + everything owned must match the initial totals.
+  const startingHand: Record<string, number> = { wheat_field: state.players.length, bakery: state.players.length };
+  const inDeck = new Map<string, number>();
+  for (const id of state.deck) inDeck.set(id, (inDeck.get(id) ?? 0) + 1);
+
+  for (const card of cardsFor(state.rules)) {
+    const initial = (card.icon === 'major' ? state.players.length : 6) + (startingHand[card.id] ?? 0);
+    const owned = state.players.reduce((a, p) => a + (p.cards[card.id] ?? 0), 0);
+    const inSupply = state.supply[card.id] ?? 0;
+    const total = inSupply + owned + (inDeck.get(card.id) ?? 0);
+    check(`${where}: ${card.name} conserved`, inSupply >= 0 && total === initial, `${total} != ${initial}`);
+  }
+
+  // Nobody owns two of the same major establishment.
+  for (const p of state.players) {
+    for (const card of cardsFor(state.rules)) {
+      if (card.icon === 'major') {
+        check(`${where}: ${p.name} has at most one ${card.name}`, (p.cards[card.id] ?? 0) <= 1);
+      }
+    }
+  }
+
+  // The variable supply keeps ten stacks up (an Exhibit Hall coming back can make eleven).
+  if (state.rules.variableSupply) {
+    const stacks = stacksOnOffer(state);
+    check(`${where}: sensible number of stacks`, stacks <= 11, `${stacks} stacks`);
+    check(`${where}: stacks refilled while the deck lasts`, stacks >= 10 || state.deck.length === 0, `${stacks} stacks, ${state.deck.length} in deck`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// base + harbor rules
+// ---------------------------------------------------------------------------
+
+function baseRuleTests(): void {
+  {
+    // Starting position
+    const g = createGame(seats(4), HARBOR, 1);
+    expect('starts with 3 coins', g.players[0].coins, 3);
+    expect('starts with a Wheat Field', g.players[0].cards.wheat_field, 1);
+    expect('starts with a Bakery', g.players[0].cards.bakery, 1);
+    expect('City Hall is free', g.players[0].landmarks.city_hall, true);
+    expect('Harbor is not free', g.players[0].landmarks.harbor, false);
+    expect('6 winning landmarks with Harbor', winLandmarks(HARBOR).length, 6);
+    expect('4 winning landmarks in the base game', winLandmarks(BASE).length, 4);
+    expect('base game has 15 establishments', cardsFor(BASE).length, 15);
+    expect('harbor game has 25 establishments', cardsFor(HARBOR).length, 25);
+    expect('everything together is 39 establishments', cardsFor(BRIGHT).length, 39);
+    expect('majors are one per player', g.supply.stadium, 4);
+    expect('other cards have 6 copies', g.supply.ranch, 6);
+  }
+
+  {
+    // Blue pays everyone; green pays only the active player.
+    const g = createGame(seats(3), HARBOR, 7);
+    const [a, b] = g.players;
+    applyForcedRoll(g, [1]);
+    expect('active player collects Wheat Field', a.coins, 4);
+    expect('opponent collects Wheat Field too', b.coins, 4);
+
+    const g2 = createGame(seats(3), HARBOR, 7);
+    applyForcedRoll(g2, [3]);
+    expect('active player collects Bakery', g2.players[0].coins, 4);
+    expect('opponent gets nothing from a Bakery', g2.players[1].coins, 3);
+  }
+
+  {
+    // Shopping Mall adds +1 to each bread/cup card.
+    const g = createGame(seats(2), HARBOR, 11);
+    const a = g.players[0];
+    a.landmarks.shopping_mall = true;
+    give(g, a, 'convenience_store');
+    applyForcedRoll(g, [4]);
+    expect('Shopping Mall boosts the Convenience Store', a.coins, 7);
+  }
+
+  {
+    // Red cards take from the roller, capped by what the roller has.
+    const g = createGame(seats(2), HARBOR, 13);
+    const [a, b] = g.players;
+    give(g, b, 'cafe');
+    a.coins = 1;
+    applyForcedRoll(g, [3]);
+    expect('roller pays the Cafe', a.coins, 1);
+    expect('cafe owner collects', b.coins, 4);
+
+    const g2 = createGame(seats(2), BASE, 13);
+    give(g2, g2.players[1], 'family_restaurant');
+    g2.players[0].coins = 1;
+    applyForcedRoll(g2, [9]);
+    expect('a broke roller pays what they have', g2.players[0].coins, 0);
+    expect('restaurant owner only gets what was there', g2.players[1].coins, 4);
+  }
+
+  {
+    // Multiplier cards.
+    const g = createGame(seats(2), HARBOR, 17);
+    const a = g.players[0];
+    give(g, a, 'ranch', 3);
+    give(g, a, 'cheese_factory');
+    applyForcedRoll(g, [7]);
+    expect('Cheese Factory pays per cow', a.coins, 12);
+  }
+
+  {
+    // Harbor turns a 10 into a 12 and triggers the Food Warehouse.
+    const g = createGame(seats(2), HARBOR, 19);
+    const a = g.players[0];
+    a.landmarks.harbor = true;
+    give(g, a, 'food_warehouse');
+    give(g, a, 'cafe', 2);
+    applyForcedRoll(g, [5, 5]);
+    expect('a total of 10 does not reach the Food Warehouse', a.coins, 3);
+    const g2 = createGame(seats(2), HARBOR, 19);
+    const a2 = g2.players[0];
+    a2.landmarks.harbor = true;
+    give(g2, a2, 'food_warehouse');
+    give(g2, a2, 'cafe', 2);
+    applyForcedRoll(g2, [6, 6]);
+    expect('Food Warehouse pays per cup', a2.coins, 7);
+  }
+
+  {
+    // Boats need a Harbor.
+    const g = createGame(seats(2), HARBOR, 23);
+    const a = g.players[0];
+    give(g, a, 'mackerel_boat');
+    applyForcedRoll(g, [4, 4]);
+    expect('Mackerel Boat is dead without a Harbor', a.coins, 3);
+    a.landmarks.harbor = true;
+    a.coins = 3;
+    applyForcedRoll(g, [4, 4]);
+    expect('Mackerel Boat pays 3 with a Harbor', a.coins, 6);
+  }
+
+  {
+    // Stadium, Tax Office, Publisher.
+    const g = createGame(seats(3), HARBOR, 29);
+    const [a, b, c] = g.players;
+    give(g, a, 'stadium');
+    b.coins = 1;
+    c.coins = 10;
+    applyForcedRoll(g, [3, 3]);
+    expect('Stadium takes 2 from each, or all they have', a.coins, 3 + 1 + 2);
+    expect('a poor player pays what they can', b.coins, 0);
+    expect('a rich player pays 2', c.coins, 8);
+
+    const g2 = createGame(seats(2), HARBOR, 29);
+    give(g2, g2.players[0], 'tax_office');
+    g2.players[1].coins = 11;
+    applyForcedRoll(g2, [4, 4]);
+    expect('Tax Office halves a rich opponent', g2.players[1].coins, 6);
+    expect('Tax Office collects the difference', g2.players[0].coins, 8);
+
+    const g3 = createGame(seats(2), HARBOR, 29);
+    give(g3, g3.players[0], 'publisher');
+    g3.players[1].coins = 20;
+    give(g3, g3.players[1], 'cafe');
+    applyForcedRoll(g3, [3, 4]);
+    expect('Publisher charges per bread and cup', g3.players[1].coins, 18);
+  }
+
+  {
+    // TV Station and Business Center pause for a decision.
+    const g = createGame(seats(2), HARBOR, 31);
+    const [a, b] = g.players;
+    give(g, a, 'tv_station');
+    b.coins = 9;
+    applyForcedRoll(g, [3, 3]);
+    expect('TV Station waits for a target', g.phase, 'tv');
+    expect('non-active player cannot answer', applyAction(g, b.id, { t: 'tv', targetId: a.id }), 'It is not your turn.');
+    check('TV Station resolves', applyAction(g, a.id, { t: 'tv', targetId: b.id }) === null);
+    expect('TV Station takes 5', b.coins, 4);
+    expect('after the choice, it is time to build', g.phase, 'build');
+
+    const g2 = createGame(seats(2), HARBOR, 31);
+    give(g2, g2.players[0], 'business_center');
+    applyForcedRoll(g2, [3, 3]);
+    expect('Business Center waits for a swap', g2.phase, 'trade');
+    check(
+      'majors cannot be swapped',
+      applyAction(g2, g2.players[0].id, {
+        t: 'trade',
+        targetId: g2.players[1].id,
+        give: 'business_center',
+        take: 'bakery',
+      }) === 'Major establishments cannot be swapped.'
+    );
+    check(
+      'swap goes through',
+      applyAction(g2, g2.players[0].id, { t: 'trade', targetId: g2.players[1].id, give: 'bakery', take: 'wheat_field' }) === null
+    );
+    expect('gave away the Bakery', g2.players[0].cards.bakery, 0);
+    expect('received a Wheat Field', g2.players[0].cards.wheat_field, 2);
+    expect('opponent got the Bakery', g2.players[1].cards.bakery, 2);
+    checkInvariants(g2, 'after a swap');
+  }
+
+  {
+    // Buying, the Train Station gate, and the City Hall top-up.
+    const g = createGame(seats(2), HARBOR, 37);
+    const a = g.players[0];
+    expect('two dice need a Train Station', applyAction(g, a.id, { t: 'roll', dice: 2 }), 'The Train Station is needed to roll 2 dice.');
+    a.coins = 0;
+    applyForcedRoll(g, [5]);
+    expect('City Hall tops a broke player up to 1', a.coins, 1);
+    expect('cannot afford the Forest', applyAction(g, a.id, { t: 'buy', cardId: 'forest' }), 'You cannot buy that.');
+    check('can buy a Wheat Field', applyAction(g, a.id, { t: 'buy', cardId: 'wheat_field' }) === null);
+    expect('supply went down', g.supply.wheat_field, 5);
+    expect('turn passed to the next player', g.turn, 1);
+  }
+
+  {
+    // Amusement Park grants a second turn on doubles.
+    const g = createGame(seats(2), HARBOR, 41);
+    const a = g.players[0];
+    a.landmarks.amusement_park = true;
+    a.landmarks.train_station = true;
+    applyForcedRoll(g, [2, 2]);
+    check('extra turn queued', g.extraTurn);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('same player goes again', g.turn, 0);
+    expect('extra turn consumed', g.extraTurn, false);
+  }
+
+  {
+    // Airport pays for building nothing.
+    const g = createGame(seats(2), HARBOR, 43);
+    const a = g.players[0];
+    a.landmarks.airport = true;
+    applyForcedRoll(g, [5]);
+    const before = a.coins;
+    applyAction(g, a.id, { t: 'pass' });
+    expect('Airport pays 10', a.coins, before + 10);
+  }
+
+  {
+    // Winning requires every landmark.
+    const g = createGame(seats(2), HARBOR, 47);
+    const a = g.players[0];
+    for (const l of winLandmarks(HARBOR)) a.landmarks[l.id] = true;
+    a.landmarks.airport = false;
+    a.coins = 30;
+    check('not a winner yet', !hasWon(g, a));
+    applyForcedRoll(g, [5]);
+    check('builds the Airport', applyAction(g, a.id, { t: 'landmark', landmarkId: 'airport' }) === null);
+    expect('game is over', g.phase, 'over');
+    expect('winner recorded', g.winnerId, a.id);
+    expect('no further actions', applyAction(g, a.id, { t: 'pass' }), 'The game is over.');
+  }
+
+  {
+    // Base variant hides the expansions.
+    const g = createGame(seats(2), BASE, 53);
+    expect('no City Hall in the base game', g.players[0].landmarks.city_hall, undefined);
+    expect('no Harbor cards in the supply', g.supply.tuna_boat, undefined);
+    expect('no Millionaire’s Row cards either', g.supply.winery, undefined);
+    applyForcedRoll(g, [5]);
+    expect('cannot buy expansion cards', applyAction(g, g.players[0].id, { t: 'buy', cardId: 'sushi_bar' }), 'You cannot buy that.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// millionaire's row
+// ---------------------------------------------------------------------------
+
+function millionairesRuleTests(): void {
+  {
+    // Corn Field and General Store only pay while you are behind.
+    const g = createGame(seats(2), ROW, 101);
+    const a = g.players[0];
+    give(g, a, 'corn_field');
+    applyForcedRoll(g, [4]);
+    expect('Corn Field pays while you are behind', a.coins, 4);
+    a.landmarks.train_station = true;
+    a.landmarks.amusement_park = true;
+    a.coins = 3;
+    applyForcedRoll(g, [4]);
+    expect('Corn Field dries up once you have 2 landmarks', a.coins, 3);
+
+    const g2 = createGame(seats(2), ROW, 102);
+    const b = g2.players[0];
+    give(g2, b, 'general_store');
+    b.landmarks.shopping_mall = true;
+    applyForcedRoll(g2, [2]);
+    expect('Shopping Mall boosts the General Store and Bakery', b.coins, 3 + 3 + 2);
+  }
+
+  {
+    // The Loan Office pays you to take it, then bites.
+    const g = createGame(seats(2), ROW, 103);
+    const a = g.players[0];
+    applyForcedRoll(g, [4]);
+    check('the Loan Office is always affordable', applyAction(g, a.id, { t: 'buy', cardId: 'loan_office' }) === null);
+    expect('and hands over 5 coins', a.coins, 8);
+
+    const g2 = createGame(seats(2), ROW, 104);
+    const a2 = g2.players[0];
+    give(g2, a2, 'loan_office');
+    applyForcedRoll(g2, [5]);
+    expect('the Loan Office charges 2 when it activates', a2.coins, 1);
+  }
+
+  {
+    // Vineyards feed the Winery, which then shuts for renovation.
+    const g = createGame(seats(2), ROW, 105);
+    const a = g.players[0];
+    give(g, a, 'vineyard', 2);
+    give(g, a, 'winery');
+    applyForcedRoll(g, [9]);
+    expect('Winery pays 6 per Vineyard', a.coins, 15);
+    expect('Winery closes itself', closedCopies(a, 'winery'), 1);
+    a.coins = 0;
+    applyForcedRoll(g, [9]);
+    expect('a closed Winery pays nothing', a.coins, 0);
+    expect('but it reopens', closedCopies(a, 'winery'), 0);
+    applyForcedRoll(g, [7]);
+    expect('Vineyards pay 3 each', a.coins, 6);
+  }
+
+  {
+    // Demolition Company.
+    const g = createGame(seats(2), ROW, 106);
+    const a = g.players[0];
+    give(g, a, 'demolition_company');
+    a.landmarks.train_station = true;
+    applyForcedRoll(g, [4]);
+    expect('Demolition Company waits for a target', g.phase, 'demolish');
+    check('demolition resolves', applyAction(g, a.id, { t: 'demolish', landmarkId: 'train_station' }) === null);
+    expect('the landmark comes down', a.landmarks.train_station, false);
+    expect('and pays 8', a.coins, 11);
+    expect('then it is time to build', g.phase, 'build');
+
+    const g2 = createGame(seats(2), ROW, 107);
+    give(g2, g2.players[0], 'demolition_company');
+    applyForcedRoll(g2, [4]);
+    expect('nothing to demolish means no payout', g2.players[0].coins, 3);
+    expect('and no prompt', g2.phase, 'build');
+  }
+
+  {
+    // Moving Company.
+    const g = createGame(seats(2), ROW, 108);
+    const [a, b] = g.players;
+    give(g, a, 'moving_company');
+    applyForcedRoll(g, [9]);
+    expect('Moving Company waits', g.phase, 'moving');
+    check('the move resolves', applyAction(g, a.id, { t: 'moving', targetId: b.id, give: 'wheat_field' }) === null);
+    expect('the card leaves your city', copies(a, 'wheat_field'), 0);
+    expect('and lands in theirs', copies(b, 'wheat_field'), 2);
+    expect('you get 4 coins for it', a.coins, 7);
+    checkInvariants(g, 'after a move');
+  }
+
+  {
+    // French Restaurant and Member's Only Club punish the leader.
+    const g = createGame(seats(2), ROW, 109);
+    const [a, b] = g.players;
+    give(g, b, 'french_restaurant');
+    applyForcedRoll(g, [5]);
+    expect('French Restaurant needs a roller with 2 landmarks', b.coins, 3);
+    a.landmarks.train_station = true;
+    a.landmarks.shopping_mall = true;
+    a.coins = 10;
+    applyForcedRoll(g, [5]);
+    expect('now it takes 5', b.coins, 8);
+    expect('from the roller', a.coins, 5);
+
+    const g2 = createGame(seats(2), ROW, 110);
+    const [a2, b2] = g2.players;
+    give(g2, b2, 'members_club');
+    a2.landmarks.train_station = true;
+    a2.landmarks.shopping_mall = true;
+    a2.landmarks.amusement_park = true;
+    a2.coins = 17;
+    applyForcedRoll(g2, [6, 6]);
+    expect('Member’s Only Club cleans the leader out', a2.coins, 0);
+    expect('and takes the lot', b2.coins, 20);
+  }
+
+  {
+    // Soda Bottling Plant counts cups across the whole table.
+    const g = createGame(seats(2), ROW, 111);
+    const [a, b] = g.players;
+    give(g, a, 'soda_bottling_plant');
+    give(g, a, 'cafe');
+    give(g, b, 'french_restaurant', 2);
+    applyForcedRoll(g, [5, 6]);
+    expect('Soda Bottling Plant pays per cup everywhere', a.coins, 6);
+  }
+
+  {
+    // Tech Startup: invest at the end of your turn, collect when it fires.
+    const g = createGame(seats(2), ROW, 112);
+    const a = g.players[0];
+    give(g, a, 'tech_startup');
+    applyForcedRoll(g, [5]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('Tech Startup offers an investment', g.phase, 'invest');
+    check('investing works', applyAction(g, a.id, { t: 'invest', amount: 1 }) === null);
+    expect('the coin sits on the card', a.investment, 1);
+    expect('and leaves your purse', a.coins, 2);
+    expect('the turn then moves on', g.turn, 1);
+
+    const g2 = createGame(seats(3), ROW, 113);
+    const [a2, b2, c2] = g2.players;
+    give(g2, a2, 'tech_startup');
+    a2.investment = 3;
+    b2.coins = 10;
+    c2.coins = 2;
+    applyForcedRoll(g2, [5, 5]);
+    expect('each opponent pays the invested amount', a2.coins, 8);
+    expect('a rich opponent pays in full', b2.coins, 7);
+    expect('a poor one pays what they have', c2.coins, 0);
+  }
+
+  {
+    // Exhibit Hall stands in for another card, then leaves.
+    const g = createGame(seats(2), ROW, 114);
+    const a = g.players[0];
+    give(g, a, 'exhibit_hall');
+    give(g, a, 'mine');
+    applyForcedRoll(g, [5, 5]);
+    expect('Exhibit Hall waits', g.phase, 'exhibit');
+    const before = g.supply.exhibit_hall ?? 0;
+    check('activating works', applyAction(g, a.id, { t: 'exhibit', cardId: 'mine' }) === null);
+    expect('the stand-in pays out', a.coins, 8);
+    expect('the Exhibit Hall goes back to the supply', g.supply.exhibit_hall, before + 1);
+    expect('and you no longer own it', copies(a, 'exhibit_hall'), 0);
+    checkInvariants(g, 'after an exhibit');
+
+    const g2 = createGame(seats(2), ROW, 115);
+    const a2 = g2.players[0];
+    give(g2, a2, 'exhibit_hall');
+    give(g2, a2, 'mine');
+    applyForcedRoll(g2, [5, 5]);
+    check('declining works', applyAction(g2, a2.id, { t: 'exhibit', cardId: null }) === null);
+    expect('declining keeps the card', copies(a2, 'exhibit_hall'), 1);
+    expect('and pays nothing', a2.coins, 3);
+  }
+
+  {
+    // Renovation Company closes a card type everywhere.
+    const g = createGame(seats(3), ROW, 116);
+    const [a, b, c] = g.players;
+    give(g, a, 'renovation_company');
+    give(g, b, 'bakery', 2);
+    applyForcedRoll(g, [4, 4]);
+    expect('Renovation Company waits', g.phase, 'renovation');
+    check('renovation resolves', applyAction(g, a.id, { t: 'renovation', cardId: 'bakery' }) === null);
+    expect('every copy of theirs closes', closedCopies(b, 'bakery'), 3);
+    expect('your own copies close too', closedCopies(a, 'bakery'), 1);
+    expect('the busy opponent pays 3', b.coins, 0);
+    expect('the other pays 1', c.coins, 2);
+    expect('and you collect it all', a.coins, 7);
+  }
+
+  {
+    // Park levels the table.
+    const g = createGame(seats(3), ROW, 117);
+    const [a, b, c] = g.players;
+    give(g, a, 'park');
+    a.coins = 10;
+    b.coins = 3;
+    c.coins = 0;
+    applyForcedRoll(g, [5, 6]);
+    expect('the Park rounds everyone up', a.coins, 5);
+    expect('including the poorest', c.coins, 5);
+    expect('and trims the richest', b.coins, 5);
+  }
+
+  {
+    // Variable supply setup.
+    const g = createGame(seats(3), BRIGHT_VAR, 118);
+    expect('ten stacks on offer', stacksOnOffer(g), 10);
+    check('the rest waits in the deck', g.deck.length > 0);
+    checkInvariants(g, 'variable supply setup');
+
+    // buying out a stack draws a replacement
+    const a = g.players[0];
+    const target = (Object.keys(g.supply) as CardId[]).find((id) => (g.supply[id] ?? 0) > 0)!;
+    g.supply[target] = 1;
+    a.coins = 60;
+    applyForcedRoll(g, [5]);
+    const err = applyAction(g, a.id, { t: 'buy', cardId: target });
+    check('bought the last copy of a stack', err === null, String(err));
+    expect('a fresh stack replaced it', stacksOnOffer(g), 10);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// full games
+// ---------------------------------------------------------------------------
+
+function simulate(games: number, rules: RuleSet, playerCount: number): void {
+  const turns: number[] = [];
+  let stuck = 0;
+  const label = `${describeRules(rules).replace('base game', 'base')}${rules.variableSupply ? ' +var' : ''}`;
+
+  for (let i = 0; i < games; i++) {
+    const state = createGame(seats(playerCount), rules, i * 7919 + 13);
+    let steps = 0;
+    while (state.phase !== 'over' && steps < 40000) {
+      const me = activePlayer(state);
+      const action = botAction(state);
+      if (!action) {
+        check('bot always has a move', false, `phase ${state.phase}`);
+        break;
+      }
+      const error = applyAction(state, me.id, action);
+      if (error) {
+        check('bot moves are legal', false, `${JSON.stringify(action)} in phase ${state.phase}: ${error}`);
+        break;
+      }
+      if (steps % 25 === 0) checkInvariants(state, `game ${i}`);
+      steps++;
+    }
+    checkInvariants(state, `game ${i} end`);
+    if (state.phase !== 'over') {
+      stuck++;
+      continue;
+    }
+    turns.push(state.turnCount);
+    findPlayer(state, state.winnerId!)!;
+  }
+
+  check(`${label}/${playerCount}p: every game finished`, stuck === 0, `${stuck} unfinished`);
+  const avg = turns.reduce((a, b) => a + b, 0) / Math.max(1, turns.length);
+  const sorted = turns.slice().sort((a, b) => a - b);
+  console.log(
+    `${label.padEnd(34)} ${playerCount}p  games=${games}  turns avg=${avg.toFixed(1)} ` +
+      `min=${sorted[0]} median=${sorted[Math.floor(sorted.length / 2)]} max=${sorted[sorted.length - 1]}`
+  );
+}
+
+const count = Number(process.argv[2] ?? 100);
+
+console.log('Base + Harbor rules');
+baseRuleTests();
+console.log(failures === 0 ? '  passed\n' : `  ${failures} failed\n`);
+
+const afterBase = failures;
+console.log('Millionaire’s Row rules');
+millionairesRuleTests();
+console.log(failures === afterBase ? '  passed\n' : `  ${failures - afterBase} failed\n`);
+
+console.log('Bot games');
+simulate(count, HARBOR, 4);
+simulate(count, BASE, 4);
+simulate(count, ROW, 4);
+simulate(count, BRIGHT, 4);
+simulate(count, BRIGHT_VAR, 4);
+simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 5);
+simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 2);
+
+if (failures > 0) {
+  console.error(`\n${failures} check(s) failed`);
+  process.exit(1);
+}
+console.log('\nAll checks passed.');

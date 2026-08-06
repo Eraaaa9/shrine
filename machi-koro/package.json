@@ -1,0 +1,35 @@
+{
+  "name": "machi-koro-online",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Online Machi Koro (base game + Harbor expansion) for playing with friends over the web",
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "tsx src/server/index.ts",
+    "play": "npm run build && npm start",
+    "simulate": "tsx src/shared/simulate.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "ws": "^8.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^10.0.4",
+    "tsx": "^4.23.9",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0"
+  }
+}
