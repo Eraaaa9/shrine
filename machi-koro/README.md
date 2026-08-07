@@ -111,9 +111,11 @@ including turns that happened before. Player names are never translated.
 
 To add another language, copy the `RU` table in `src/shared/i18n.ts` along with `CARDS_RU` /
 `LANDMARKS_RU`, register them in `CARD_TABLES` / `LANDMARK_TABLES` / `TABLES` / `LANDMARK_SHORT`,
-and add the code to `LANGS`. `npm run simulate` fails if any message key emitted
-during play is missing from a language, and the card and landmark tables are typed per id, so a
-missing card translation is a compile error.
+and add the code to `LANGS`. The card and landmark tables are typed per id, so a missing card is a
+compile error, and `npm run simulate` treats English as the reference table: it fails if a language
+is missing any of its keys, has a key English no longer has, or drops or misspells a `{placeholder}`
+— a hole that would otherwise render as a silently empty word. Message keys the engine emitted
+during the simulated games are checked on top of that.
 
 ## Rooms, reconnecting and bots
 

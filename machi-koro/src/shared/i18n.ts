@@ -997,6 +997,19 @@ export function hasTranslation(lang: Lang, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(TABLES[lang] ?? {}, key);
 }
 
+/**
+ * The raw table for a language — templates, not rendered text. The tests walk it
+ * to compare key coverage and placeholders against English.
+ */
+export function messages(lang: Lang): Readonly<Record<string, string>> {
+  return TABLES[lang] ?? {};
+}
+
+/** The `{name}` slots a template expects, e.g. `{player}` and `{amount}`. */
+export function placeholders(template: string): Set<string> {
+  return new Set(Array.from(template.matchAll(/\{(\w+)\}/g), (m) => m[1]));
+}
+
 /** Russian needs three forms; English two; Kazakh keeps the singular after a numeral. */
 function coinsWord(lang: Lang, n: number): string {
   if (lang === 'en') return n === 1 ? 'coin' : 'coins';

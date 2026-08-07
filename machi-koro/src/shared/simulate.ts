@@ -12,6 +12,8 @@ import {
   hasTranslation,
   landmarkName,
   landmarkText,
+  messages,
+  placeholders,
   t,
 } from './i18n';
 import { botAction } from './bot';
@@ -621,17 +623,49 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
 }
 
 /**
- * Every key the engine emitted during the games above must exist in both
- * languages, and every card must be named in both.
+ * English is the reference table: every one of its keys must exist in every
+ * language, carry the same `{placeholders}`, and every card must be named.
+ * The engine's own output is checked on top of that, so a log line the games
+ * above actually produced can never fall back to English.
  */
 function translationTests(): void {
   const beforeTranslations = failures;
-  console.log(`\nTranslations (${seenKeys.size} message keys seen in play)`);
+  const english = messages('en');
+  const englishKeys = Object.keys(english);
+  console.log(`\nTranslations (${englishKeys.length} keys, ${seenKeys.size} of them seen in play)`);
+
   for (const lang of LANGS) {
     for (const key of seenKeys) {
       check(`${lang}: log key ${key} is translated`, hasTranslation(lang, key));
     }
   }
+
+  for (const lang of LANGS.filter((l) => l !== 'en')) {
+    const table = messages(lang);
+    for (const key of englishKeys) {
+      if (!hasTranslation(lang, key)) {
+        check(`${lang}: ${key} is translated`, false, `only in English: "${english[key]}"`);
+        continue;
+      }
+      // A dropped or misspelt placeholder renders as an empty string at runtime,
+      // which reads as a plausible sentence with a hole in it — catch it here.
+      const wanted = placeholders(english[key]);
+      const got = placeholders(table[key]);
+      const missing = [...wanted].filter((p) => !got.has(p));
+      const extra = [...got].filter((p) => !wanted.has(p));
+      check(
+        `${lang}: ${key} keeps its placeholders`,
+        missing.length === 0 && extra.length === 0,
+        [missing.length ? `missing {${missing.join('}, {')}}` : '', extra.length ? `unexpected {${extra.join('}, {')}}` : '']
+          .filter(Boolean)
+          .join('; ')
+      );
+    }
+    for (const key of Object.keys(table)) {
+      check(`${lang}: ${key} still exists in English`, englishKeys.includes(key), 'stale key — delete it');
+    }
+  }
+
   for (const lang of LANGS.filter((l) => l !== 'en')) {
     for (const card of cardsFor(BRIGHT)) {
       check(`${lang}: ${card.name} has a name`, cardName(lang, card.id) !== card.name);
