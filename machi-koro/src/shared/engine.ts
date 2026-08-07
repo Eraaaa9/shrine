@@ -62,6 +62,7 @@ export function createGame(seats: Seat[], rules: RuleSet, seed = Date.now()): Ga
     turnCount: 0,
     phase: 'roll',
     dice: [],
+    rollId: 0,
     diceTotal: 0,
     harborBonusUsed: false,
     rerollUsed: false,
@@ -579,6 +580,7 @@ function startTurn(state: GameState, samePlayer: boolean): void {
 
 function rollDice(state: GameState, count: number): void {
   state.dice = Array.from({ length: count }, () => die(state));
+  state.rollId++;
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
   const active = activePlayer(state);
   log(
@@ -595,6 +597,7 @@ function rollDice(state: GameState, count: number): void {
  */
 export function applyForcedRoll(state: GameState, dice: number[]): void {
   state.dice = dice.slice();
+  state.rollId++;
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
   log(state, 'log.roll', {
     player: activePlayer(state).name,

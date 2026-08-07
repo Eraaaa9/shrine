@@ -61,6 +61,8 @@ export interface GameState {
   turnCount: number;
   phase: Phase;
   dice: number[];
+  /** Bumped on every throw so the client can animate a reroll of the same faces. */
+  rollId: number;
   /** Dice total after an optional Harbor +2. */
   diceTotal: number;
   harborBonusUsed: boolean;

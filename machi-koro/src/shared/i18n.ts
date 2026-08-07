@@ -496,6 +496,11 @@ const EN: Record<string, string> = {
   'ui.investedTitle': '{n} invested in the Tech Startup',
   'ui.closedForRenovation': '({n} closed for renovation)',
 
+  // spoken to screen readers; the dice and the log are otherwise just glyphs
+  'ui.logLabel': 'Game log',
+  'ui.diceRolling': 'Rolling the dice…',
+  'ui.diceRolled': 'Rolled {dice} — total {total}',
+
   'ui.phase.roll': '{player} is rolling',
   'ui.phase.reroll': '{player} may re-roll (Radio Tower)',
   'ui.phase.harbor': '{player} may use the Harbor',
@@ -715,6 +720,11 @@ const RU: Record<string, string> = {
   'ui.investedTitle': 'вложено в Технологический стартап: {n}',
   'ui.closedForRenovation': '(закрыто на ремонт: {n})',
 
+  // spoken to screen readers; the dice and the log are otherwise just glyphs
+  'ui.logLabel': 'Журнал игры',
+  'ui.diceRolling': 'Кубики брошены…',
+  'ui.diceRolled': 'Выпало {dice} — сумма {total}',
+
   'ui.phase.roll': '{player} бросает кубики',
   'ui.phase.reroll': '{player} может перебросить (Телебашня)',
   'ui.phase.harbor': '{player} может использовать Гавань',
@@ -933,6 +943,11 @@ const KK: Record<string, string> = {
   'ui.paidToBuild': 'салғаныңыз үшін сізге төлейді',
   'ui.investedTitle': 'Технологиялық стартапқа салынғаны: {n}',
   'ui.closedForRenovation': '(жөндеуге жабылғаны: {n})',
+
+  // spoken to screen readers; the dice and the log are otherwise just glyphs
+  'ui.logLabel': 'Ойын журналы',
+  'ui.diceRolling': 'Кубиктер тасталуда…',
+  'ui.diceRolled': '{dice} түсті — жиынтығы {total}',
 
   'ui.phase.roll': '{player} кубик тастап жатыр',
   'ui.phase.reroll': '{player} қайта тастай алады (Телемұнара)',

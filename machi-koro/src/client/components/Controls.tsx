@@ -4,8 +4,7 @@ import { landmarkName, landmarkText, type Lang } from '../../shared/i18n';
 import type { ClientMessage } from '../../shared/protocol';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
 import { useLang } from '../lang';
-
-const DIE_FACE = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+import DiceTray from './DiceTray';
 
 interface Props {
   game: GameState;
@@ -37,14 +36,7 @@ export default function Controls({ game, you, yourTurn, isHost, act, send }: Pro
 
   return (
     <div className="controls">
-      <div className="dice-tray">
-        {game.dice.map((d, i) => (
-          <span key={i} className="die-face">
-            {DIE_FACE[d]}
-          </span>
-        ))}
-        {game.dice.length > 0 && <span className="dice-total">{game.diceTotal}</span>}
-      </div>
+      <DiceTray dice={game.dice} total={game.diceTotal} rollId={game.rollId} />
 
       <div className="actions">
         {game.phase === 'over' ? (
