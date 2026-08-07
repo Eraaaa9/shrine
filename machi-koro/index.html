@@ -5,6 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#141821" />
     <title>Machi Koro</title>
+    <meta
+      name="description"
+      content="Roll dice, build your city, beat your friends to all the landmarks. Play Machi Koro online with up to 5 friends — base game, Harbor and Millionaire's Row."
+    />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!--
+      The share card is deliberately language-neutral: a scraper fetching an
+      invite link has no localStorage and sends no useful Accept-Language, so
+      there is nothing to localise against. The app itself switches language on
+      load. Image paths are root-relative — resolved against the invite link by
+      every scraper we care about, and correct whatever host the server runs on,
+      which a hardcoded absolute URL would not be.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Machi Koro" />
+    <meta property="og:title" content="Machi Koro — play online with friends" />
+    <meta
+      property="og:description"
+      content="Roll dice, build your city, beat your friends to all the landmarks. Up to 5 players, no sign-up."
+    />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A die beside the words Machi Koro" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:locale:alternate" content="ru" />
+    <meta property="og:locale:alternate" content="kk" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
