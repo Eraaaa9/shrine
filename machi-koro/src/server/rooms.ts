@@ -6,6 +6,7 @@ import { activePlayer, applyAction, createGame, demolishable, tradeableCards } f
 import type { ChatLine, RoomView, ServerMessage } from '../shared/protocol';
 import { MIN_PLAYERS } from '../shared/protocol';
 import type { GameAction, GameState } from '../shared/types';
+import { readSnapshot, stateFile, writeSnapshot, type RoomSnapshot } from './store';
 
 /** How long a bot "thinks" before acting, so humans can follow along. */
 const BOT_DELAY_MS = 1100;
@@ -13,6 +14,8 @@ const BOT_DELAY_MS = 1100;
 const AUTOPLAY_AFTER_MS = 45_000;
 const ROOM_IDLE_MS = 3 * 60 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** Saves are batched: a busy turn touches the room several times in a few ms. */
+const SAVE_DEBOUNCE_MS = 1500;
 
 export interface Seat {
   id: string;
@@ -36,6 +39,40 @@ export class Room {
 
   constructor(code: string) {
     this.code = code;
+  }
+
+  // -- persistence ---------------------------------------------------------
+
+  snapshot(): RoomSnapshot {
+    return {
+      code: this.code,
+      hostId: this.hostId,
+      rules: this.rules,
+      seats: this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot, token: s.token })),
+      game: this.game,
+      chat: this.chat,
+      nextChatId: this.nextChatId,
+      lastActivity: this.lastActivity,
+    };
+  }
+
+  static restore(snap: RoomSnapshot): Room {
+    const room = new Room(snap.code);
+    room.hostId = snap.hostId;
+    room.rules = snap.rules;
+    room.game = snap.game;
+    room.chat = snap.chat;
+    room.nextChatId = snap.nextChatId;
+    room.lastActivity = snap.lastActivity;
+    room.seats = snap.seats.map((s) => ({
+      ...s,
+      socket: null,
+      // Everyone is disconnected after a restart. Dating that to now rather than
+      // to the save gives players the full grace period to come back before a
+      // stalled turn is auto-played.
+      disconnectedAt: Date.now(),
+    }));
+    return room;
   }
 
   // -- seats ---------------------------------------------------------------
@@ -206,10 +243,14 @@ export class Room {
       if (seat.socket && seat.socket.readyState === 1) seat.socket.send(payload);
     }
     this.scheduleAuto();
+    // Every state change ends in a broadcast, so this is the one hook that
+    // cannot be forgotten when a new message type is added.
+    markDirty();
   }
 
   touch(): void {
     this.lastActivity = Date.now();
+    markDirty();
   }
 
   dispose(): void {
@@ -256,6 +297,50 @@ function fallbackAction(state: GameState): GameAction {
 
 const rooms = new Map<string, Room>();
 
+let saveTimer: NodeJS.Timeout | null = null;
+
+function markDirty(): void {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    saveRooms();
+  }, SAVE_DEBOUNCE_MS);
+  // Never hold the process open just to write a save.
+  saveTimer.unref();
+}
+
+/** Write the registry out now, cancelling any batched save. */
+export function saveRooms(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  writeSnapshot([...rooms.values()].map((room) => room.snapshot()));
+}
+
+/**
+ * Rebuild the registry from disk. Rooms that were already past their idle
+ * cut-off when the server went down are dropped rather than resurrected.
+ */
+export function loadRooms(): void {
+  const now = Date.now();
+  let expired = 0;
+  for (const snap of readSnapshot()) {
+    if (now - snap.lastActivity > ROOM_IDLE_MS) {
+      expired++;
+      continue;
+    }
+    rooms.set(snap.code, Room.restore(snap));
+  }
+  if (rooms.size > 0 || expired > 0) {
+    const games = [...rooms.values()].filter((r) => r.game && r.game.phase !== 'over').length;
+    console.log(
+      `Restored ${rooms.size} room(s), ${games} mid-game, from ${stateFile()}` +
+        (expired > 0 ? ` (${expired} expired)` : '')
+    );
+  }
+}
+
 export function createRoom(): Room {
   let code = '';
   do {
@@ -263,6 +348,7 @@ export function createRoom(): Room {
   } while (rooms.has(code));
   const room = new Room(code);
   rooms.set(code, room);
+  markDirty();
   return room;
 }
 
@@ -276,11 +362,14 @@ export function roomCount(): number {
 
 export function sweepRooms(): void {
   const now = Date.now();
+  let swept = 0;
   for (const [code, room] of rooms) {
     const empty = room.connectedCount === 0 && now - room.lastActivity > 10 * 60 * 1000;
     if (empty || now - room.lastActivity > ROOM_IDLE_MS) {
       room.dispose();
       rooms.delete(code);
+      swept++;
     }
   }
+  if (swept > 0) markDirty();
 }

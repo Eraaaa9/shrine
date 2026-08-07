@@ -1,3 +1,5 @@
 node_modules/
 dist/
 *.log
+# Saved rooms — runtime state, not source.
+.data/

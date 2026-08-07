@@ -127,13 +127,21 @@ during the simulated games are checked on top of that.
   economy is running.
 - If somebody disappears mid-game, their turn is auto-played after 45 seconds so the game never
   stalls. Clicking Leave hands the seat to a bot for good.
+- Rooms survive a server restart. The registry is written to `.data/rooms.json` (override with
+  `MACHI_KORO_STATE`) a beat after each change and flushed on `SIGINT`/`SIGTERM`, so redeploying
+  mid-game costs at most the last second of play — clients reconnect on their own and carry the
+  token that gets them their seat back. Rooms already past their idle cut-off are not resurrected.
+  A missing, corrupt or older-format file is reported and ignored rather than fatal, so the server
+  always boots.
 
 ## Development
 
 ```bash
-npm run dev        # Vite on :5173 with hot reload, game server on :8080
-npm run simulate   # rule tests + bot-vs-bot games with invariant checks
-npm run typecheck  # tsc --noEmit
+npm run dev           # Vite on :5173 with hot reload, game server on :8080
+npm run simulate      # rule tests + bot-vs-bot games with invariant checks
+npm run test:restart  # kills and restarts a real server, checks a game survives
+npm run typecheck     # tsc --noEmit
+npm run icons         # redraw public/og.png and the app icons
 ```
 
 `npm run simulate 200` plays 200 games for each expansion combination. It checks coin and card
@@ -150,7 +158,10 @@ src/shared/    cards.ts   card + landmark data (costs, activation numbers, effec
                simulate.ts rule tests + full-game simulation
 src/server/    index.ts   express + WebSocket endpoint, message handling
                rooms.ts   room registry, seats, reconnection, bot scheduling
+               store.ts   rooms on disk, so a restart does not drop games
 src/client/    React UI (board, player panels, controls, choice modals, log, chat)
+scripts/       make-og.mjs    draws the share card and app icons
+               test-restart.mjs  restart-persistence test
 ```
 
 The engine is pure TypeScript with no dependencies and no I/O, which is why the same code runs on

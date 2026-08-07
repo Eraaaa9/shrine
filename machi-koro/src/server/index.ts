@@ -9,7 +9,7 @@ import { describeRules, maxPlayers, normaliseRules } from '../shared/cards';
 import type { Params } from '../shared/i18n';
 import type { ClientMessage, ServerMessage } from '../shared/protocol';
 import { MIN_PLAYERS } from '../shared/protocol';
-import { createRoom, getRoom, roomCount, sweepRooms, type Room, type Seat } from './rooms';
+import { createRoom, getRoom, loadRooms, roomCount, saveRooms, sweepRooms, type Room, type Seat } from './rooms';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -248,6 +248,20 @@ wss.on('connection', (ws) => {
 });
 
 setInterval(sweepRooms, 10 * 60 * 1000).unref();
+
+loadRooms();
+
+// A batched save may still be pending, and the rooms only live in memory.
+let shuttingDown = false;
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    saveRooms();
+    server.close();
+    process.exit(0);
+  });
+}
 
 server.listen(PORT, () => {
   const urls = ['localhost', ...lanAddresses()].map((host) => `  http://${host}:${PORT}`);
