@@ -632,13 +632,15 @@ function translationTests(): void {
       check(`${lang}: log key ${key} is translated`, hasTranslation(lang, key));
     }
   }
-  for (const card of cardsFor(BRIGHT)) {
-    check(`ru: ${card.name} has a name`, cardName('ru', card.id) !== card.name);
-    check(`ru: ${card.name} has rules text`, cardText('ru', card.id) !== card.text);
-  }
-  for (const l of landmarksFor(BRIGHT)) {
-    check(`ru: ${l.name} has a name`, landmarkName('ru', l.id) !== l.name);
-    check(`ru: ${l.name} has rules text`, landmarkText('ru', l.id) !== l.text);
+  for (const lang of LANGS.filter((l) => l !== 'en')) {
+    for (const card of cardsFor(BRIGHT)) {
+      check(`${lang}: ${card.name} has a name`, cardName(lang, card.id) !== card.name);
+      check(`${lang}: ${card.name} has rules text`, cardText(lang, card.id) !== card.text);
+    }
+    for (const l of landmarksFor(BRIGHT)) {
+      check(`${lang}: ${l.name} has a name`, landmarkName(lang, l.id) !== l.name);
+      check(`${lang}: ${l.name} has rules text`, landmarkText(lang, l.id) !== l.text);
+    }
   }
   const shown = t('ru', 'log.turn', { n: 3, player: 'Аня', coins: 1 });
   check('ru: coin plural for 1', shown.includes('1 монета'), shown);
@@ -652,6 +654,15 @@ function translationTests(): void {
       t('ru', 'log.buy', { player: 'Аня', card: 'winery', cost: 3 }).includes('Винодельня')
   );
   check('ru: rules code expands', t('ru', 'log.gameOn', { rules: 'base+harbor' }).includes('Гавань'));
+
+  const kkTurn = t('kk', 'log.turn', { n: 3, player: 'Аружан', coins: 1 });
+  check('kk: coin word for 1', kkTurn.includes('1 монета'), kkTurn);
+  check('kk: coin word stays singular', t('kk', 'log.turn', { n: 1, player: 'A', coins: 5 }).includes('5 монета'));
+  check(
+    'kk: card names resolve inside log lines',
+    t('kk', 'log.buy', { player: 'Аружан', card: 'winery', cost: 3 }).includes('Шарап зауыты')
+  );
+  check('kk: rules code expands', t('kk', 'log.gameOn', { rules: 'base+harbor' }).includes('Айлақ'));
   console.log(failures === beforeTranslations ? '  passed' : `  ${failures - beforeTranslations} failed`);
 }
 

@@ -10,7 +10,10 @@ function detect(): Lang {
   } catch {
     /* private browsing */
   }
-  return navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  const browser = navigator.language?.toLowerCase() ?? '';
+  if (browser.startsWith('kk')) return 'kk';
+  if (browser.startsWith('ru')) return 'ru';
+  return 'en';
 }
 
 interface LangValue {

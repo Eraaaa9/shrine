@@ -99,18 +99,19 @@ Demolition Company all have to be resolved when they trigger, as printed. If a c
 impossible mid-turn — a second Demolition Company after you knocked your only landmark down — the
 game skips it and says so in the log.
 
-## Languages / Языки
+## Languages / Языки / Тілдер
 
-The game is fully translated into Russian — interface, card names and rules text, the game log and
-every error message. The switch is the EN/RU control in the corner; it defaults to the browser's
-language and is remembered per device.
+The game is fully translated into Russian and Kazakh — interface, card names and rules text, the
+game log and every error message. The switch is the EN/RU/KK control in the corner; it defaults to
+the browser's language and is remembered per device.
 
 Log lines are stored as message keys with parameters rather than finished sentences, so each player
 reads the same game in their own language — and flipping the switch re-renders the whole history,
 including turns that happened before. Player names are never translated.
 
 To add another language, copy the `RU` table in `src/shared/i18n.ts` along with `CARDS_RU` /
-`LANDMARKS_RU`, and add the code to `LANGS`. `npm run simulate` fails if any message key emitted
+`LANDMARKS_RU`, register them in `CARD_TABLES` / `LANDMARK_TABLES` / `TABLES` / `LANDMARK_SHORT`,
+and add the code to `LANGS`. `npm run simulate` fails if any message key emitted
 during play is missing from a language, and the card and landmark tables are typed per id, so a
 missing card translation is a compile error.
 

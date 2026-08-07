@@ -4,9 +4,9 @@
  */
 import { CARD_BY_ID, LANDMARK_BY_ID, type CardId, type LandmarkId, type RuleSet } from './cards';
 
-export type Lang = 'en' | 'ru';
-export const LANGS: Lang[] = ['en', 'ru'];
-export const LANG_NAMES: Record<Lang, string> = { en: 'English', ru: 'Русский' };
+export type Lang = 'en' | 'ru' | 'kk';
+export const LANGS: Lang[] = ['en', 'ru', 'kk'];
+export const LANG_NAMES: Record<Lang, string> = { en: 'English', ru: 'Русский', kk: 'Қазақша' };
 
 export type Params = Record<string, string | number>;
 
@@ -124,6 +124,116 @@ const CARDS_RU: Record<CardId, { name: string; text: string }> = {
   },
 };
 
+const CARDS_KK: Record<CardId, { name: string; text: string }> = {
+  wheat_field: { name: 'Бидай алқабы', text: 'Банктен 1 монета алыңыз. (кез келген жүрісте)' },
+  ranch: { name: 'Мал шаруашылығы', text: 'Банктен 1 монета алыңыз. (кез келген жүрісте)' },
+  bakery: { name: 'Наубайхана', text: 'Банктен 1 монета алыңыз. (тек өз жүрісіңізде)' },
+  cafe: { name: 'Кафе', text: 'Кубик тастаған ойыншыдан 1 монета алыңыз.' },
+  convenience_store: { name: 'Шағын дүкен', text: 'Банктен 3 монета алыңыз. (тек өз жүрісіңізде)' },
+  forest: { name: 'Орман', text: 'Банктен 1 монета алыңыз. (кез келген жүрісте)' },
+  stadium: { name: 'Стадион', text: 'Әр қарсыласыңыздан 2 монетадан алыңыз. (тек өз жүрісіңізде)' },
+  tv_station: { name: 'Телестудия', text: 'Таңдаған кез келген ойыншыдан 5 монета алыңыз. (тек өз жүрісіңізде)' },
+  business_center: {
+    name: 'Бизнес-орталық',
+    text: 'Өзіңіздің ірі емес кәсіпорныңызды басқа ойыншының кәсіпорнына айырбастаңыз. (тек өз жүрісіңізде)',
+  },
+  cheese_factory: {
+    name: 'Ірімшік зауыты',
+    text: 'Сиыр белгісі бар әр кәсіпорныңыз үшін банктен 3 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  furniture_factory: {
+    name: 'Жиһаз фабрикасы',
+    text: 'Тісті доңғалақ белгісі бар әр кәсіпорныңыз үшін банктен 3 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  mine: { name: 'Кеніш', text: 'Банктен 5 монета алыңыз. (кез келген жүрісте)' },
+  family_restaurant: { name: 'Отбасылық мейрамхана', text: 'Кубик тастаған ойыншыдан 2 монета алыңыз.' },
+  apple_orchard: { name: 'Алма бағы', text: 'Банктен 3 монета алыңыз. (кез келген жүрісте)' },
+  farmers_market: {
+    name: 'Көкөніс базары',
+    text: 'Бидай белгісі бар әр кәсіпорныңыз үшін банктен 2 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+
+  sushi_bar: { name: 'Суши-бар', text: 'Айлағыңыз болса: кубик тастаған ойыншыдан 3 монета алыңыз.' },
+  flower_orchard: { name: 'Гүл бағы', text: 'Банктен 1 монета алыңыз. (кез келген жүрісте)' },
+  flower_shop: {
+    name: 'Гүл дүкені',
+    text: 'Әр Гүл бағыңыз үшін банктен 1 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  pizza_joint: { name: 'Пиццерия', text: 'Кубик тастаған ойыншыдан 1 монета алыңыз.' },
+  publisher: {
+    name: 'Баспа',
+    text: 'Әр ойыншыдан наубайхана және шыныаяқ белгісі бар әр кәсіпорны үшін 1 монетадан алыңыз. (тек өз жүрісіңізде)',
+  },
+  hamburger_stand: { name: 'Бургер дүңгіршегі', text: 'Кубик тастаған ойыншыдан 1 монета алыңыз.' },
+  mackerel_boat: { name: 'Скумбрия қайығы', text: 'Айлағыңыз болса: банктен 3 монета алыңыз. (кез келген жүрісте)' },
+  tax_office: {
+    name: 'Салық басқармасы',
+    text: '10 немесе одан көп монетасы бар әр ойыншыдан жартысын алыңыз (кемітіп дөңгелектеңіз). (тек өз жүрісіңізде)',
+  },
+  food_warehouse: {
+    name: 'Азық-түлік қоймасы',
+    text: 'Шыныаяқ белгісі бар әр кәсіпорныңыз үшін банктен 2 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  tuna_boat: {
+    name: 'Тунец қайығы',
+    text: 'Айлағыңыз болса: кез келген жүрісте 2 кубик бір рет тасталады, әр Тунец қайығының иесі сонша монета алады. (кез келген жүрісте)',
+  },
+
+  general_store: {
+    name: 'Әмбебап дүкен',
+    text: 'Салынған көрнекті нысаныңыз 2-ден аз болса, банктен 2 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  corn_field: {
+    name: 'Жүгері алқабы',
+    text: 'Салынған көрнекті нысаныңыз 2-ден аз болса, банктен 1 монета алыңыз. (кез келген жүрісте)',
+  },
+  demolition_company: {
+    name: 'Бұзу компаниясы',
+    text: 'Өзіңіздің бір көрнекті нысаныңызды бұзып, банктен 8 монета алуға міндеттісіз. (тек өз жүрісіңізде)',
+  },
+  french_restaurant: {
+    name: 'Француз мейрамханасы',
+    text: 'Кубик тастаған ойыншының салынған көрнекті нысаны 2 немесе одан көп болса, одан 5 монета алыңыз.',
+  },
+  loan_office: {
+    name: 'Несие кеңсесі',
+    text: 'Салған кезде 5 монета алыңыз. Әр іске қосылғанда банкке 2 монета төлеңіз. (тек өз жүрісіңізде)',
+  },
+  vineyard: { name: 'Жүзімдік', text: 'Банктен 3 монета алыңыз. (кез келген жүрісте)' },
+  renovation_company: {
+    name: 'Жөндеу компаниясы',
+    text: 'Бір кәсіпорынның барлық көшірмесін жөндеуге жабыңыз да, әр қарсыласыңыздан жабылған әр ғимараты үшін 1 монетадан алыңыз. (тек өз жүрісіңізде)',
+  },
+  winery: {
+    name: 'Шарап зауыты',
+    text: 'Әр Жүзімдігіңіз үшін банктен 6 монета алыңыз, содан соң бұл кәсіпорынды жөндеуге жабыңыз. (тек өз жүрісіңізде)',
+  },
+  moving_company: {
+    name: 'Көлік компаниясы',
+    text: 'Ірі емес кәсіпорныңызды қарсыласыңызға беріп, банктен 4 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  tech_startup: {
+    name: 'Технологиялық стартап',
+    text: 'Әр қарсыласыңыздан стартапқа салынған сома көлемінде монета алыңыз. Әр жүрісіңіздің соңында тағы 1 монета сала аласыз. (тек өз жүрісіңізде)',
+  },
+  exhibit_hall: {
+    name: 'Көрме залы',
+    text: 'Оның орнына өзіңіздің бір ірі емес кәсіпорныңызды іске қоса аласыз; іске қоссаңыз, бұл картаны қорға қайтарыңыз. (тек өз жүрісіңізде)',
+  },
+  soda_bottling_plant: {
+    name: 'Сусын зауыты',
+    text: 'Барлық ойыншының шыныаяқ белгісі бар әр кәсіпорны үшін банктен 1 монета алыңыз. (тек өз жүрісіңізде)',
+  },
+  park: {
+    name: 'Саябақ',
+    text: 'Барлық ойыншының монеталарын тең бөліңіз, жетпегенін банктен толықтырыңыз. (тек өз жүрісіңізде)',
+  },
+  members_club: {
+    name: 'Жабық клуб',
+    text: 'Кубик тастаған ойыншының салынған көрнекті нысаны 3 немесе одан көп болса, оның барлық монетасын алыңыз.',
+  },
+};
+
 const LANDMARKS_RU: Record<LandmarkId, { name: string; text: string }> = {
   city_hall: {
     name: 'Мэрия',
@@ -137,20 +247,44 @@ const LANDMARKS_RU: Record<LandmarkId, { name: string; text: string }> = {
   airport: { name: 'Аэропорт', text: 'Если вы ничего не построили в свой ход, получите 10 монет из банка.' },
 };
 
+const LANDMARKS_KK: Record<LandmarkId, { name: string; text: string }> = {
+  city_hall: {
+    name: 'Әкімдік',
+    text: 'Табыс алғаннан кейін монетаңыз болмаса, банктен 1 монета алыңыз. Көрнекті нысан болып саналмайды.',
+  },
+  harbor: { name: 'Айлақ', text: 'Кубиктерде 10 немесе одан көп түссе, нәтижеге 2 қоса аласыз.' },
+  train_station: { name: 'Вокзал', text: '2 кубик тастай аласыз.' },
+  shopping_mall: { name: 'Сауда орталығы', text: 'Наубайхана және шыныаяқ белгісі бар әр кәсіпорныңыз +1 монета әкеледі.' },
+  amusement_park: { name: 'Ойын-сауық саябағы', text: 'Бірдей сан түссе, осыдан кейін тағы бір жүріс жасаңыз.' },
+  radio_tower: { name: 'Телемұнара', text: 'Жүрісіне бір рет кубиктерді қайта тастай аласыз.' },
+  airport: { name: 'Әуежай', text: 'Өз жүрісіңізде ештеңе салмасаңыз, банктен 10 монета алыңыз.' },
+};
+
+/** Card and landmark tables per language; English lives on the card definitions. */
+const CARD_TABLES: Partial<Record<Lang, Record<CardId, { name: string; text: string }>>> = {
+  ru: CARDS_RU,
+  kk: CARDS_KK,
+};
+
+const LANDMARK_TABLES: Partial<Record<Lang, Record<LandmarkId, { name: string; text: string }>>> = {
+  ru: LANDMARKS_RU,
+  kk: LANDMARKS_KK,
+};
+
 export function cardName(lang: Lang, id: CardId): string {
-  return lang === 'ru' ? CARDS_RU[id]?.name ?? CARD_BY_ID[id].name : CARD_BY_ID[id].name;
+  return CARD_TABLES[lang]?.[id]?.name ?? CARD_BY_ID[id].name;
 }
 
 export function cardText(lang: Lang, id: CardId): string {
-  return lang === 'ru' ? CARDS_RU[id]?.text ?? CARD_BY_ID[id].text : CARD_BY_ID[id].text;
+  return CARD_TABLES[lang]?.[id]?.text ?? CARD_BY_ID[id].text;
 }
 
 export function landmarkName(lang: Lang, id: LandmarkId): string {
-  return lang === 'ru' ? LANDMARKS_RU[id]?.name ?? LANDMARK_BY_ID[id].name : LANDMARK_BY_ID[id].name;
+  return LANDMARK_TABLES[lang]?.[id]?.name ?? LANDMARK_BY_ID[id].name;
 }
 
 export function landmarkText(lang: Lang, id: LandmarkId): string {
-  return lang === 'ru' ? LANDMARKS_RU[id]?.text ?? LANDMARK_BY_ID[id].text : LANDMARK_BY_ID[id].text;
+  return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id].text;
 }
 
 /** Short label for the landmark chips, where space is tight. */
@@ -172,6 +306,15 @@ const LANDMARK_SHORT: Record<Lang, Record<LandmarkId, string>> = {
     amusement_park: 'Аттракционы',
     radio_tower: 'Телебашня',
     airport: 'Аэропорт',
+  },
+  kk: {
+    city_hall: 'Әкімдік',
+    harbor: 'Айлақ',
+    train_station: 'Вокзал',
+    shopping_mall: 'СО',
+    amusement_park: 'Саябақ',
+    radio_tower: 'Телемұнара',
+    airport: 'Әуежай',
   },
 };
 
@@ -628,16 +771,236 @@ const RU: Record<string, string> = {
   'ui.closedList': 'Закрыто на ремонт: {cards}',
 };
 
-const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU };
+const KK: Record<string, string> = {
+  'rules.base': 'негізгі ойын',
+  'rules.harbor': 'Айлақ',
+  'rules.millionaires': 'Миллионерлер көшесі',
+
+  // log
+  'log.gameOn': 'Ойын басталды — {rules}.',
+  'log.turnOrder': 'Жүріс кезегі: {order}.',
+  'log.variableSupply': 'Ауыспалы қор: бір мезгілде {n} үйінді қолжетімді.',
+  'log.turn': '— {n}-жүріс: {player} ({coins} {coinsWord}) —',
+  'log.roll': '{player} кубик тастады: {dice} = {total}',
+  'log.tunaRoll': 'Тунец қайығының тастауы: {total}.',
+  'log.redTake': '{player} {from} ойыншысынан {amount} алады — {card}{times}',
+  'log.redTakeBroke': '{player} {from} ойыншысынан {amount} алады — {card}{times} ({from} ойыншысында монета қалмады)',
+  'log.gets': '{player} {amount} алады — {card}{times}',
+  'log.pays': '{player} банкке {amount} төлейді — {card}{times}',
+  'log.getsVia': '{player} {amount} алады — {card} (Көрме залы арқылы)',
+  'log.paysVia': '{player} {amount} төлейді — {card} (Көрме залы арқылы)',
+  'log.activatesNothing': '{player} {card} картасын босқа іске қосады.',
+  'log.reopens': '{player} ойыншысының {card}{times} картасы жөндеуден кейін қайта ашылды.',
+  'log.wineryCloses': '{player} ойыншысының Шарап зауыты жөндеуге жабылады.',
+  'log.stadium': '{player} бәрінен {amount} жинайды — Стадион',
+  'log.publisher': '{player} {amount} жинайды — Баспа',
+  'log.taxOffice': '{player} {amount} жинайды — Салық басқармасы',
+  'log.techStartup': '{player} {amount} жинайды — Технологиялық стартап (салынғаны {invested})',
+  'log.techNoInvestment': 'Технологиялық стартапқа әзірге ештеңе салынған жоқ.',
+  'log.tvNobody': 'Телестудия: монета алатын ешкім жоқ.',
+  'log.bcNoSwap': 'Бизнес-орталық: айырбастайтын кәсіпорын жоқ.',
+  'log.exhibitNothing': 'Көрме залы: іске қосатын ештеңе жоқ.',
+  'log.park': 'Саябақ монеталарды тең бөледі — енді әрқайсысында {each}.',
+  'log.cityHall': '{player} 1 монета алады — Әкімдік',
+  'log.doubles': '{player} бірдей сан тастады — Ойын-сауық саябағы тағы бір жүріс береді.',
+  'log.harborUsed': '{player} Айлақты пайдаланады: жиынтық {total} болды.',
+  'log.reroll': '{player} Телемұнараны пайдаланып, кубиктерді қайта тастайды.',
+  'log.tvTake': '{player} {target} ойыншысынан {amount} алады — Телестудия',
+  'log.trade': '{player} {card} картасын {target} ойыншысының {card2} картасына айырбастайды — Бизнес-орталық',
+  'log.demolish': '{player} {landmark} нысанын бұзып, 8 алады — Бұзу компаниясы',
+  'log.noDemolish': '{player} ойыншысында бұзатын көрнекті нысан жоқ.',
+  'log.moving': '{player} {card} картасын {target} ойыншысына беріп, 4 алады — Көлік компаниясы',
+  'log.noMoving': '{player} ойыншысында Көлік компаниясы тасымалдайтын кәсіпорын жоқ.',
+  'log.renovation': '{player} {count} × {card} кәсіпорнын жөндеуге жауып, {amount} жинайды — Жөндеу компаниясы',
+  'log.exhibitKeep': '{player} Көрме залын өзінде қалдырады.',
+  'log.exhibitReturn': '{player} Көрме залын қорға қайтарады.',
+  'log.invest': '{player} Технологиялық стартапқа 1 монета салады (барлығы {total}).',
+  'log.buy': '{player} {card} картасын {cost} монетаға сатып алады.',
+  'log.buyPaid': '{player} {card} картасын алып, {amount} алады.',
+  'log.buildLandmark': '{player} {landmark} нысанын {cost} монетаға салады!',
+  'log.passAirport': '{player} ештеңе салмайды және 10 алады — Әуежай',
+  'log.pass': '{player} ештеңе салмайды.',
+  'log.win': '🏆 {player} қаласын аяқтап, жеңіске жетті!',
+  'log.skipChoice': '{player} ойыншысында таңдау қалмады — өткізіледі.',
+  'log.away': '{player} орнында жоқ — жүріс автоматты түрде ойналады.',
+  'log.leftForBot': '{player} шықты — оның орнына бот ойнайды.',
+
+  // errors
+  'err.gameOver': 'Ойын аяқталды.',
+  'err.notYourTurn': 'Қазір сіздің жүрісіңіз емес.',
+  'err.alreadyRolled': 'Сіз кубиктерді тастап қойдыңыз.',
+  'err.rollOneOrTwo': '1 немесе 2 кубик тастаңыз.',
+  'err.needTrainStation': '2 кубик тастау үшін Вокзал керек.',
+  'err.nothingToReroll': 'Қазір қайта тастайтын ештеңе жоқ.',
+  'err.harborNotNow': 'Қазір Айлақты пайдалануға болмайды.',
+  'err.tvNotWaiting': 'Телестудия қазір сіздің шешіміңізді күтіп тұрған жоқ.',
+  'err.unknownPlayer': 'Белгісіз ойыншы.',
+  'err.pickAnother': 'Басқа ойыншыны таңдаңыз.',
+  'err.bcNotWaiting': 'Бизнес-орталық қазір сіздің шешіміңізді күтіп тұрған жоқ.',
+  'err.noMajorSwap': 'Ірі кәсіпорындарды айырбастауға болмайды.',
+  'err.dontOwn': 'Сізде ондай кәсіпорын жоқ.',
+  'err.theyDontOwn': 'Онда ондай кәсіпорын жоқ.',
+  'err.nothingToDemolish': 'Қазір бұзатын ештеңе жоқ.',
+  'err.notBuilt': 'Бұл көрнекті нысан сізде салынбаған.',
+  'err.movingNotWaiting': 'Көлік компаниясы қазір сіздің шешіміңізді күтіп тұрған жоқ.',
+  'err.noMajorMove': 'Ірі кәсіпорындарды беруге болмайды.',
+  'err.renovationNotWaiting': 'Жөндеу компаниясы қазір сіздің шешіміңізді күтіп тұрған жоқ.',
+  'err.chooseNonMajor': 'Ірі емес кәсіпорынды таңдаңыз.',
+  'err.cardNotInGame': 'Бұл карта осы ойында жоқ.',
+  'err.exhibitNotWaiting': 'Көрме залы қазір сіздің шешіміңізді күтіп тұрған жоқ.',
+  'err.cannotActivate': 'Бұл картаны іске қосуға болмайды.',
+  'err.noInvest': 'Қазір салатын ештеңе жоқ.',
+  'err.noCoinToInvest': 'Сізде салуға монета жоқ.',
+  'err.cannotBuildNow': 'Қазір салуға болмайды.',
+  'err.cannotBuy': 'Мұны сатып алуға болмайды.',
+  'err.cannotBuildLandmark': 'Бұл көрнекті нысанды салуға болмайды.',
+  'err.cannotPass': 'Қазір өткізуге болмайды.',
+  'err.unknownAction': 'Белгісіз әрекет.',
+  'err.roomNotFound': 'Мұндай коды бар бөлме жоқ.',
+  'err.gameInProgress': 'Бұл ойын жүріп жатыр. Қайта қосылу сілтемесін сұраңыз немесе келесі партияны күтіңіз.',
+  'err.roomFull': 'Бөлмеде бос орын жоқ.',
+  'err.roomGone': 'Бұл бөлме енді жоқ.',
+  'err.seatGone': 'Бұл бөлмедегі орныңыз енді жоқ.',
+  'err.notInRoom': 'Сіз бөлмеде емессіз.',
+  'err.hostOnly': 'Мұны тек хост жасай алады.',
+  'err.gameRunning': 'Ойын әлдеқашан жүріп жатыр.',
+  'err.tooManyForRules': 'Бұл теңшеуде тек {max} ойыншы сыяды — біреуін алып тастаңыз.',
+  'err.noSuchPlayer': 'Мұндай ойыншы жоқ.',
+  'err.hostCannotBeRemoved': 'Хостты алып тастауға болмайды.',
+  'err.needPlayers': 'Кемінде {min} ойыншы қажет.',
+  'err.finishFirst': 'Алдымен осы партияны аяқтаңыз.',
+  'err.alreadyStarted': 'Ойын басталып кетті.',
+  'err.notStarted': 'Ойын әлі басталған жоқ.',
+  'err.malformed': 'Қате хабарлама.',
+  'err.serverError': 'Серверде бірдеңе дұрыс болмады.',
+  'err.unknownMessage': 'Белгісіз хабарлама.',
+
+  // interface
+  'ui.title': 'Мачи Коро',
+  'ui.tagline': 'Кубик тастаңыз, қала салыңыз және көрнекті нысандар жарысында достарыңызды озып кетіңіз.',
+  'ui.yourName': 'Атыңыз',
+  'ui.playerPlaceholder': 'Ойыншы',
+  'ui.startGame': 'Партия құру',
+  'ui.createRoom': 'Бөлме құру',
+  'ui.joinGame': 'Ойынға қосылу',
+  'ui.code': 'КОД',
+  'ui.joinRoom': 'Бөлмеге кіру',
+  'ui.fineprint': 'Үстел ойынының жеке партияларға арналған әуесқой нұсқасы. Тек ережелер — түпнұсқа суреттер мен мәтіндерсіз.',
+  'ui.connecting': 'Қосылуда…',
+  'ui.connectionLost': 'Байланыс үзілді — қайта қосылудамыз…',
+
+  'ui.harborName': '«Айлақ» толықтыруы',
+  'ui.harborBlurb': 'Қайықтар, Әкімдік, Әуежай және бесінші орын',
+  'ui.rowName': 'Миллионерлер көшесі',
+  'ui.rowBlurb': 'Шарап зауыттары, бұзу, жөндеу, Технологиялық стартап',
+  'ui.supplyName': 'Ауыспалы қор',
+  'ui.supplyBlurb': 'Бір мезгілде тек 10 түрлі карта қолжетімді, үйінділер колодадан толықтырылады',
+  'ui.on': 'қосулы',
+  'ui.off': 'өшірулі',
+  'ui.rulesSummary': 'кәсіпорын: {cards} · жеңіске қажет көрнекті нысан: {landmarks} · {players} ойыншыға дейін',
+
+  'ui.room': '{code} бөлмесі',
+  'ui.leave': 'Шығу',
+  'ui.inviteHint': 'Бұл сілтемені достарыңызға жіберіңіз:',
+  'ui.copy': 'Көшіру',
+  'ui.copied': 'Көшірілді',
+  'ui.players': 'Ойыншылар',
+  'ui.host': 'хост',
+  'ui.bot': 'бот',
+  'ui.you': 'сіз',
+  'ui.remove': 'алып тастау',
+  'ui.addBot': 'Бот қосу',
+  'ui.startTheGame': 'Ойынды бастау',
+  'ui.waitingForHost': 'Хосттың партияны бастауын күтудеміз — {rules}…',
+  'ui.sayHello': 'Сәлемдесіңіз…',
+  'ui.message': 'Хабарлама',
+  'ui.send': 'Жіберу',
+  'ui.log': 'Журнал',
+  'ui.chat': 'Чат',
+
+  'ui.yourTurn': 'Сіздің жүрісіңіз',
+  'ui.wins': '🏆 {player} жеңді!',
+  'ui.playAgain': 'Тағы ойнау',
+  'ui.waitingRematch': 'Хосттың жаңа партия бастауын күтудеміз…',
+  'ui.yourCoins': 'сіздің монеталарыңыз',
+  'ui.spectating': '{player} ойыншысын бақылап отырсыз',
+  'ui.stacksAndDeck': 'үйінді: {stacks} · колодада: {deck}',
+  'ui.cardsLeft': '{n} қалды',
+  'ui.youOwn': 'сізде: {n}',
+  'ui.noEstablishments': 'кәсіпорын жоқ',
+  'ui.takingTurn': 'қазір жүріп жатыр',
+  'ui.cardAria': '{name}, {activates} санында іске қосылады, бағасы {cost}',
+  'ui.paidToBuild': 'салғаныңыз үшін сізге төлейді',
+  'ui.investedTitle': 'Технологиялық стартапқа салынғаны: {n}',
+  'ui.closedForRenovation': '(жөндеуге жабылғаны: {n})',
+
+  'ui.phase.roll': '{player} кубик тастап жатыр',
+  'ui.phase.reroll': '{player} қайта тастай алады (Телемұнара)',
+  'ui.phase.harbor': '{player} Айлақты пайдалана алады',
+  'ui.phase.tv': '{player} Телестудияның нысанасын таңдап жатыр',
+  'ui.phase.trade': '{player} Бизнес-орталықтағы айырбасты таңдап жатыр',
+  'ui.phase.moving': '{player} кәсіпорнын беріп жатыр',
+  'ui.phase.demolish': '{player} көрнекті нысанды бұзуы керек',
+  'ui.phase.renovation': '{player} кәсіпорынды жөндеуге жауып жатыр',
+  'ui.phase.exhibit': '{player} Көрме залын пайдаланып жатыр',
+  'ui.phase.invest': '{player} Технологиялық стартапқа сала алады',
+  'ui.phase.build': '{player} салып жатыр',
+  'ui.phase.over': 'Ойын аяқталды',
+
+  'ui.rollPrompt': 'Сіздің жүрісіңіз — тастаңыз:',
+  'ui.rollOne': '1 кубик',
+  'ui.rollTwo': '2 кубик',
+  'ui.needsTrainStation': 'Вокзал қажет',
+  'ui.rerollPrompt': 'Телемұнара — қайта тастайсыз ба?',
+  'ui.keepTotal': '{total} қалдыру',
+  'ui.reroll': 'Қайта тастау',
+  'ui.harborPrompt': 'Айлақ — жиынтыққа 2 қосасыз ба?',
+  'ui.makeIt': '{total} жасау',
+  'ui.tvPrompt': 'Телестудия — 5 монета алу:',
+  'ui.demolishPrompt': 'Бұзу компаниясы — біреуін 8 монетаға бұзыңыз:',
+  'ui.investPrompt': 'Технологиялық стартап — салынғаны {n}. Тағы бір монета қосасыз ба?',
+  'ui.investOne': '1 салу',
+  'ui.endTurn': 'Жүрісті аяқтау',
+  'ui.endTurnAirport': 'Жүрісті аяқтау (+10 Әуежай)',
+  'ui.buildPrompt': 'Карта сатып алыңыз, көрнекті нысан салыңыз немесе жүрісті аяқтаңыз:',
+
+  'ui.bcTitle': 'Бизнес-орталық',
+  'ui.bcBlurb': 'Кәсіпорныңызды қарсыласыңыздың кәсіпорнына айырбастаңыз. Ірі кәсіпорындарды айырбастауға болмайды.',
+  'ui.youGive': 'Сіз бересіз',
+  'ui.youTakeFrom': 'Сіз аласыз',
+  'ui.swap': 'Айырбастау',
+  'ui.movingTitle': 'Көлік компаниясы',
+  'ui.movingBlurb': 'Бір кәсіпорынды беріңіз де, банктен 4 монета алыңыз.',
+  'ui.giveAway': 'Беру',
+  'ui.to': 'Кімге',
+  'ui.handOver': 'Беру (+4)',
+  'ui.renovationTitle': 'Жөндеу компаниясы',
+  'ui.renovationBlurb':
+    'Бір кәсіпорынның барлық көшірмесін жөндеуге жабыңыз. Әр жабылған ғимарат келесі іске қосылуын өткізіп жібереді, ал әр қарсылас өзінің жабылған ғимараты үшін 1 монетадан төлейді — өз көшірмелеріңіз де жабылады.',
+  'ui.closeEvery': 'Барлығын жабу',
+  'ui.renovationPreview': '{owners} — шамамен {amount} аласыз.',
+  'ui.closeForRenovation': 'Жөндеуге жабу',
+  'ui.exhibitTitle': 'Көрме залы',
+  'ui.exhibitBlurb':
+    'Оның орнына өзіңіздің бір кәсіпорныңызды іске қоса аласыз. Сонда Көрме залы қорға қайтады.',
+  'ui.activate': 'Іске қосу',
+  'ui.keepExhibit': 'Көрме залын қалдыру',
+  'ui.activateIt': 'Іске қосу',
+  'ui.nothingAvailable': 'ештеңе жоқ',
+  'ui.closedList': 'Жөндеуге жабылған: {cards}',
+};
+
+const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };
 
 /** Used by the tests to prove no message falls back to English by accident. */
 export function hasTranslation(lang: Lang, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(TABLES[lang] ?? {}, key);
 }
 
-/** Russian needs three forms; English two. */
+/** Russian needs three forms; English two; Kazakh keeps the singular after a numeral. */
 function coinsWord(lang: Lang, n: number): string {
   if (lang === 'en') return n === 1 ? 'coin' : 'coins';
+  if (lang === 'kk') return 'монета';
   const mod10 = n % 10;
   const mod100 = n % 100;
   if (mod10 === 1 && mod100 !== 11) return 'монета';
