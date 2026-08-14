@@ -45,6 +45,23 @@ export interface BotWeights {
    * the constants, 1 reads the opponents.
    */
   purpleRealism: number;
+  /**
+   * How far ahead that reading looks.  A purple card is bought once and then
+   * fires for the rest of the game, so what matters is what an opponent
+   * usually has in hand, not what is in their pocket at the moment of the
+   * purchase — and a table that spends down to nothing every turn looks
+   * permanently too poor to be worth taxing.  0 reads the pocket, 1 reads the
+   * player's usual level.
+   */
+  purpleHorizon: number;
+  /**
+   * How much of that reading the coin-driven purples get — the Stadium, TV
+   * Station, Tax Office, Tech Startup and Park, whose worth is a question
+   * about the opponents' pockets rather than about their cities.  At 0 they
+   * fall back on the flat constants while the Publisher and the Renovation
+   * Company go on reading what the opponents have actually built.
+   */
+  purpleVolatile: number;
 
   // --- landmarks ------------------------------------------------------------
   // Landmarks are scored on the same scale as cards and the best buy wins, so
@@ -108,6 +125,8 @@ export const BASELINE: BotWeights = {
   redWeight: 1,
   purpleWeight: 1,
   purpleRealism: 0,
+  purpleHorizon: 0,
+  purpleVolatile: 1,
 
   landmarkValue: 1,
   landmarkUnlock: 0,
@@ -146,6 +165,8 @@ export const WEIGHT_RANGE: Record<keyof BotWeights, [min: number, max: number]> 
   redWeight: [0, 2.5],
   purpleWeight: [0, 3],
   purpleRealism: [0, 1],
+  purpleHorizon: [0, 1],
+  purpleVolatile: [0, 1],
 
   landmarkValue: [0, 6],
   landmarkUnlock: [0, 3],
@@ -201,6 +222,8 @@ export const TUNED_FIXED: BotWeights = {
   redWeight: 0.2166,
   purpleWeight: 2.7476,
   purpleRealism: 1,
+  purpleHorizon: 0,
+  purpleVolatile: 1,
   landmarkValue: 0.7359,
   landmarkUnlock: 0.0,
   landmarkProgress: 14.9513,
@@ -223,13 +246,22 @@ export const TUNED_FIXED: BotWeights = {
 /**
  * Variable supply: ten stacks at a time, drawn from a shuffled deck.
  *
- * `purpleRealism` stays off here, which is the opposite of the fixed-supply
- * call and was measured, not assumed: reading the table loses 21.9% to 29.6%
- * against these weights, and a half blend still loses 23.6% to 25.6%.  These
- * games run to about 118 turns against fixed supply's 78, and the estimate
- * reads opponents' coins as they stand this instant — "nobody holds ten coins
- * right now, so the Tax Office is worth nothing" is a far worse guess over a
- * game that long than the flat constant it replaces.
+ * These games run to about 118 turns against fixed supply's 78, and a purple
+ * card bought on turn 30 has eighty turns left to earn, so this mode is far
+ * fussier than the fixed one about *how* the table is read.  Reading it the
+ * way fixed supply does — every card, off the opponents' pockets as they stand
+ * this instant — loses badly here, 21.9% to 29.6%.  These bots spend down to
+ * nearly nothing every turn, so a snapshot says the whole table is too poor to
+ * be worth taxing and the bot stops buying majors at all.
+ *
+ * Two corrections fix it, and each was worth measuring on its own:
+ * `purpleHorizon` 1 values an opponent at their usual purse rather than
+ * today's (21.9% → 24.2%), and `purpleVolatile` 0.5 halves the trust placed in
+ * pockets while leaving what they have *built* read in full — the Publisher's
+ * bread and cup icons, the Renovation Company's open stacks, which do not
+ * evaporate between turns.  Together: 26.6% against these weights with the
+ * flat constants, of 12,000 games, and the flat version takes only 24.1%
+ * coming back the other way.
  */
 export const TUNED_VARIABLE: BotWeights = {
   cardValue: 1.6879,
@@ -244,7 +276,9 @@ export const TUNED_VARIABLE: BotWeights = {
   greenWeight: 0.8403,
   redWeight: 0.8424,
   purpleWeight: 2.8477,
-  purpleRealism: 0,
+  purpleRealism: 1,
+  purpleHorizon: 1,
+  purpleVolatile: 0.5,
   landmarkValue: 1.29,
   landmarkUnlock: 0.1615,
   landmarkProgress: 0.0613,

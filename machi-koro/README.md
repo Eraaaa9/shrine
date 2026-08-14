@@ -149,7 +149,7 @@ during the simulated games are checked on top of that.
 ## Training the bots
 
 The bot's judgement — what a card is worth, whether a landmark beats a card this turn, who to hit
-with the TV Station — is 30 numbers in `src/shared/bot-weights.ts`. They are not hand-picked.
+with the TV Station — is 32 numbers in `src/shared/bot-weights.ts`. They are not hand-picked.
 `npm run train` plays the bots against each other and keeps what wins:
 
 ```bash

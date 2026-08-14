@@ -92,48 +92,76 @@ function purpleFlat(card: CardDef, owner: PlayerState, n: number): number {
  * the opponents instead: their coins, their bread and cup icons, what they have
  * left open.
  */
-function purpleAgainstTable(state: GameState, card: CardDef, owner: PlayerState): number {
+/**
+ * What a player will usually have in hand, rather than what is in their pocket
+ * at the instant of the purchase.
+ *
+ * A purple card is bought once and then fires for the rest of the game, so the
+ * question is not "can this opponent pay me today" but "can they pay me, on a
+ * typical turn, for the next fifty".  Players sawtooth: they collect until they
+ * can afford something and then spend back down to nearly nothing, so the
+ * average over that cycle sits at about half their high-water mark.  Reading
+ * only the pocket makes a table that spends briskly look permanently too poor
+ * to tax — which is exactly what a long game full of cheap cards looks like.
+ */
+function coinLevel(p: PlayerState, w: BotWeights): number {
+  if (w.purpleHorizon <= 0) return p.coins;
+  const usual = p.stats.peakCoins / 2;
+  return p.coins + w.purpleHorizon * Math.max(0, usual - p.coins);
+}
+
+function purpleAgainstTable(state: GameState, card: CardDef, owner: PlayerState, w: BotWeights): number {
   const others = state.players.filter((p) => p.id !== owner.id);
   if (!others.length) return 0;
+  const purse = (p: PlayerState) => coinLevel(p, w);
   switch (card.id) {
     case 'stadium':
-      return others.reduce((a, p) => a + Math.min(2, p.coins), 0);
+      return others.reduce((a, p) => a + Math.min(2, purse(p)), 0);
     case 'tv_station':
-      return Math.min(5, Math.max(0, ...others.map((p) => p.coins)));
+      return Math.min(5, Math.max(0, ...others.map(purse)));
     case 'business_center':
       // worth nothing if there is nothing on either side to swap
       return tradeableCards(owner).length && others.some((p) => tradeableCards(p).length) ? 3 : 0;
     case 'publisher':
-      return others.reduce((a, p) => a + Math.min(p.coins, countIcon(p, 'bread') + countIcon(p, 'cup')), 0);
+      return others.reduce((a, p) => a + Math.min(purse(p), countIcon(p, 'bread') + countIcon(p, 'cup')), 0);
     case 'tax_office':
-      return others.reduce((a, p) => a + (p.coins >= 10 ? Math.floor(p.coins / 2) : 0), 0);
+      return others.reduce((a, p) => a + (purse(p) >= 10 ? Math.floor(purse(p) / 2) : 0), 0);
     case 'renovation_company':
       // whatever the best card to shut down would collect; what closing it costs
       // the owner is `renovationSelfHarm`'s business, at the point of choosing
       return cardsFor(state.rules).reduce((best, c) => {
         if (c.icon === 'major') return best;
-        const take = others.reduce((a, p) => a + Math.min(openCopies(p, c.id), p.coins), 0);
+        const take = others.reduce((a, p) => a + Math.min(openCopies(p, c.id), purse(p)), 0);
         return Math.max(best, take);
       }, 0);
     case 'tech_startup':
-      return others.reduce((a, p) => a + Math.min(p.coins, owner.investment), 0);
+      return others.reduce((a, p) => a + Math.min(purse(p), owner.investment), 0);
     case 'exhibit_hall':
       return exhibitCandidates(state, owner).reduce((best, id) => Math.max(best, activationValue(state, owner, id)), 0);
     case 'park': {
-      const pot = state.players.reduce((a, p) => a + p.coins, 0);
+      const pot = state.players.reduce((a, p) => a + purse(p), 0);
       // signed: levelling the table up costs the player who is already ahead
-      return Math.ceil(pot / state.players.length) - owner.coins;
+      return Math.ceil(pot / state.players.length) - purse(owner);
     }
     default:
       return 0;
   }
 }
 
+/**
+ * Purples whose worth is a question about the opponents' purse rather than
+ * about their cities.  What sits in a city can be read off the table and stays
+ * read; what sits in a pocket is gone by the next turn, so the two kinds of
+ * card do not deserve the same amount of trust.
+ */
+const COIN_DRIVEN: CardId[] = ['stadium', 'tv_station', 'tax_office', 'tech_startup', 'park'];
+
 function purpleEstimate(state: GameState, card: CardDef, owner: PlayerState, w: BotWeights): number {
   const flat = purpleFlat(card, owner, state.players.length);
-  if (w.purpleRealism <= 0) return flat;
-  const real = purpleAgainstTable(state, card, owner);
-  return flat * (1 - w.purpleRealism) + real * w.purpleRealism;
+  const mix = w.purpleRealism * (COIN_DRIVEN.includes(card.id) ? w.purpleVolatile : 1);
+  if (mix <= 0) return flat;
+  const real = purpleAgainstTable(state, card, owner, w);
+  return flat * (1 - mix) + real * mix;
 }
 
 /**
