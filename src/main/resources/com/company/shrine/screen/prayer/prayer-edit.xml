@@ -35,6 +35,8 @@
                 <textField id="addressStreetField" property="address.street"/>
                 <textField id="addressPostCodeField" property="address.postCode"/>
                 <textField id="addressCityField" property="address.city"/>
+                <htmlBox>
+                </htmlBox>
             </column>
         </form>
         <hbox id="editActions" spacing="true">
