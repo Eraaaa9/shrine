@@ -1,0 +1,1138 @@
+:root {
+  --bg: #0f131b;
+  --panel: #181e2a;
+  --panel-2: #1f2634;
+  --line: #2b3446;
+  --text: #e7ebf3;
+  --muted: #8d97ad;
+  --gold: #f7c948;
+  --blue: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --purple: #a855f7;
+  --accent: #5eead4;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: radial-gradient(1200px 800px at 70% -10%, #1b2334 0%, var(--bg) 60%);
+  color: var(--text);
+  font: 15px/1.45 ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+h1 {
+  font-size: 28px;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+p {
+  margin: 0 0 8px;
+}
+.muted {
+  color: var(--muted);
+}
+.hidden {
+  display: none;
+}
+
+/* ---------- buttons & inputs ---------- */
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
+}
+button:hover:not(:disabled) {
+  background: #2a3346;
+  border-color: #3c4761;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+button.primary {
+  background: linear-gradient(180deg, #2f855a, #276749);
+  border-color: #2f855a;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #37996a, #2c7355);
+}
+button.ghost {
+  background: transparent;
+}
+button.small {
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
+input {
+  font: inherit;
+  color: var(--text);
+  background: #0d1119;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 12px;
+  width: 100%;
+}
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 7px;
+  color: var(--muted);
+}
+.tag.bot {
+  color: #c4b5fd;
+  border-color: #4c3c7a;
+}
+.tag.you-tag {
+  color: #0f131b;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4b5568;
+  flex: none;
+}
+.dot[data-on='true'] {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+/* ---------- banner / toast ---------- */
+
+.banner {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  text-align: center;
+  padding: 6px;
+  background: #7c2d12;
+  font-size: 13px;
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: #7f1d1d;
+  border-color: #b91c1c;
+  max-width: min(520px, 90vw);
+}
+
+/* ---------- landing ---------- */
+
+.landing {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 16px;
+}
+.landing .die {
+  color: var(--gold);
+}
+.tagline {
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+.field span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.split section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.choices {
+  display: grid;
+  gap: 8px;
+}
+.choices.tight {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+}
+.chip {
+  text-align: left;
+  display: grid;
+  line-height: 1.3;
+}
+.chip small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.chip.on {
+  border-color: var(--accent);
+  background: #10312e;
+}
+.landing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+.lang-switch button {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.lang-switch button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.lobby header .lang-switch {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.rules-picker {
+  display: grid;
+  gap: 8px;
+}
+.chip .switch {
+  float: right;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.chip.on .switch {
+  color: var(--accent);
+}
+.rules-summary {
+  font-size: 12px;
+  margin: 0;
+}
+.code-input {
+  font-size: 26px;
+  letter-spacing: 0.35em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.fineprint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 24px;
+}
+
+/* ---------- lobby ---------- */
+
+.lobby {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+.lobby header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.lobby h1 {
+  letter-spacing: 0.12em;
+}
+.invite-row {
+  display: flex;
+  gap: 8px;
+}
+.seats {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.seats li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.seats li.you {
+  border-color: var(--accent);
+}
+.seat-name {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+/* ---------- chat ---------- */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.chat-lines {
+  overflow-y: auto;
+  max-height: 240px;
+  flex: 1;
+  font-size: 14px;
+}
+.chat-lines p {
+  margin: 0 0 4px;
+}
+.chat-lines b {
+  color: var(--accent);
+}
+.chat-input {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+/* ---------- game shell ---------- */
+
+.game {
+  height: 100dvh;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'top side'
+    'board side'
+    'plrs side'
+    'ctrl side';
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.room-code {
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--gold);
+}
+.turn-info {
+  margin-right: auto;
+  color: var(--muted);
+}
+.your-turn {
+  color: var(--accent);
+}
+.game.my-turn .topbar {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25);
+}
+
+.board {
+  grid-area: board;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 8px;
+  /* The "new"/"sold out" tags overhang the top edge of their card; without this
+     the scrolling board would slice the ones on the first row in half. */
+  padding-top: 13px;
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+}
+/* Player boards sit under the supply so the log gets the whole right column.
+   They wrap into as many columns as the width allows and scroll on their own. */
+.players {
+  grid-area: plrs;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  align-content: start;
+  gap: 6px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.controls-bar {
+  grid-area: ctrl;
+}
+
+/* ---------- cards ---------- */
+
+.card {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  position: relative;
+  padding: 8px;
+  min-height: 132px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
+  border-radius: 10px;
+  cursor: default;
+}
+.card.blue {
+  border-top-color: var(--blue);
+}
+.card.green {
+  border-top-color: var(--green);
+}
+.card.red {
+  border-top-color: var(--red);
+}
+.card.purple {
+  border-top-color: var(--purple);
+}
+/* Affordable: brighter panel plus a teal ring — the coloured top edge stays,
+   so you can still read the card's type at a glance. */
+.card.buyable {
+  cursor: pointer;
+  border-right-color: #46527033;
+  border-bottom-color: #46527033;
+  border-left-color: #46527033;
+  background: #1d2534;
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.35);
+}
+.card.buyable:hover {
+  transform: translateY(-2px);
+  background: #232c3e;
+}
+.card.hot {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(247, 201, 72, 0.25);
+}
+.card.hot.buyable {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(247, 201, 72, 0.25), inset 0 0 0 1px rgba(94, 234, 212, 0.35);
+}
+.card.empty {
+  opacity: 0.45;
+}
+.card:disabled {
+  opacity: 1;
+}
+.card.empty:disabled {
+  opacity: 0.4;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.activates {
+  font-weight: 700;
+  font-size: 15px;
+  background: #0d1119;
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+.card-head .icon {
+  font-size: 15px;
+}
+.cost {
+  margin-left: auto;
+  color: var(--gold);
+  font-weight: 700;
+}
+.cost::after {
+  content: ' ¤';
+  font-size: 11px;
+}
+.card-name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.card-text {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.card-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: auto;
+  padding-top: 2px;
+}
+.owned {
+  color: var(--accent);
+}
+
+/* ---------- variable supply: stacks arriving and running out ----------
+
+   Under the variable supply the ten face-up stacks change during the game, and
+   a card can vanish between two glances at the board. So each change is shown
+   where it happens: a bought-out stack holds its slot for a beat and fades with
+   a "sold out" tag, the stack drawn in its place is dealt onto the board with a
+   teal ring, and a stack that merely lost (or gained) a copy blinks its count.
+   The outlines stay clear of `.hot` and `.buyable`, which own the box-shadow. */
+
+.card.fresh {
+  animation: card-deal 0.8s cubic-bezier(0.2, 1.35, 0.4, 1);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.card.gone {
+  animation: card-sold 2.6s ease-in forwards;
+  pointer-events: none;
+}
+.card.pulse .cards-left {
+  display: inline-block;
+  animation: count-flash 1s ease-out;
+}
+.card-flag {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.card.fresh .card-flag {
+  background: var(--accent);
+  color: #06231f;
+}
+.card.gone .card-flag {
+  background: var(--red);
+  color: #23060b;
+}
+@keyframes card-deal {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.92) rotate(-1.5deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes card-sold {
+  0% {
+    opacity: 1;
+  }
+  /* Hold the tag readable for a second before the card starts leaving. */
+  45% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    filter: grayscale(1);
+    transform: scale(0.9) translateY(10px);
+  }
+}
+@keyframes count-flash {
+  0% {
+    color: var(--gold);
+    transform: scale(1.35);
+  }
+  100% {
+    color: inherit;
+    transform: none;
+  }
+}
+/* Keep the tags — they carry the news — and drop only the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .card.fresh,
+  .card.gone,
+  .card.pulse .cards-left {
+    animation: none;
+  }
+  .card.gone {
+    opacity: 0.5;
+  }
+}
+
+/* ---------- player panels ---------- */
+
+.player {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 8px 10px;
+}
+.player.active {
+  border-color: var(--gold);
+}
+.player.you {
+  background: #15202b;
+}
+.player-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.player-name {
+  font-weight: 600;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.coins {
+  color: var(--gold);
+  font-weight: 700;
+}
+.coins::after {
+  content: ' ¤';
+  font-size: 11px;
+}
+.coins.big {
+  font-size: 26px;
+}
+.landmarks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 6px 0;
+  align-items: center;
+}
+.lm {
+  font-size: 10.5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 5px;
+  color: var(--muted);
+}
+.lm em {
+  font-style: normal;
+  opacity: 0.7;
+  margin-left: 3px;
+}
+.lm.built {
+  color: #0f131b;
+  background: var(--gold);
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.lm-count {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.owned-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.chip-card {
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #0d1119;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+.chip-card.blue {
+  border-left-color: var(--blue);
+}
+.chip-card.green {
+  border-left-color: var(--green);
+}
+.chip-card.red {
+  border-left-color: var(--red);
+}
+.chip-card.purple {
+  border-left-color: var(--purple);
+}
+.chip-card.hot {
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.chip-card i {
+  font-style: normal;
+  color: var(--accent);
+}
+.chip-card.shut {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.chip-card .reno {
+  text-decoration: none;
+  display: inline-block;
+}
+.investment {
+  font-size: 12px;
+  color: #c4b5fd;
+  margin-right: 6px;
+}
+.cost.paid {
+  color: var(--green);
+}
+.cost.paid::after {
+  content: ' ¤';
+  font-size: 11px;
+}
+.rules-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.row.end {
+  justify-content: flex-end;
+}
+.small-note {
+  font-size: 11.5px;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.turn-flag {
+  font-size: 11px;
+  color: var(--gold);
+  margin-top: 4px;
+}
+
+/* ---------- log ---------- */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+.tabs button {
+  flex: 1;
+  padding: 5px;
+  font-size: 13px;
+}
+.tabs button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.log {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.log p {
+  margin: 0 0 3px;
+  color: #c3cad9;
+}
+.log .log-turn {
+  color: var(--muted);
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+.log .log-roll {
+  color: var(--text);
+  font-weight: 600;
+}
+.log .log-build {
+  color: var(--accent);
+}
+.log .log-win {
+  color: var(--gold);
+  font-weight: 700;
+}
+.side .chat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 8px 10px;
+}
+.side .chat-lines {
+  max-height: none;
+}
+
+/* ---------- controls ---------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+.game.my-turn .controls {
+  border-color: var(--accent);
+}
+/* Reachable by assistive tech, invisible on screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dice-tray {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 74px;
+}
+.dice-faces {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.die-face {
+  font-size: 40px;
+  line-height: 1;
+  color: var(--gold);
+  display: inline-block;
+  transform-origin: 50% 60%;
+}
+/* Faces flip every 70ms while this runs, so the tumble reads as a real throw. */
+.die-face.tumbling {
+  animation: die-tumble 0.31s linear infinite;
+  filter: drop-shadow(0 3px 5px rgba(247, 201, 72, 0.3));
+}
+.die-face.landed {
+  animation: die-land 0.26s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+@keyframes die-tumble {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(-11px) rotate(160deg) scale(1.1);
+  }
+  70% {
+    transform: translateY(-3px) rotate(280deg) scale(1.04);
+  }
+  100% {
+    transform: translateY(0) rotate(360deg) scale(1);
+  }
+}
+@keyframes die-land {
+  0% {
+    transform: translateY(-7px) scale(1.18);
+  }
+  60% {
+    transform: translateY(0) scale(0.94);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.dice-total {
+  font-size: 20px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.dice-total.pending {
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .die-face.tumbling,
+  .die-face.landed {
+    animation: none;
+  }
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.prompt {
+  color: var(--muted);
+}
+.landmark-buy em {
+  font-style: normal;
+  color: var(--gold);
+  font-weight: 700;
+}
+.landmark-buy:not(:disabled) {
+  border-color: var(--gold);
+}
+.winner {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.you-coins {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.you-coins .muted {
+  font-size: 11px;
+}
+
+/* ---------- modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 9, 14, 0.72);
+  display: grid;
+  place-items: center;
+  /* A zero floor on the track: without it a wide table inside would stretch the
+     modal past the viewport and give the whole page a sideways scroll. */
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px;
+  z-index: 30;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  width: min(620px, 100%);
+  max-height: 88dvh;
+  overflow-y: auto;
+}
+.trade-side {
+  margin: 14px 0;
+}
+.trade-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.trade-cards .chip-card {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.chip-card.picked {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ---------- post-game stats ---------- */
+
+.modal.stats {
+  width: min(760px, 100%);
+}
+.stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Seven columns do not fit a phone; let the table scroll inside the modal. */
+.stats-scroll {
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.stats-table th,
+.stats-table td {
+  padding: 5px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+.stats-table thead th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stats-table th[scope='row'],
+.stats-table thead th:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+.stats-table th[scope='row'] i {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+}
+.stats-table tbody tr.on {
+  background: var(--panel-2);
+}
+.stat-pos {
+  color: var(--green);
+}
+.stat-neg {
+  color: var(--red);
+}
+.stat-swatch {
+  display: inline-block;
+  width: 4px;
+  height: 12px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: -1px;
+  background: var(--muted);
+}
+.stat-swatch.blue {
+  background: var(--blue);
+}
+.stat-swatch.green {
+  background: var(--green);
+}
+.stat-swatch.red {
+  background: var(--red);
+}
+.stat-swatch.purple {
+  background: var(--purple);
+}
+.stat-swatch.landmark {
+  background: var(--gold);
+}
+.stats-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stats-notes {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats-notes li {
+  margin-bottom: 3px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 900px) {
+  .game {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'top'
+      'ctrl'
+      'plrs'
+      'side'
+      'board';
+  }
+  .players {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-height: none;
+    overflow: visible;
+  }
+  .side .chat-lines {
+    max-height: 240px;
+  }
+  /* No column to fill on a phone — cap it so the page stays scrollable. */
+  .log {
+    max-height: 300px;
+  }
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .cards {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  }
+  .controls-bar {
+    position: sticky;
+    top: 6px;
+    z-index: 20;
+  }
+  .die-face {
+    font-size: 32px;
+  }
+}

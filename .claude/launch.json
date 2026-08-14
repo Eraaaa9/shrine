@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "machi-koro",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "machi-koro", "start"],
+      "port": 8080,
+      "autoPort": true
+    }
+  ]
+}
