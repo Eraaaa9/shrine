@@ -371,10 +371,11 @@ input:focus {
   gap: 10px;
   padding: 10px;
   grid-template-columns: minmax(0, 1fr) 340px;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   grid-template-areas:
     'top side'
     'board side'
+    'plrs side'
     'ctrl side';
 }
 
@@ -414,6 +415,9 @@ input:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
   gap: 8px;
+  /* The "new"/"sold out" tags overhang the top edge of their card; without this
+     the scrolling board would slice the ones on the first row in half. */
+  padding-top: 13px;
 }
 
 .side {
@@ -423,11 +427,16 @@ input:focus {
   min-height: 0;
   gap: 8px;
 }
+/* Player boards sit under the supply so the log gets the whole right column.
+   They wrap into as many columns as the width allows and scroll on their own. */
 .players {
+  grid-area: plrs;
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  align-content: start;
   gap: 6px;
+  max-height: 42vh;
   overflow-y: auto;
-  flex: 0 1 auto;
 }
 
 .controls-bar {
@@ -441,6 +450,7 @@ input:focus {
   display: grid;
   gap: 4px;
   align-content: start;
+  position: relative;
   padding: 8px;
   min-height: 132px;
   background: var(--panel);
@@ -533,6 +543,98 @@ input:focus {
 }
 .owned {
   color: var(--accent);
+}
+
+/* ---------- variable supply: stacks arriving and running out ----------
+
+   Under the variable supply the ten face-up stacks change during the game, and
+   a card can vanish between two glances at the board. So each change is shown
+   where it happens: a bought-out stack holds its slot for a beat and fades with
+   a "sold out" tag, the stack drawn in its place is dealt onto the board with a
+   teal ring, and a stack that merely lost (or gained) a copy blinks its count.
+   The outlines stay clear of `.hot` and `.buyable`, which own the box-shadow. */
+
+.card.fresh {
+  animation: card-deal 0.8s cubic-bezier(0.2, 1.35, 0.4, 1);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.card.gone {
+  animation: card-sold 2.6s ease-in forwards;
+  pointer-events: none;
+}
+.card.pulse .cards-left {
+  display: inline-block;
+  animation: count-flash 1s ease-out;
+}
+.card-flag {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.card.fresh .card-flag {
+  background: var(--accent);
+  color: #06231f;
+}
+.card.gone .card-flag {
+  background: var(--red);
+  color: #23060b;
+}
+@keyframes card-deal {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.92) rotate(-1.5deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes card-sold {
+  0% {
+    opacity: 1;
+  }
+  /* Hold the tag readable for a second before the card starts leaving. */
+  45% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    filter: grayscale(1);
+    transform: scale(0.9) translateY(10px);
+  }
+}
+@keyframes count-flash {
+  0% {
+    color: var(--gold);
+    transform: scale(1.35);
+  }
+  100% {
+    color: inherit;
+    transform: none;
+  }
+}
+/* Keep the tags — they carry the news — and drop only the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .card.fresh,
+  .card.gone,
+  .card.pulse .cards-left {
+    animation: none;
+  }
+  .card.gone {
+    opacity: 0.5;
+  }
 }
 
 /* ---------- player panels ---------- */
@@ -728,7 +830,9 @@ input:focus {
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 8px 10px;
-  max-height: 320px;
+}
+.side .chat-lines {
+  max-height: none;
 }
 
 /* ---------- controls ---------- */
@@ -865,6 +969,9 @@ input:focus {
   background: rgba(6, 9, 14, 0.72);
   display: grid;
   place-items: center;
+  /* A zero floor on the track: without it a wide table inside would stretch the
+     modal past the viewport and give the whole page a sideways scroll. */
+  grid-template-columns: minmax(0, 1fr);
   padding: 16px;
   z-index: 30;
 }
@@ -895,6 +1002,99 @@ input:focus {
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+/* ---------- post-game stats ---------- */
+
+.modal.stats {
+  width: min(760px, 100%);
+}
+.stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Seven columns do not fit a phone; let the table scroll inside the modal. */
+.stats-scroll {
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.stats-table th,
+.stats-table td {
+  padding: 5px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+.stats-table thead th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stats-table th[scope='row'],
+.stats-table thead th:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+.stats-table th[scope='row'] i {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+}
+.stats-table tbody tr.on {
+  background: var(--panel-2);
+}
+.stat-pos {
+  color: var(--green);
+}
+.stat-neg {
+  color: var(--red);
+}
+.stat-swatch {
+  display: inline-block;
+  width: 4px;
+  height: 12px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: -1px;
+  background: var(--muted);
+}
+.stat-swatch.blue {
+  background: var(--blue);
+}
+.stat-swatch.green {
+  background: var(--green);
+}
+.stat-swatch.red {
+  background: var(--red);
+}
+.stat-swatch.purple {
+  background: var(--purple);
+}
+.stat-swatch.landmark {
+  background: var(--gold);
+}
+.stats-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stats-notes {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats-notes li {
+  margin-bottom: 3px;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 900px) {
@@ -905,13 +1105,21 @@ input:focus {
     grid-template-areas:
       'top'
       'ctrl'
+      'plrs'
       'side'
       'board';
   }
   .players {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    display: grid;
+    max-height: none;
     overflow: visible;
+  }
+  .side .chat-lines {
+    max-height: 240px;
+  }
+  /* No column to fill on a phone — cap it so the page stays scrollable. */
+  .log {
+    max-height: 300px;
   }
   .split {
     grid-template-columns: 1fr;

@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cardsFor } from '../../shared/cards';
 import { canBuy } from '../../shared/engine';
 import { describeRulesIn } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import type { GameAction } from '../../shared/types';
 import { LangSwitch, useLang } from '../lang';
+import useSupplyMotion from '../supplyMotion';
 import CardTile from './CardTile';
 import Chat from './Chat';
 import ChoiceModal from './ChoiceModal';
 import Controls, { phaseHint } from './Controls';
 import LogPanel from './LogPanel';
 import PlayerPanel from './PlayerPanel';
+import StatsPanel from './StatsPanel';
 
 const MODAL_PHASES = ['trade', 'moving', 'renovation', 'exhibit'];
 
@@ -24,6 +26,13 @@ export default function GameView({ room, youId, send }: Props) {
   const { lang, t } = useLang();
   const game = room.game!;
   const [tab, setTab] = useState<'log' | 'chat'>('log');
+  const [showStats, setShowStats] = useState(false);
+
+  // The table opens itself once the game ends; closing it leaves the button.
+  const over = game.phase === 'over';
+  useEffect(() => {
+    if (over) setShowStats(true);
+  }, [over]);
 
   const you = game.players.find((p) => p.id === youId) ?? null;
   const active = game.players[game.turn];
@@ -31,9 +40,14 @@ export default function GameView({ room, youId, send }: Props) {
   const act = (action: GameAction) => send({ t: 'action', action });
   const connected = new Map(room.seats.map((s) => [s.id, s.connected]));
 
-  const onOffer = cardsFor(game.rules).filter(
-    (card) => !game.rules.variableSupply || (game.supply[card.id] ?? 0) > 0
-  );
+  const marks = useSupplyMotion(game.supply, game.rules.variableSupply);
+  const inPlay = cardsFor(game.rules);
+  const onOffer = inPlay.filter((card) => !game.rules.variableSupply || (game.supply[card.id] ?? 0) > 0);
+  // A stack that has just run out keeps its slot until its mark expires, so you
+  // can see which card left the board instead of it blinking out mid-turn.
+  const shown = game.rules.variableSupply
+    ? inPlay.filter((card) => (game.supply[card.id] ?? 0) > 0 || marks.get(card.id) === 'gone')
+    : onOffer;
 
   return (
     <div className={yourTurn ? 'game my-turn' : 'game'}>
@@ -63,7 +77,7 @@ export default function GameView({ room, youId, send }: Props) {
 
       <main className="board">
         <div className="cards">
-          {onOffer.map((card) => (
+          {shown.map((card) => (
             <CardTile
               key={card.id}
               card={card}
@@ -71,27 +85,28 @@ export default function GameView({ room, youId, send }: Props) {
               owned={you?.cards[card.id] ?? 0}
               hot={game.diceTotal > 0 && card.activates.includes(game.diceTotal)}
               buyable={Boolean(yourTurn && game.phase === 'build' && you && canBuy(game, you, card.id))}
+              mark={marks.get(card.id)}
               onBuy={() => act({ t: 'buy', cardId: card.id })}
             />
           ))}
         </div>
       </main>
 
-      <aside className="side">
-        <div className="players">
-          {game.players.map((p) => (
-            <PlayerPanel
-              key={p.id}
-              player={p}
-              rules={game.rules}
-              isActive={p.id === active.id && game.phase !== 'over'}
-              isYou={p.id === youId}
-              connected={connected.get(p.id) ?? false}
-              diceTotal={game.diceTotal}
-            />
-          ))}
-        </div>
+      <div className="players">
+        {game.players.map((p) => (
+          <PlayerPanel
+            key={p.id}
+            player={p}
+            rules={game.rules}
+            isActive={p.id === active.id && game.phase !== 'over'}
+            isYou={p.id === youId}
+            connected={connected.get(p.id) ?? false}
+            diceTotal={game.diceTotal}
+          />
+        ))}
+      </div>
 
+      <aside className="side">
         <div className="tabs">
           <button type="button" className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')}>
             {t('ui.log')}
@@ -105,10 +120,19 @@ export default function GameView({ room, youId, send }: Props) {
       </aside>
 
       <footer className="controls-bar">
-        <Controls game={game} you={you} yourTurn={yourTurn} isHost={room.hostId === youId} act={act} send={send} />
+        <Controls
+          game={game}
+          you={you}
+          yourTurn={yourTurn}
+          isHost={room.hostId === youId}
+          act={act}
+          send={send}
+          onStats={() => setShowStats(true)}
+        />
       </footer>
 
       {yourTurn && you && MODAL_PHASES.includes(game.phase) && <ChoiceModal game={game} you={you} act={act} />}
+      {over && showStats && <StatsPanel game={game} youId={youId} onClose={() => setShowStats(false)} />}
     </div>
   );
 }

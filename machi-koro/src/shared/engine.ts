@@ -11,7 +11,16 @@ import {
   type RuleSet,
 } from './cards';
 import { rulesCode, type Params } from './i18n';
-import type { GameAction, GameState, LogEntry, PendingChoice, PlayerState } from './types';
+import type {
+  BuildingStat,
+  GameAction,
+  GameState,
+  LogEntry,
+  PendingChoice,
+  PlayerState,
+  PlayerStats,
+  StatKey,
+} from './types';
 
 const START_COINS = 3;
 const SUPPLY_PER_CARD = 6;
@@ -65,6 +74,7 @@ export function createGame(seats: Seat[], rules: RuleSet, seed = Date.now()): Ga
     rollId: 0,
     diceTotal: 0,
     harborBonusUsed: false,
+    spacePortUsed: false,
     rerollUsed: false,
     extraTurn: false,
     pending: [],
@@ -106,6 +116,25 @@ function newPlayer(seat: Seat, rules: RuleSet): PlayerState {
     closed: {},
     investment: 0,
     landmarks,
+    stats: newStats(),
+  };
+}
+
+function newStats(): PlayerStats {
+  return {
+    turns: 0,
+    rolls: 0,
+    pips: 0,
+    earned: 0,
+    fromBank: 0,
+    lost: 0,
+    toBank: 0,
+    spentOnCards: 0,
+    spentOnLandmarks: 0,
+    invested: 0,
+    cardsBought: 0,
+    peakCoins: START_COINS,
+    byKey: {},
   };
 }
 
@@ -151,7 +180,7 @@ export function copies(p: PlayerState, id: CardId): number {
 }
 
 export function closedCopies(p: PlayerState, id: CardId): number {
-  return Math.min(p.closed[id] ?? 0, copies(p, id));
+  return Math.max(0, Math.min(p.closed[id] ?? 0, copies(p, id)));
 }
 
 /** Copies that are open for business. */
@@ -213,11 +242,57 @@ function times(n: number): string {
   return n > 1 ? ` ×${n}` : '';
 }
 
-function pay(from: PlayerState, to: PlayerState, want: number): number {
-  const paid = Math.max(0, Math.min(want, from.coins));
-  from.coins -= paid;
-  to.coins += paid;
+// ---------------------------------------------------------------------------
+// the coin ledger
+//
+// Every coin that moves goes through `gain`, `drain` or `pay`, each naming the
+// building responsible. That is what feeds the post-game table, and it keeps
+// `coins === 3 + earned - lost - spent - invested` true for the whole game.
+// ---------------------------------------------------------------------------
+
+function ledger(p: PlayerState, key: StatKey): BuildingStat {
+  const row = p.stats.byKey[key] ?? { hits: 0, earned: 0, lost: 0, spent: 0 };
+  p.stats.byKey[key] = row;
+  return row;
+}
+
+/** Note that a building activated, whether or not it paid out. */
+function noteHits(p: PlayerState, key: StatKey, n = 1): void {
+  ledger(p, key).hits += n;
+}
+
+/** Coins in, from the bank or from another player. */
+function gain(p: PlayerState, key: StatKey, amount: number, fromBank: boolean): void {
+  if (amount <= 0) return;
+  p.coins += amount;
+  ledger(p, key).earned += amount;
+  p.stats.earned += amount;
+  if (fromBank) p.stats.fromBank += amount;
+  p.stats.peakCoins = Math.max(p.stats.peakCoins, p.coins);
+}
+
+/** Coins out, capped at what the player actually has. Returns what was taken. */
+function drain(p: PlayerState, key: StatKey, want: number, toBank: boolean): number {
+  const paid = Math.max(0, Math.min(want, p.coins));
+  if (paid === 0) return 0;
+  p.coins -= paid;
+  ledger(p, key).lost += paid;
+  p.stats.lost += paid;
+  if (toBank) p.stats.toBank += paid;
   return paid;
+}
+
+function pay(from: PlayerState, to: PlayerState, want: number, key: StatKey): number {
+  const paid = drain(from, key, want, false);
+  gain(to, key, paid, false);
+  return paid;
+}
+
+/** Coins spent to put a building on the table. */
+function noteBuild(p: PlayerState, key: StatKey, cost: number, isLandmark: boolean): void {
+  ledger(p, key).spent += cost;
+  if (isLandmark) p.stats.spentOnLandmarks += cost;
+  else p.stats.spentOnCards += cost;
 }
 
 /** Move one copy between players, handing over an open card when there is one. */
@@ -226,8 +301,12 @@ function transferCard(from: PlayerState, to: PlayerState, id: CardId): void {
   from.cards[id] = copies(from, id) - 1;
   to.cards[id] = copies(to, id) + 1;
   if (wasClosed) {
-    from.closed[id] = closedCopies(from, id) - 1;
-    to.closed[id] = (to.closed[id] ?? 0) + 1;
+    // Count the tokens, not the clamped view: the card counts have already moved,
+    // so reading back through `closedCopies` here would drop a token on the giver
+    // (two closed copies, one given away, leaves one closed) and, once the giver
+    // is down to none, leave a negative behind that reads as an extra open copy.
+    from.closed[id] = Math.max(0, (from.closed[id] ?? 0) - 1);
+    to.closed[id] = Math.min(copies(to, id), (to.closed[id] ?? 0) + 1);
   }
 }
 
@@ -324,12 +403,14 @@ function resolveIncome(state: GameState): void {
   for (const p of counterClockwiseOpponents(state)) {
     for (const card of triggered(p, total, 'red', state.rules)) {
       const n = wakeUp(state, p, card);
+      if (n <= 0) continue;
+      noteHits(p, card.id, n);
       let paid = 0;
       let wanted = 0;
       for (let i = 0; i < n; i++) {
         const want = redAmount(state, card, p, active);
         wanted += want;
-        paid += pay(active, p, want);
+        paid += pay(active, p, want, card.id);
       }
       if (wanted > 0) {
         log(
@@ -349,6 +430,7 @@ function resolveIncome(state: GameState): void {
     for (const card of triggered(p, total, 'blue', state.rules)) {
       const n = wakeUp(state, p, card);
       if (n <= 0) continue;
+      noteHits(p, card.id, n);
       let amount: number;
       if (card.id === 'tuna_boat') {
         if (!tunaRoll) {
@@ -360,7 +442,7 @@ function resolveIncome(state: GameState): void {
         amount = blueAmount(state, card, p) * n;
       }
       if (amount > 0) {
-        p.coins += amount;
+        gain(p, card.id, amount, true);
         log(state, 'log.gets', { player: p.name, amount, card: card.id, times: times(n) }, { who: p.id, kind: 'income' });
       }
     }
@@ -370,6 +452,7 @@ function resolveIncome(state: GameState): void {
   for (const card of triggered(active, total, 'green', state.rules)) {
     const n = wakeUp(state, active, card);
     if (n <= 0) continue;
+    noteHits(active, card.id, n);
 
     if (card.id === 'demolition_company') {
       for (let i = 0; i < n; i++) {
@@ -388,11 +471,10 @@ function resolveIncome(state: GameState): void {
 
     const amount = greenAmount(state, card, active) * n;
     if (amount > 0) {
-      active.coins += amount;
+      gain(active, card.id, amount, true);
       log(state, 'log.gets', { player: active.name, amount, card: card.id, times: times(n) }, { who: active.id, kind: 'income' });
     } else if (amount < 0) {
-      const lost = Math.min(-amount, active.coins);
-      active.coins -= lost;
+      const lost = drain(active, card.id, -amount, true);
       log(state, 'log.pays', { player: active.name, amount: lost, card: card.id, times: times(n) }, { who: active.id, kind: 'income' });
     }
 
@@ -426,12 +508,14 @@ function resolvePurple(state: GameState): void {
     const card = CARD_BY_ID[id];
     if (!cardsFor(state.rules).includes(card)) continue;
     if (!card.activates.includes(total) || copies(active, id) === 0) continue;
-    if (wakeUp(state, active, card) <= 0) continue;
+    const activated = wakeUp(state, active, card);
+    if (activated <= 0) continue;
+    noteHits(active, id, activated);
 
     switch (id) {
       case 'stadium': {
         let got = 0;
-        for (const p of otherPlayers(state)) got += pay(p, active, 2);
+        for (const p of otherPlayers(state)) got += pay(p, active, 2, id);
         log(state, 'log.stadium', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
       }
@@ -448,7 +532,7 @@ function resolvePurple(state: GameState): void {
       case 'publisher': {
         let got = 0;
         for (const p of otherPlayers(state)) {
-          got += pay(p, active, countIcon(p, 'bread') + countIcon(p, 'cup'));
+          got += pay(p, active, countIcon(p, 'bread') + countIcon(p, 'cup'), id);
         }
         log(state, 'log.publisher', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
@@ -460,7 +544,7 @@ function resolvePurple(state: GameState): void {
       case 'tax_office': {
         let got = 0;
         for (const p of otherPlayers(state)) {
-          if (p.coins >= 10) got += pay(p, active, Math.floor(p.coins / 2));
+          if (p.coins >= 10) got += pay(p, active, Math.floor(p.coins / 2), id);
         }
         log(state, 'log.taxOffice', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
@@ -471,7 +555,7 @@ function resolvePurple(state: GameState): void {
           break;
         }
         let got = 0;
-        for (const p of otherPlayers(state)) got += pay(p, active, active.investment);
+        for (const p of otherPlayers(state)) got += pay(p, active, active.investment, id);
         log(
           state,
           'log.techStartup',
@@ -488,7 +572,12 @@ function resolvePurple(state: GameState): void {
       case 'park': {
         const pot = state.players.reduce((sum, p) => sum + p.coins, 0);
         const each = Math.ceil(pot / state.players.length);
-        for (const p of state.players) p.coins = each;
+        // Levelling up comes partly from the bank and partly from the richer
+        // players, so the ledger books each side as a plain gain or loss.
+        for (const p of state.players) {
+          if (each > p.coins) gain(p, id, each - p.coins, true);
+          else drain(p, id, p.coins - each, true);
+        }
         log(state, 'log.park', { each }, { who: active.id, kind: 'income' });
         break;
       }
@@ -530,6 +619,7 @@ export function activationValue(state: GameState, p: PlayerState, id: CardId): n
 /** Run one card's effect for its owner, as the Exhibit Hall allows. */
 function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
   const card = CARD_BY_ID[id];
+  noteHits(p, id);
   if (id === 'demolition_company') {
     if (landmarkCount(state, p) > 0) state.pending.push('demolish');
     return;
@@ -540,11 +630,10 @@ function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
   }
   const amount = card.color === 'blue' ? blueAmount(state, card, p) : greenAmount(state, card, p);
   if (amount > 0) {
-    p.coins += amount;
+    gain(p, id, amount, true);
     log(state, 'log.getsVia', { player: p.name, amount, card: id }, { who: p.id, kind: 'income' });
   } else if (amount < 0) {
-    const lost = Math.min(-amount, p.coins);
-    p.coins -= lost;
+    const lost = drain(p, id, -amount, true);
     log(state, 'log.paysVia', { player: p.name, amount: lost, card: id }, { who: p.id, kind: 'income' });
   } else {
     log(state, 'log.activatesNothing', { player: p.name, card: id }, { who: p.id, kind: 'income' });
@@ -559,6 +648,7 @@ function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
 function announceTurn(state: GameState): void {
   state.turnCount++;
   const active = activePlayer(state);
+  active.stats.turns++;
   log(
     state,
     'log.turn',
@@ -573,6 +663,7 @@ function startTurn(state: GameState, samePlayer: boolean): void {
   state.diceTotal = 0;
   state.rerollUsed = false;
   state.harborBonusUsed = false;
+  state.spacePortUsed = false;
   state.pending = [];
   state.phase = 'roll';
   announceTurn(state);
@@ -583,6 +674,9 @@ function rollDice(state: GameState, count: number): void {
   state.rollId++;
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
   const active = activePlayer(state);
+  active.stats.rolls++;
+  active.stats.pips += state.diceTotal;
+  if (count === 2) noteHits(active, 'train_station');
   log(
     state,
     'log.roll',
@@ -592,13 +686,15 @@ function rollDice(state: GameState, count: number): void {
 }
 
 /**
- * Test hook: resolve income for an exact set of dice, skipping the Radio Tower
- * and Harbor prompts. The server never calls this — see `applyAction`.
+ * Test hook: resolve income for an exact set of dice, skipping the Radio Tower,
+ * Space Port and Harbor prompts. The server never calls this — see `applyAction`.
  */
 export function applyForcedRoll(state: GameState, dice: number[]): void {
   state.dice = dice.slice();
   state.rollId++;
   state.diceTotal = state.dice.reduce((a, b) => a + b, 0);
+  activePlayer(state).stats.rolls++;
+  activePlayer(state).stats.pips += state.diceTotal;
   log(state, 'log.roll', {
     player: activePlayer(state).name,
     dice: state.dice.join(' + '),
@@ -615,7 +711,19 @@ function afterRoll(state: GameState): void {
   afterFinalRoll(state);
 }
 
+/**
+ * The Space Port goes before the Harbor: nudging a 9 up to 10 is what puts the
+ * Harbor's +2 within reach, and both only ever move the total, never the dice.
+ */
 function afterFinalRoll(state: GameState): void {
+  if (activePlayer(state).landmarks.space_port && !state.spacePortUsed) {
+    state.phase = 'spaceport';
+    return;
+  }
+  afterAdjustedRoll(state);
+}
+
+function afterAdjustedRoll(state: GameState): void {
   const active = activePlayer(state);
   if (active.landmarks.harbor && state.diceTotal >= 10 && !state.harborBonusUsed) {
     state.phase = 'harbor';
@@ -628,6 +736,7 @@ function beginIncome(state: GameState): void {
   const active = activePlayer(state);
   if (active.landmarks.amusement_park && state.dice.length === 2 && state.dice[0] === state.dice[1]) {
     state.extraTurn = true;
+    noteHits(active, 'amusement_park');
     log(state, 'log.doubles', { player: active.name }, { who: active.id, kind: 'roll' });
   }
   resolveIncome(state);
@@ -671,7 +780,8 @@ function continueAfterIncome(state: GameState): void {
 function enterBuildPhase(state: GameState): void {
   const active = activePlayer(state);
   if (active.landmarks.city_hall && active.coins === 0) {
-    active.coins += 1;
+    noteHits(active, 'city_hall');
+    gain(active, 'city_hall', 1, true);
     log(state, 'log.cityHall', { player: active.name }, { who: active.id, kind: 'income' });
   }
   state.phase = 'build';
@@ -774,6 +884,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (state.phase !== 'reroll') return 'err.nothingToReroll';
       state.rerollUsed = true;
       if (action.again) {
+        noteHits(active, 'radio_tower');
         log(state, 'log.reroll', { player: active.name }, { who: active.id, kind: 'roll' });
         rollDice(state, state.dice.length);
       }
@@ -781,10 +892,26 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       return null;
     }
 
+    case 'spaceport': {
+      if (state.phase !== 'spaceport') return 'err.spacePortNotNow';
+      const delta = action.delta;
+      if (delta !== -1 && delta !== 0 && delta !== 1) return 'err.spacePortRange';
+      if (state.diceTotal + delta < 1) return 'err.spacePortRange';
+      state.spacePortUsed = true;
+      if (delta !== 0) {
+        noteHits(active, 'space_port');
+        state.diceTotal += delta;
+        log(state, 'log.spacePortUsed', { player: active.name, total: state.diceTotal }, { who: active.id, kind: 'roll' });
+      }
+      afterAdjustedRoll(state);
+      return null;
+    }
+
     case 'harbor': {
       if (state.phase !== 'harbor') return 'err.harborNotNow';
       state.harborBonusUsed = true;
       if (action.add) {
+        noteHits(active, 'harbor');
         state.diceTotal += 2;
         log(state, 'log.harborUsed', { player: active.name, total: state.diceTotal }, { who: active.id, kind: 'roll' });
       }
@@ -797,7 +924,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       const target = findPlayer(state, action.targetId);
       if (!target) return 'err.unknownPlayer';
       if (target.id === active.id) return 'err.pickAnother';
-      const took = pay(target, active, 5);
+      const took = pay(target, active, 5, 'tv_station');
       log(state, 'log.tvTake', { player: active.name, amount: took, target: target.name }, { who: active.id, kind: 'income' });
       advancePending(state);
       return null;
@@ -829,7 +956,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (!expectPhase(state, 'demolish')) return 'err.nothingToDemolish';
       if (!demolishable(state, active).includes(action.landmarkId)) return 'err.notBuilt';
       active.landmarks[action.landmarkId] = false;
-      active.coins += 8;
+      gain(active, 'demolition_company', 8, true);
       log(state, 'log.demolish', { player: active.name, landmark: action.landmarkId }, { who: active.id, kind: 'build' });
       advancePending(state);
       return null;
@@ -843,7 +970,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (CARD_BY_ID[action.give]?.icon === 'major') return 'err.noMajorMove';
       if (copies(active, action.give) <= 0) return 'err.dontOwn';
       transferCard(active, target, action.give);
-      active.coins += 4;
+      gain(active, 'moving_company', 4, true);
       log(
         state,
         'log.moving',
@@ -866,7 +993,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         if (newly <= 0) continue;
         p.closed[action.cardId] = copies(p, action.cardId);
         shut += newly;
-        if (p.id !== active.id) collected += pay(p, active, newly);
+        if (p.id !== active.id) collected += pay(p, active, newly, 'renovation_company');
       }
       log(
         state,
@@ -900,6 +1027,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         if (active.coins < 1) return 'err.noCoinToInvest';
         active.coins -= 1;
         active.investment += 1;
+        active.stats.invested += 1;
         log(state, 'log.invest', { player: active.name, total: active.investment }, { who: active.id, kind: 'build' });
       }
       finishTurn(state);
@@ -910,7 +1038,13 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (state.phase !== 'build') return 'err.cannotBuildNow';
       if (!canBuy(state, active, action.cardId)) return 'err.cannotBuy';
       const card = CARD_BY_ID[action.cardId];
-      active.coins -= card.cost;
+      // The Loan Office has a negative price: taking it on pays you.
+      if (card.cost < 0) gain(active, card.id, -card.cost, true);
+      else {
+        active.coins -= card.cost;
+        noteBuild(active, card.id, card.cost, false);
+      }
+      active.stats.cardsBought++;
       active.cards[card.id] = copies(active, card.id) + 1;
       state.supply[card.id] = (state.supply[card.id] ?? 0) - 1;
       if (card.cost < 0) {
@@ -928,6 +1062,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (!canBuild(state, active, action.landmarkId)) return 'err.cannotBuildLandmark';
       const l = landmarksFor(state.rules).find((x) => x.id === action.landmarkId)!;
       active.coins -= l.cost;
+      noteBuild(active, l.id, l.cost, true);
       active.landmarks[l.id] = true;
       log(state, 'log.buildLandmark', { player: active.name, landmark: l.id, cost: l.cost }, { who: active.id, kind: 'build' });
       endOfTurn(state);
@@ -937,7 +1072,8 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
     case 'pass': {
       if (state.phase !== 'build') return 'err.cannotPass';
       if (active.landmarks.airport) {
-        active.coins += 10;
+        noteHits(active, 'airport');
+        gain(active, 'airport', 10, true);
         log(state, 'log.passAirport', { player: active.name }, { who: active.id, kind: 'build' });
       } else {
         log(state, 'log.pass', { player: active.name }, { who: active.id, kind: 'build' });

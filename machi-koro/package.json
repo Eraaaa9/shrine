@@ -12,6 +12,7 @@
     "start": "tsx src/server/index.ts",
     "play": "npm run build && npm start",
     "simulate": "tsx src/shared/simulate.ts",
+    "train": "tsx src/shared/train.ts",
     "icons": "node scripts/make-og.mjs",
     "test:restart": "node scripts/test-restart.mjs",
     "typecheck": "tsc --noEmit"

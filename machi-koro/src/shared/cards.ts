@@ -179,7 +179,8 @@ export type LandmarkId =
   | 'shopping_mall'
   | 'amusement_park'
   | 'radio_tower'
-  | 'airport';
+  | 'airport'
+  | 'space_port';
 
 export interface LandmarkDef {
   id: LandmarkId;
@@ -200,6 +201,7 @@ export const LANDMARKS: LandmarkDef[] = [
   { id: 'amusement_park', name: 'Amusement Park', cost: 16, expansion: 'base', text: 'If you roll doubles, take another turn after this one.' },
   { id: 'radio_tower', name: 'Radio Tower', cost: 22, expansion: 'base', text: 'Once per turn, you may re-roll the dice.' },
   { id: 'airport', name: 'Airport', cost: 30, expansion: 'harbor', text: 'If you build nothing on your turn, get 10 coins from the bank.' },
+  { id: 'space_port', name: 'Space Port', cost: 50, expansion: 'millionaires', text: 'Once per turn, after rolling, you may add 1 to or subtract 1 from the dice total.' },
 ];
 
 export const LANDMARK_BY_ID: Record<LandmarkId, LandmarkDef> = Object.fromEntries(

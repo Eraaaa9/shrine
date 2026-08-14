@@ -13,6 +13,7 @@ interface Props {
   isHost: boolean;
   act: (action: GameAction) => void;
   send: (message: ClientMessage) => void;
+  onStats: () => void;
 }
 
 /** Translation key describing what the table is waiting for. */
@@ -27,7 +28,7 @@ export function phaseHint(
   return t(phaseKey(game), { player: game.players[game.turn]?.name ?? '' });
 }
 
-export default function Controls({ game, you, yourTurn, isHost, act, send }: Props) {
+export default function Controls({ game, you, yourTurn, isHost, act, send, onStats }: Props) {
   const { lang, t } = useLang();
   const active = game.players[game.turn];
   const opponents = game.players.filter((p) => p.id !== you?.id);
@@ -44,6 +45,9 @@ export default function Controls({ game, you, yourTurn, isHost, act, send }: Pro
             <span className="winner">
               {t('ui.wins', { player: game.players.find((p) => p.id === game.winnerId)?.name ?? '' })}
             </span>
+            <button type="button" onClick={onStats}>
+              {t('ui.statsButton')}
+            </button>
             {isHost ? (
               <button type="button" className="primary" onClick={() => send({ t: 'rematch' })}>
                 {t('ui.playAgain')}
@@ -82,6 +86,25 @@ export default function Controls({ game, you, yourTurn, isHost, act, send }: Pro
                 </button>
                 <button type="button" className="primary" onClick={() => act({ t: 'reroll', again: true })}>
                   {t('ui.reroll')}
+                </button>
+              </>
+            )}
+
+            {game.phase === 'spaceport' && (
+              <>
+                <span className="prompt">{t('ui.spacePortPrompt')}</span>
+                <button
+                  type="button"
+                  disabled={game.diceTotal <= 1}
+                  onClick={() => act({ t: 'spaceport', delta: -1 })}
+                >
+                  {t('ui.makeIt', { total: game.diceTotal - 1 })}
+                </button>
+                <button type="button" onClick={() => act({ t: 'spaceport', delta: 0 })}>
+                  {t('ui.keepTotal', { total: game.diceTotal })}
+                </button>
+                <button type="button" className="primary" onClick={() => act({ t: 'spaceport', delta: 1 })}>
+                  {t('ui.makeIt', { total: game.diceTotal + 1 })}
                 </button>
               </>
             )}

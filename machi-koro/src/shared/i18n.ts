@@ -245,6 +245,10 @@ const LANDMARKS_RU: Record<LandmarkId, { name: string; text: string }> = {
   amusement_park: { name: 'Парк аттракционов', text: 'Если выпал дубль, сделайте ещё один ход после этого.' },
   radio_tower: { name: 'Телебашня', text: 'Раз за ход вы можете перебросить кубики.' },
   airport: { name: 'Аэропорт', text: 'Если вы ничего не построили в свой ход, получите 10 монет из банка.' },
+  space_port: {
+    name: 'Космодром',
+    text: 'Один раз за ход, после броска, вы можете прибавить 1 к сумме или вычесть 1 из неё.',
+  },
 };
 
 const LANDMARKS_KK: Record<LandmarkId, { name: string; text: string }> = {
@@ -258,6 +262,10 @@ const LANDMARKS_KK: Record<LandmarkId, { name: string; text: string }> = {
   amusement_park: { name: 'Ойын-сауық саябағы', text: 'Бірдей сан түссе, осыдан кейін тағы бір жүріс жасаңыз.' },
   radio_tower: { name: 'Телемұнара', text: 'Жүрісіне бір рет кубиктерді қайта тастай аласыз.' },
   airport: { name: 'Әуежай', text: 'Өз жүрісіңізде ештеңе салмасаңыз, банктен 10 монета алыңыз.' },
+  space_port: {
+    name: 'Ғарыш айлағы',
+    text: 'Жүрісіне бір рет, кубик тастағаннан кейін, жиынтыққа 1 қоса аласыз немесе одан 1 шегере аласыз.',
+  },
 };
 
 /** Card and landmark tables per language; English lives on the card definitions. */
@@ -287,6 +295,11 @@ export function landmarkText(lang: Lang, id: LandmarkId): string {
   return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id].text;
 }
 
+/** Name of whatever a post-game row is about — an establishment or a landmark. */
+export function statName(lang: Lang, key: string): string {
+  return key in LANDMARK_BY_ID ? landmarkName(lang, key as LandmarkId) : cardName(lang, key as CardId);
+}
+
 /** Short label for the landmark chips, where space is tight. */
 const LANDMARK_SHORT: Record<Lang, Record<LandmarkId, string>> = {
   en: {
@@ -297,6 +310,7 @@ const LANDMARK_SHORT: Record<Lang, Record<LandmarkId, string>> = {
     amusement_park: 'Park',
     radio_tower: 'Radio',
     airport: 'Airport',
+    space_port: 'Space Port',
   },
   ru: {
     city_hall: 'Мэрия',
@@ -306,6 +320,7 @@ const LANDMARK_SHORT: Record<Lang, Record<LandmarkId, string>> = {
     amusement_park: 'Аттракционы',
     radio_tower: 'Телебашня',
     airport: 'Аэропорт',
+    space_port: 'Космодром',
   },
   kk: {
     city_hall: 'Әкімдік',
@@ -315,6 +330,7 @@ const LANDMARK_SHORT: Record<Lang, Record<LandmarkId, string>> = {
     amusement_park: 'Саябақ',
     radio_tower: 'Телемұнара',
     airport: 'Әуежай',
+    space_port: 'Ғарыш',
   },
 };
 
@@ -366,6 +382,7 @@ const EN: Record<string, string> = {
   'log.cityHall': '{player} gets 1 coin — City Hall',
   'log.doubles': '{player} rolled doubles — Amusement Park grants another turn.',
   'log.harborUsed': '{player} uses the Harbor: total becomes {total}.',
+  'log.spacePortUsed': '{player} uses the Space Port: total becomes {total}.',
   'log.reroll': '{player} uses the Radio Tower to re-roll.',
   'log.tvTake': '{player} takes {amount} from {target} — TV Station',
   'log.trade': "{player} swaps {card} for {target}'s {card2} — Business Center",
@@ -395,6 +412,8 @@ const EN: Record<string, string> = {
   'err.needTrainStation': 'The Train Station is needed to roll 2 dice.',
   'err.nothingToReroll': 'Nothing to re-roll right now.',
   'err.harborNotNow': 'The Harbor cannot be used right now.',
+  'err.spacePortNotNow': 'The Space Port cannot be used right now.',
+  'err.spacePortRange': 'The Space Port moves the total by 1, and never below 1.',
   'err.tvNotWaiting': 'The TV Station is not waiting on you.',
   'err.unknownPlayer': 'Unknown player.',
   'err.pickAnother': 'Pick another player.',
@@ -488,6 +507,8 @@ const EN: Record<string, string> = {
   'ui.spectating': 'spectating {player}',
   'ui.stacksAndDeck': '{stacks} stacks · {deck} in deck',
   'ui.cardsLeft': '{n} left',
+  'ui.soldOut': 'sold out',
+  'ui.newStack': 'new',
   'ui.youOwn': 'you: {n}',
   'ui.noEstablishments': 'no establishments',
   'ui.takingTurn': 'taking their turn',
@@ -503,6 +524,7 @@ const EN: Record<string, string> = {
 
   'ui.phase.roll': '{player} is rolling',
   'ui.phase.reroll': '{player} may re-roll (Radio Tower)',
+  'ui.phase.spaceport': '{player} may use the Space Port',
   'ui.phase.harbor': '{player} may use the Harbor',
   'ui.phase.tv': '{player} is choosing a TV Station target',
   'ui.phase.trade': '{player} is choosing a Business Center swap',
@@ -521,6 +543,7 @@ const EN: Record<string, string> = {
   'ui.rerollPrompt': 'Radio Tower — re-roll?',
   'ui.keepTotal': 'Keep {total}',
   'ui.reroll': 'Re-roll',
+  'ui.spacePortPrompt': 'Space Port — move the total by 1?',
   'ui.harborPrompt': 'Harbor — add 2 to the total?',
   'ui.makeIt': 'Make it {total}',
   'ui.tvPrompt': 'TV Station — take 5 coins from:',
@@ -555,6 +578,34 @@ const EN: Record<string, string> = {
   'ui.activateIt': 'Activate it',
   'ui.nothingAvailable': 'nothing available',
   'ui.closedList': 'Closed for renovation: {cards}',
+
+  // post-game stats
+  'ui.statsButton': 'Stats',
+  'ui.statsTitle': 'How the city was built',
+  'ui.statsClose': 'Close',
+  'ui.statsTurnsPlayed': '{n} turns played.',
+  'ui.statsBlurb':
+    'Per building: how often it activated, what it cost to build, what it brought in, and what it took back out of your pocket — an opponent’s copy billing you counts here too.',
+  'ui.statsLandmarks': '· {n} landmarks',
+  'ui.colPlayer': 'Player',
+  'ui.colTurns': 'Turns',
+  'ui.colEarned': 'Earned',
+  'ui.colPaid': 'Paid',
+  'ui.colSpent': 'Built',
+  'ui.colCost': 'Cost',
+  'ui.colCoins': 'Left',
+  'ui.colAvgRoll': 'Avg roll',
+  'ui.colBuilding': 'Building',
+  'ui.colHits': 'Hits',
+  'ui.colNet': 'Net',
+  'ui.statsNoBuildings': 'Not a single coin ever moved.',
+  'ui.statsBest': 'Best earner: {name} — {amount} clear.',
+  'ui.statsWorst': 'Biggest drain: {name} — {amount} down.',
+  'ui.statsEarnedSplit': 'Earned {bank} from the bank and {players} from opponents.',
+  'ui.statsPaidSplit': 'Paid {bank} to the bank and {players} to opponents.',
+  'ui.statsSpentSplit': 'Spent {total} on building: {cardCoins} on {cards} establishments and {landmarkCoins} on landmarks.',
+  'ui.statsInvested': 'Sank {n} into the Tech Startup.',
+  'ui.statsPeak': 'Richest moment: {n} coins.',
 };
 
 const RU: Record<string, string> = {
@@ -590,6 +641,7 @@ const RU: Record<string, string> = {
   'log.cityHall': '{player} получает 1 монету — Мэрия',
   'log.doubles': 'У {player} выпал дубль — Парк аттракционов даёт ещё один ход.',
   'log.harborUsed': '{player} использует Гавань: сумма становится {total}.',
+  'log.spacePortUsed': '{player} использует Космодром: сумма становится {total}.',
   'log.reroll': '{player} использует Телебашню и перебрасывает кубики.',
   'log.tvTake': '{player} забирает {amount} у {target} — Телестудия',
   'log.trade': '{player} меняет {card} на {card2} игрока {target} — Бизнес-центр',
@@ -619,6 +671,8 @@ const RU: Record<string, string> = {
   'err.needTrainStation': 'Чтобы бросать 2 кубика, нужен Вокзал.',
   'err.nothingToReroll': 'Сейчас нечего перебрасывать.',
   'err.harborNotNow': 'Сейчас Гавань использовать нельзя.',
+  'err.spacePortNotNow': 'Сейчас Космодром использовать нельзя.',
+  'err.spacePortRange': 'Космодром меняет сумму на 1 и не опускает её ниже 1.',
   'err.tvNotWaiting': 'Телестудия сейчас не ждёт вашего решения.',
   'err.unknownPlayer': 'Неизвестный игрок.',
   'err.pickAnother': 'Выберите другого игрока.',
@@ -712,6 +766,8 @@ const RU: Record<string, string> = {
   'ui.spectating': 'наблюдаете за {player}',
   'ui.stacksAndDeck': 'стопок: {stacks} · в колоде: {deck}',
   'ui.cardsLeft': 'осталось {n}',
+  'ui.soldOut': 'разобрали',
+  'ui.newStack': 'новая',
   'ui.youOwn': 'у вас: {n}',
   'ui.noEstablishments': 'предприятий нет',
   'ui.takingTurn': 'сейчас ходит',
@@ -727,6 +783,7 @@ const RU: Record<string, string> = {
 
   'ui.phase.roll': '{player} бросает кубики',
   'ui.phase.reroll': '{player} может перебросить (Телебашня)',
+  'ui.phase.spaceport': '{player} может использовать Космодром',
   'ui.phase.harbor': '{player} может использовать Гавань',
   'ui.phase.tv': '{player} выбирает жертву Телестудии',
   'ui.phase.trade': '{player} выбирает обмен в Бизнес-центре',
@@ -745,6 +802,7 @@ const RU: Record<string, string> = {
   'ui.rerollPrompt': 'Телебашня — перебросить?',
   'ui.keepTotal': 'Оставить {total}',
   'ui.reroll': 'Перебросить',
+  'ui.spacePortPrompt': 'Космодром — изменить сумму на 1?',
   'ui.harborPrompt': 'Гавань — добавить 2 к сумме?',
   'ui.makeIt': 'Сделать {total}',
   'ui.tvPrompt': 'Телестудия — забрать 5 монет у:',
@@ -779,6 +837,34 @@ const RU: Record<string, string> = {
   'ui.activateIt': 'Активировать',
   'ui.nothingAvailable': 'ничего нет',
   'ui.closedList': 'Закрыто на ремонт: {cards}',
+
+  // post-game stats
+  'ui.statsButton': 'Итоги',
+  'ui.statsTitle': 'Как строился город',
+  'ui.statsClose': 'Закрыть',
+  'ui.statsTurnsPlayed': 'Сыграно ходов: {n}.',
+  'ui.statsBlurb':
+    'По каждому зданию: сколько раз сработало, во сколько обошлось, сколько принесло и сколько забрало из кармана — включая чужие копии, которым вы платили.',
+  'ui.statsLandmarks': '· достопримечательностей: {n}',
+  'ui.colPlayer': 'Игрок',
+  'ui.colTurns': 'Ходы',
+  'ui.colEarned': 'Получено',
+  'ui.colPaid': 'Отдано',
+  'ui.colSpent': 'Постройки',
+  'ui.colCost': 'Цена',
+  'ui.colCoins': 'Осталось',
+  'ui.colAvgRoll': 'Ср. бросок',
+  'ui.colBuilding': 'Здание',
+  'ui.colHits': 'Срабат.',
+  'ui.colNet': 'Итого',
+  'ui.statsNoBuildings': 'Ни одна монета так и не сдвинулась.',
+  'ui.statsBest': 'Лучшее здание: {name} — плюс {amount}.',
+  'ui.statsWorst': 'Больше всех съело: {name} — минус {amount}.',
+  'ui.statsEarnedSplit': 'Получено {bank} из банка и {players} от соперников.',
+  'ui.statsPaidSplit': 'Отдано {bank} в банк и {players} соперникам.',
+  'ui.statsSpentSplit': 'На стройку ушло {total}: {cardCoins} на предприятия ({cards} шт.) и {landmarkCoins} на достопримечательности.',
+  'ui.statsInvested': 'В Технологический стартап вложено: {n}.',
+  'ui.statsPeak': 'Максимум монет на руках: {n}.',
 };
 
 const KK: Record<string, string> = {
@@ -814,6 +900,7 @@ const KK: Record<string, string> = {
   'log.cityHall': '{player} 1 монета алады — Әкімдік',
   'log.doubles': '{player} бірдей сан тастады — Ойын-сауық саябағы тағы бір жүріс береді.',
   'log.harborUsed': '{player} Айлақты пайдаланады: жиынтық {total} болды.',
+  'log.spacePortUsed': '{player} Ғарыш айлағын пайдаланады: жиынтық {total} болды.',
   'log.reroll': '{player} Телемұнараны пайдаланып, кубиктерді қайта тастайды.',
   'log.tvTake': '{player} {target} ойыншысынан {amount} алады — Телестудия',
   'log.trade': '{player} {card} картасын {target} ойыншысының {card2} картасына айырбастайды — Бизнес-орталық',
@@ -843,6 +930,8 @@ const KK: Record<string, string> = {
   'err.needTrainStation': '2 кубик тастау үшін Вокзал керек.',
   'err.nothingToReroll': 'Қазір қайта тастайтын ештеңе жоқ.',
   'err.harborNotNow': 'Қазір Айлақты пайдалануға болмайды.',
+  'err.spacePortNotNow': 'Қазір Ғарыш айлағын пайдалануға болмайды.',
+  'err.spacePortRange': 'Ғарыш айлағы жиынтықты 1-ге ғана өзгертеді және оны 1-ден төмен түсірмейді.',
   'err.tvNotWaiting': 'Телестудия қазір сіздің шешіміңізді күтіп тұрған жоқ.',
   'err.unknownPlayer': 'Белгісіз ойыншы.',
   'err.pickAnother': 'Басқа ойыншыны таңдаңыз.',
@@ -936,6 +1025,8 @@ const KK: Record<string, string> = {
   'ui.spectating': '{player} ойыншысын бақылап отырсыз',
   'ui.stacksAndDeck': 'үйінді: {stacks} · колодада: {deck}',
   'ui.cardsLeft': '{n} қалды',
+  'ui.soldOut': 'бітті',
+  'ui.newStack': 'жаңа',
   'ui.youOwn': 'сізде: {n}',
   'ui.noEstablishments': 'кәсіпорын жоқ',
   'ui.takingTurn': 'қазір жүріп жатыр',
@@ -951,6 +1042,7 @@ const KK: Record<string, string> = {
 
   'ui.phase.roll': '{player} кубик тастап жатыр',
   'ui.phase.reroll': '{player} қайта тастай алады (Телемұнара)',
+  'ui.phase.spaceport': '{player} Ғарыш айлағын пайдалана алады',
   'ui.phase.harbor': '{player} Айлақты пайдалана алады',
   'ui.phase.tv': '{player} Телестудияның нысанасын таңдап жатыр',
   'ui.phase.trade': '{player} Бизнес-орталықтағы айырбасты таңдап жатыр',
@@ -969,6 +1061,7 @@ const KK: Record<string, string> = {
   'ui.rerollPrompt': 'Телемұнара — қайта тастайсыз ба?',
   'ui.keepTotal': '{total} қалдыру',
   'ui.reroll': 'Қайта тастау',
+  'ui.spacePortPrompt': 'Ғарыш айлағы — жиынтықты 1-ге өзгертесіз бе?',
   'ui.harborPrompt': 'Айлақ — жиынтыққа 2 қосасыз ба?',
   'ui.makeIt': '{total} жасау',
   'ui.tvPrompt': 'Телестудия — 5 монета алу:',
@@ -1003,6 +1096,34 @@ const KK: Record<string, string> = {
   'ui.activateIt': 'Іске қосу',
   'ui.nothingAvailable': 'ештеңе жоқ',
   'ui.closedList': 'Жөндеуге жабылған: {cards}',
+
+  // post-game stats
+  'ui.statsButton': 'Қорытынды',
+  'ui.statsTitle': 'Қала қалай салынды',
+  'ui.statsClose': 'Жабу',
+  'ui.statsTurnsPlayed': 'Жасалған жүріс: {n}.',
+  'ui.statsBlurb':
+    'Әр ғимарат бойынша: неше рет іске қосылды, қаншаға түсті, қанша әкелді және қалтадан қаншасын алды — қарсыластың көшірмесіне төлегеніңіз де осында.',
+  'ui.statsLandmarks': '· көрнекті нысан: {n}',
+  'ui.colPlayer': 'Ойыншы',
+  'ui.colTurns': 'Жүріс',
+  'ui.colEarned': 'Алғаны',
+  'ui.colPaid': 'Бергені',
+  'ui.colSpent': 'Құрылыс',
+  'ui.colCost': 'Бағасы',
+  'ui.colCoins': 'Қалғаны',
+  'ui.colAvgRoll': 'Орт. тас',
+  'ui.colBuilding': 'Ғимарат',
+  'ui.colHits': 'Қосылу',
+  'ui.colNet': 'Жиыны',
+  'ui.statsNoBuildings': 'Бірде-бір монета қозғалған жоқ.',
+  'ui.statsBest': 'Ең пайдалы ғимарат: {name} — таза {amount}.',
+  'ui.statsWorst': 'Ең көп жеген: {name} — минус {amount}.',
+  'ui.statsEarnedSplit': 'Банктен {bank}, қарсыластардан {players} алынды.',
+  'ui.statsPaidSplit': 'Банкке {bank}, қарсыластарға {players} берілді.',
+  'ui.statsSpentSplit': 'Құрылысқа {total} кетті: кәсіпорындарға {cardCoins} ({cards} дана) және көрнекті нысандарға {landmarkCoins}.',
+  'ui.statsInvested': 'Технологиялық стартапқа салынғаны: {n}.',
+  'ui.statsPeak': 'Қолдағы ең көп монета: {n}.',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };

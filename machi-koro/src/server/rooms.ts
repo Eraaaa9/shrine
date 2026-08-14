@@ -103,7 +103,11 @@ export class Room {
 
   nextBotName(): string {
     const taken = new Set(this.seats.map((s) => s.name));
-    return BOT_NAMES.find((n) => !taken.has(n)) ?? `Bot ${this.seats.length + 1}`;
+    // Drawn at random rather than in list order, so you are not sat down with the
+    // same four opponents every game.
+    const free = BOT_NAMES.filter((n) => !taken.has(n));
+    if (free.length === 0) return `Bot ${this.seats.length + 1}`;
+    return free[Math.floor(Math.random() * free.length)];
   }
 
   seat(id: string): Seat | undefined {

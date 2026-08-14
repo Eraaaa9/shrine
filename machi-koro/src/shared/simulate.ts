@@ -28,7 +28,7 @@ import {
   hasWon,
   type Seat,
 } from './engine';
-import type { GameState, PlayerState } from './types';
+import type { GameAction, GameState, PlayerState } from './types';
 
 const BASE: RuleSet = { harbor: false, millionaires: false, variableSupply: false };
 const HARBOR: RuleSet = { harbor: true, millionaires: false, variableSupply: false };
@@ -71,6 +71,21 @@ function checkInvariants(state: GameState, where: string): void {
   for (const p of state.players) {
     check(`${where}: ${p.name} coins never negative`, p.coins >= 0, `coins=${p.coins}`);
     check(`${where}: ${p.name} investment never negative`, p.investment >= 0);
+
+    // The stats ledger has to account for every coin, or the post-game table lies.
+    const s = p.stats;
+    const byKeyEarned = Object.values(s.byKey).reduce((a, row) => a + (row?.earned ?? 0), 0);
+    const byKeyLost = Object.values(s.byKey).reduce((a, row) => a + (row?.lost ?? 0), 0);
+    const byKeySpent = Object.values(s.byKey).reduce((a, row) => a + (row?.spent ?? 0), 0);
+    check(`${where}: ${p.name} per-building earnings add up`, byKeyEarned === s.earned, `${byKeyEarned} != ${s.earned}`);
+    check(`${where}: ${p.name} per-building losses add up`, byKeyLost === s.lost, `${byKeyLost} != ${s.lost}`);
+    check(
+      `${where}: ${p.name} per-building costs add up`,
+      byKeySpent === s.spentOnCards + s.spentOnLandmarks,
+      `${byKeySpent} != ${s.spentOnCards + s.spentOnLandmarks}`
+    );
+    check(`${where}: ${p.name} bank share within earnings`, s.fromBank <= s.earned && s.fromBank >= 0);
+    check(`${where}: ${p.name} bank share within losses`, s.toBank <= s.lost && s.toBank >= 0);
     for (const [id, n] of Object.entries(p.cards)) {
       check(`${where}: ${p.name} card count non-negative`, (n ?? 0) >= 0, `${id}=${n}`);
     }
@@ -110,6 +125,39 @@ function checkInvariants(state: GameState, where: string): void {
     const stacks = stacksOnOffer(state);
     check(`${where}: sensible number of stacks`, stacks <= 11, `${stacks} stacks`);
     check(`${where}: stacks refilled while the deck lasts`, stacks >= 10 || state.deck.length === 0, `${stacks} stacks, ${state.deck.length} in deck`);
+  }
+}
+
+/**
+ * Every coin a player holds is either one of the three they started with or one
+ * the ledger booked, so the post-game table can be trusted. Only the full games
+ * are checked: the rule tests hand out coins directly to set up a position.
+ */
+function checkLedger(state: GameState, where: string): void {
+  for (const p of state.players) {
+    const s = p.stats;
+    const purse = 3 + s.earned - s.lost - s.spentOnCards - s.spentOnLandmarks - s.invested;
+    check(`${where}: ${p.name} ledger matches the purse`, purse === p.coins, `ledger=${purse}, coins=${p.coins}`);
+    check(`${where}: ${p.name} peak is at least the purse`, s.peakCoins >= p.coins, `${s.peakCoins} < ${p.coins}`);
+  }
+}
+
+/** End-of-game sanity for the numbers the post-game table shows. */
+function statsSanity(state: GameState, where: string): void {
+  const turns = state.players.reduce((a, p) => a + p.stats.turns, 0);
+  expect(`${where}: turns add up to the turn counter`, turns, state.turnCount);
+
+  // Coins taken off another player have to land on someone: what the table
+  // calls "from opponents" and "to opponents" are two views of the same moves.
+  const taken = state.players.reduce((a, p) => a + p.stats.earned - p.stats.fromBank, 0);
+  const given = state.players.reduce((a, p) => a + p.stats.lost - p.stats.toBank, 0);
+  expect(`${where}: coins taken from opponents match coins handed over`, taken, given);
+
+  for (const p of state.players) {
+    check(`${where}: ${p.name} rolled at least once a turn`, p.stats.rolls >= p.stats.turns, `${p.stats.rolls} rolls, ${p.stats.turns} turns`);
+    for (const [id, row] of Object.entries(p.stats.byKey)) {
+      check(`${where}: ${p.name} ${id} has no negative figures`, (row?.hits ?? 0) >= 0 && (row?.earned ?? 0) >= 0 && (row?.lost ?? 0) >= 0 && (row?.spent ?? 0) >= 0);
+    }
   }
 }
 
@@ -555,6 +603,101 @@ function millionairesRuleTests(): void {
   }
 
   {
+    // Handing a closed card over must not leave a phantom token behind: the
+    // giver used to keep a negative count, which read back as an extra open copy.
+    const g = createGame(seats(2), ROW, 123);
+    const [a, b] = g.players;
+    give(g, a, 'vineyard');
+    give(g, a, 'winery');
+    give(g, a, 'moving_company');
+    applyForcedRoll(g, [9]);
+    expect('the Winery shuts itself', closedCopies(a, 'winery'), 1);
+    expect('the Moving Company is waiting', g.phase, 'moving');
+    check(
+      'the closed Winery can be given away',
+      applyAction(g, a.id, { t: 'moving', targetId: b.id, give: 'winery' }) === null
+    );
+    expect('the giver keeps no Winery', copies(a, 'winery'), 0);
+    expect('and no token for one', closedCopies(a, 'winery'), 0);
+    expect('the closed card travels with it', closedCopies(b, 'winery'), 1);
+
+    give(g, a, 'winery');
+    a.coins = 0;
+    applyForcedRoll(g, [9]);
+    expect('a replacement Winery pays for one copy, not two', a.coins, 6);
+
+    // Give one of two closed copies away and the one that stays is still closed.
+    const g2 = createGame(seats(2), ROW, 124);
+    const [c, d] = g2.players;
+    give(g2, c, 'vineyard');
+    give(g2, c, 'winery', 2);
+    give(g2, c, 'moving_company');
+    applyForcedRoll(g2, [9]);
+    expect('both Wineries shut', closedCopies(c, 'winery'), 2);
+    check(
+      'one of them moves on',
+      applyAction(g2, c.id, { t: 'moving', targetId: d.id, give: 'winery' }) === null
+    );
+    expect('the copy left behind keeps its token', closedCopies(c, 'winery'), 1);
+    expect('and the travelling one keeps its own', closedCopies(d, 'winery'), 1);
+  }
+
+  {
+    // Space Port: one nudge per turn, before the Harbor, never below 1.
+    const g = createGame(seats(2), BRIGHT, 119);
+    const a = g.players[0];
+    a.landmarks.space_port = true;
+    a.landmarks.train_station = true;
+    give(g, a, 'mine');
+    applyAction(g, a.id, { t: 'roll', dice: 2 });
+    expect('the Space Port asks first', g.phase, 'spaceport');
+    const rolled = g.diceTotal;
+    const tooFar = { t: 'spaceport', delta: 2 } as unknown as GameAction;
+    expect('a nudge of 1 is all it moves', applyAction(g, a.id, tooFar), 'err.spacePortRange');
+    check('and it moves the total', applyAction(g, a.id, { t: 'spaceport', delta: 1 }) === null);
+    expect('by exactly one', g.diceTotal, rolled + 1);
+    expect('only once a turn', applyAction(g, a.id, { t: 'spaceport', delta: 1 }), 'err.spacePortNotNow');
+
+    // 9 → 10 opens the Harbor, which the roll alone would not have done.
+    const g2 = createGame(seats(2), BRIGHT, 120);
+    const b = g2.players[0];
+    b.landmarks.space_port = true;
+    b.landmarks.harbor = true;
+    b.landmarks.train_station = true;
+    g2.dice = [4, 5];
+    g2.diceTotal = 9;
+    g2.phase = 'spaceport';
+    check('nudging up to 10', applyAction(g2, b.id, { t: 'spaceport', delta: 1 }) === null);
+    expect('hands the roll to the Harbor', g2.phase, 'harbor');
+    check('which adds its 2', applyAction(g2, b.id, { t: 'harbor', add: true }) === null);
+    expect('for a total of 12', g2.diceTotal, 12);
+
+    // A single die showing 1 cannot be nudged down to nothing.
+    const g3 = createGame(seats(2), BRIGHT, 121);
+    const c = g3.players[0];
+    c.landmarks.space_port = true;
+    g3.dice = [1];
+    g3.diceTotal = 1;
+    g3.phase = 'spaceport';
+    expect('a total of 1 cannot go lower', applyAction(g3, c.id, { t: 'spaceport', delta: -1 }), 'err.spacePortRange');
+    check('but it can stand', applyAction(g3, c.id, { t: 'spaceport', delta: 0 }) === null);
+    expect('with the total untouched', g3.diceTotal, 1);
+  }
+
+  {
+    // Winning now needs the Space Port too.
+    const g = createGame(seats(2), BRIGHT, 122);
+    const a = g.players[0];
+    for (const l of winLandmarks(BRIGHT)) a.landmarks[l.id] = true;
+    a.landmarks.space_port = false;
+    a.coins = 50;
+    check('the Airport is no longer the last one', !hasWon(g, a));
+    applyForcedRoll(g, [5]);
+    check('builds the Space Port', applyAction(g, a.id, { t: 'landmark', landmarkId: 'space_port' }) === null);
+    expect('and that wins it', g.phase, 'over');
+  }
+
+  {
     // Variable supply setup.
     const g = createGame(seats(3), BRIGHT_VAR, 118);
     expect('ten stacks on offer', stacksOnOffer(g), 10);
@@ -570,6 +713,79 @@ function millionairesRuleTests(): void {
     const err = applyAction(g, a.id, { t: 'buy', cardId: target });
     check('bought the last copy of a stack', err === null, String(err));
     expect('a fresh stack replaced it', stacksOnOffer(g), 10);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// the post-game ledger
+// ---------------------------------------------------------------------------
+
+function statsTests(): void {
+  {
+    // A restaurant credits its owner and bills the roller, both by name.
+    const g = createGame(seats(2), HARBOR, 201);
+    const [a, b] = g.players;
+    give(g, b, 'cafe');
+    applyForcedRoll(g, [3]);
+    expect('the Café earned for its owner', b.stats.byKey.cafe?.earned, 1);
+    expect('and counted its activation', b.stats.byKey.cafe?.hits, 1);
+    expect('the roller is billed under the same card', a.stats.byKey.cafe?.lost, 1);
+    expect('the roller did not "own" it', a.stats.byKey.cafe?.hits, 0);
+    expect('coins from an opponent are not bank coins', b.stats.fromBank, 0);
+    expect('but they still count as earnings', b.stats.earned, 1);
+    expect('and as a loss for the payer', a.stats.lost, 1);
+    expect('booked as paid to a player, not the bank', a.stats.toBank, 0);
+  }
+
+  {
+    // Buying is a cost against the card; the Loan Office is a payout instead.
+    const g = createGame(seats(2), ROW, 202);
+    const a = g.players[0];
+    a.coins = 10;
+    applyForcedRoll(g, [4]);
+    applyAction(g, a.id, { t: 'buy', cardId: 'ranch' });
+    expect('the Ranch is booked at its price', a.stats.byKey.ranch?.spent, 1);
+    expect('and against the establishment budget', a.stats.spentOnCards, 1);
+
+    const g2 = createGame(seats(2), ROW, 203);
+    const a2 = g2.players[0];
+    applyForcedRoll(g2, [4]);
+    applyAction(g2, a2.id, { t: 'buy', cardId: 'loan_office' });
+    expect('taking on the Loan Office is earnings, not a cost', a2.stats.byKey.loan_office?.earned, 5);
+    expect('nothing was spent on it', a2.stats.spentOnCards, 0);
+  }
+
+  {
+    // A landmark is a row of its own, and the Airport keeps paying into it.
+    const g = createGame(seats(2), HARBOR, 204);
+    const a = g.players[0];
+    a.coins = 30;
+    applyForcedRoll(g, [1]);
+    applyAction(g, a.id, { t: 'landmark', landmarkId: 'airport' });
+    expect('the Airport is booked at its price', a.stats.byKey.airport?.spent, 30);
+    expect('under the landmark budget', a.stats.spentOnLandmarks, 30);
+    // Round the table back to the Airport's owner.
+    while (activePlayer(g).id !== a.id) {
+      applyForcedRoll(g, [1]);
+      applyAction(g, activePlayer(g).id, { t: 'pass' });
+    }
+    applyForcedRoll(g, [1]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('and pays out when you build nothing', a.stats.byKey.airport?.earned, 10);
+    expect('counting as a use of the landmark', a.stats.byKey.airport?.hits, 1);
+  }
+
+  {
+    // The Park levels everyone up: the poor gain, the rich pay.
+    const g = createGame(seats(2), ROW, 205);
+    const [a, b] = g.players;
+    give(g, a, 'park');
+    a.coins = 1;
+    b.coins = 9;
+    applyForcedRoll(g, [11]);
+    expect('the Park tops the poorer player up', a.coins, 5);
+    expect('booking the difference as earnings', a.stats.byKey.park?.earned, 4);
+    expect('and takes from the richer one', b.stats.byKey.park?.lost, 4);
   }
 }
 
@@ -600,10 +816,13 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
         check('bot moves are legal', false, `${JSON.stringify(action)} in phase ${state.phase}: ${error}`);
         break;
       }
+      checkLedger(state, `game ${i}`);
       if (steps % 25 === 0) checkInvariants(state, `game ${i}`);
       steps++;
     }
     checkInvariants(state, `game ${i} end`);
+    checkLedger(state, `game ${i} end`);
+    statsSanity(state, `game ${i}`);
     for (const entry of state.log) seenKeys.add(entry.key);
     if (state.phase !== 'over') {
       stuck++;
@@ -710,6 +929,11 @@ const afterBase = failures;
 console.log('Millionaire’s Row rules');
 millionairesRuleTests();
 console.log(failures === afterBase ? '  passed\n' : `  ${failures - afterBase} failed\n`);
+
+const afterRow = failures;
+console.log('Post-game stats');
+statsTests();
+console.log(failures === afterRow ? '  passed\n' : `  ${failures - afterRow} failed\n`);
 
 console.log('Bot games');
 simulate(count, HARBOR, 4);

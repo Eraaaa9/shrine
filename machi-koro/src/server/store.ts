@@ -14,7 +14,7 @@ import type { ChatLine } from '../shared/protocol';
 import type { GameState } from '../shared/types';
 
 /** Bumped when the shape below changes. An older file is discarded, not migrated. */
-const VERSION = 1;
+const VERSION = 3;
 
 /** Sockets and disconnect timers are runtime-only; everything else survives. */
 export interface SeatSnapshot {
