@@ -51,7 +51,7 @@ Keep the terminal running for as long as you are playing; the games live in the 
 
 ## Choosing a game
 
-The lobby has three switches, all on by default:
+The lobby has three switches, all on by default, and a **Bot skill** picker:
 
 |Switch|What it adds|
 |-|-|
@@ -62,6 +62,42 @@ The lobby has three switches, all on by default:
 Turn everything off for the plain base game (15 cards, 4 landmarks, 2–4 players). The variable
 supply is the setup the expansion rulebook recommends — with all 39 establishments available at
 once the board is a wall of cards, and nothing is ever scarce.
+
+**Bot skill** chooses between the two strategies in the repo: *Casual* is the hand-written one the
+bot shipped with, *Trained* is what self-play produced and is the default. The trained one beats the
+hand-written one 54% to 46% head to head, and holds it to 14% at a table of trained opponents — so
+Casual is the setting to give a table that is still learning. See
+[Training the bots](#training-the-bots).
+
+## Reading the board
+
+The supply can be filtered to **just what you can afford** and sorted by activation number, by cost
+or by colour — the fixed supply is 39 different cards, and that is a wall to read. Each tile shows
+how many copies you hold *and* how many the rest of the table holds, because whether an opponent
+already has two Family Restaurants is what decides whether you want the third.
+
+The **City** tab is the income curve of your own city: for every dice total, what it collects when
+you roll that total and what it collects when somebody else does, with the odds under one die and
+under two. Blue cards pay on anybody's turn and green ones only on yours, which is why the two
+columns differ — and it is the whole of the two-dice decision, which the bots' own training puts at
+12 to 20 points of win rate. The **Stats** button opens the building-by-building table at any point
+in the game, not only once it is over.
+
+Coins that move are shown moving: a turn's net swing floats over the player it happened to, in
+green or red. The landmark row carries a progress bar, so who is about to win is readable without
+counting. A player who has dropped shows the countdown to their turn being auto-played rather than
+having it happen out of nowhere.
+
+**Keys.** `R` rolls one die, `T` rolls two, `E` ends the turn, `S` opens and closes the stats table.
+Typing in the chat box never triggers them.
+
+**Theme and sound.** The EN/RU/KK control has a light/dark/auto switch beside it, which follows the
+system by default, and a sound toggle — dice, coins, building and a win fanfare, synthesised rather
+than shipped as files, and off until you ask for it. Both are remembered per device. Everything that
+moves is dropped under `prefers-reduced-motion`.
+
+Knocking a landmark down with the Demolition Company and giving a building away with the Moving
+Company both ask before they act. They are meant to be painful, not to be a misclick.
 
 ## How a turn works
 
@@ -137,8 +173,14 @@ during the simulated games are checked on top of that.
   sensibly, use the Harbor and Radio Tower, pick renovation targets and rush landmarks once their
   economy is running. How they weigh all that is not hand-tuned any more — see
   [Training the bots](#training-the-bots).
+- Bots pause before acting so you can follow along, but the pause is spent where it is worth
+  something: a beat before the throw, long enough after it for the dice to land, and a glance for
+  everything else. A bot's turn is two and a half decisions on average and as many as seven, and
+  charging each of them the same full second made a three-bot round eight seconds of watching
+  nothing. It is a little over one second a turn now, against a little over two.
 - If somebody disappears mid-game, their turn is auto-played after 45 seconds so the game never
-  stalls. Clicking Leave hands the seat to a bot for good.
+  stalls, and the rest of that turn plays out at the bots' pace. Clicking Leave hands the seat to a
+  bot for good.
 - Rooms survive a server restart. The registry is written to `.data/rooms.json` (override with
   `MACHI_KORO_STATE`) a beat after each change and flushed on `SIGINT`/`SIGTERM`, so redeploying
   mid-game costs at most the last second of play — clients reconnect on their own and carry the
@@ -266,6 +308,9 @@ src/server/    index.ts   express + WebSocket endpoint, message handling
                rooms.ts   room registry, seats, reconnection, bot scheduling
                store.ts   rooms on disk, so a restart does not drop games
 src/client/    React UI (board, player panels, controls, choice modals, log, chat)
+               prefs.tsx  theme + sound preferences, persisted per device
+               sound.ts   the cues, synthesised with WebAudio — no audio files
+               coinMotion.ts / supplyMotion.ts  what changed since the last update
 scripts/       make-og.mjs    draws the share card and app icons
                test-restart.mjs  restart-persistence test
 ```

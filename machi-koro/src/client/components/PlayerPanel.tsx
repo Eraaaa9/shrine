@@ -2,6 +2,7 @@ import { ICON_GLYPH, cardsFor, landmarksFor, type RuleSet } from '../../shared/c
 import { closedCopies } from '../../shared/engine';
 import { cardName, cardText, landmarkName, landmarkShort, landmarkText } from '../../shared/i18n';
 import type { PlayerState } from '../../shared/types';
+import type { CoinDelta } from '../coinMotion';
 import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
 
@@ -12,9 +13,22 @@ interface Props {
   isYou: boolean;
   connected: boolean;
   diceTotal: number;
+  /** Coin swings to float over the panel, newest last. */
+  deltas: CoinDelta[];
+  /** Seconds until the server plays this seat's turn for them, if it is counting. */
+  awaySeconds: number | null;
 }
 
-export default function PlayerPanel({ player, rules, isActive, isYou, connected, diceTotal }: Props) {
+export default function PlayerPanel({
+  player,
+  rules,
+  isActive,
+  isYou,
+  connected,
+  diceTotal,
+  deltas,
+  awaySeconds,
+}: Props) {
   const { lang, t } = useLang();
   const owned = cardsFor(rules).filter((c) => (player.cards[c.id] ?? 0) > 0);
   const landmarks = landmarksFor(rules).filter((l) => !l.free);
@@ -26,6 +40,18 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
 
   return (
     <div className={classes.join(' ')}>
+      {/* Income is the point of a turn, and the log scrolling past was the only
+          sign of it. Deltas are decorative here — the log says it in words. */}
+      {deltas.length > 0 && (
+        <span className="coin-deltas" aria-hidden="true">
+          {deltas.map((delta) => (
+            <span key={delta.key} className={delta.amount > 0 ? 'coin-delta up' : 'coin-delta down'}>
+              {delta.amount > 0 ? `+${delta.amount}` : delta.amount}
+            </span>
+          ))}
+        </span>
+      )}
+
       <div className="player-head">
         <span className="dot" data-on={connected || player.isBot} />
         <span className="player-name">
@@ -52,7 +78,17 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
             <em>{l.cost}</em>
           </span>
         ))}
-        <span className="lm-count">
+      </div>
+
+      {/* A bare "3/7" made you do the arithmetic to see who was about to win. */}
+      <div
+        className="lm-track"
+        role="img"
+        aria-label={t('ui.landmarkProgress', { built, total: landmarks.length })}
+        title={t('ui.landmarkProgress', { built, total: landmarks.length })}
+      >
+        <span className="lm-fill" style={{ width: `${(built / landmarks.length) * 100}%` }} />
+        <span className="lm-count" aria-hidden="true">
           {built}/{landmarks.length}
         </span>
       </div>
@@ -82,6 +118,14 @@ export default function PlayerPanel({ player, rules, isActive, isYou, connected,
         })}
         {owned.length === 0 && <span className="muted">{t('ui.noEstablishments')}</span>}
       </div>
+
+      {/* The 45-second grace period used to run invisibly, so a turn playing
+          itself looked like a bug rather than a rule. */}
+      {awaySeconds !== null && (
+        <div className="away-flag">
+          {awaySeconds > 0 ? t('ui.awayCountdown', { n: awaySeconds }) : t('ui.awayNow')}
+        </div>
+      )}
 
       {isActive && <div className="turn-flag">{t('ui.takingTurn')}</div>}
     </div>

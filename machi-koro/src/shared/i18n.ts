@@ -606,6 +606,62 @@ const EN: Record<string, string> = {
   'ui.statsSpentSplit': 'Spent {total} on building: {cardCoins} on {cards} establishments and {landmarkCoins} on landmarks.',
   'ui.statsInvested': 'Sank {n} into the Tech Startup.',
   'ui.statsPeak': 'Richest moment: {n} coins.',
+  // board filters
+  'ui.filterLabel': 'Show',
+  'ui.filterAll': 'All',
+  'ui.filterAffordable': 'Affordable',
+  'ui.sortLabel': 'Sort',
+  'ui.sortByNumber': 'By number',
+  'ui.sortByCost': 'By cost',
+  'ui.sortByColour': 'By colour',
+  'ui.boardShowing': '{shown} of {total}',
+  'ui.othersOwn': 'others: {n}',
+  'ui.noCardsMatch': 'Nothing you can afford right now.',
+
+  // income by roll
+  'ui.city': 'City',
+  'ui.incomeTitle': 'Income by roll',
+  'ui.incomeBlurb':
+    'What your city collects on each total — on your own roll, and on an opponent’s. Blue cards pay on anybody’s turn; green ones only on yours.',
+  'ui.incomeYours': 'your roll',
+  'ui.incomeTheirs': 'their roll',
+  'ui.incomeOdds': 'Odds for',
+  'ui.incomeOneDie': 'one die',
+  'ui.incomeTwoDice': 'two dice',
+  'ui.incomeUnreachable': 'out of reach on one die',
+  'ui.incomeNothing': 'Your city collects nothing yet.',
+  'ui.incomeExpected': 'Average per roll: {mine} on your turn, {theirs} on each opponent’s.',
+  'ui.incomeRowAria': 'Total {total}: {mine} on your roll, {theirs} on an opponent’s roll, {chance}% likely.',
+
+  // player panels
+  'ui.landmarkProgress': '{built} of {total} landmarks built',
+  'ui.awayCountdown': 'away — auto-play in {n}s',
+  'ui.awayNow': 'away — playing automatically',
+
+  // theme + sound
+  'ui.themeLabel': 'Theme',
+  'ui.themeAuto': 'Auto',
+  'ui.themeLight': 'Light',
+  'ui.themeDark': 'Dark',
+  'ui.soundLabel': 'Sound',
+  'ui.soundOn': 'Sound on',
+  'ui.soundOff': 'Sound off',
+
+  // confirmations + shortcuts
+  'ui.confirmTitle': 'Are you sure?',
+  'ui.confirmDemolish': 'Demolish the {landmark}? Building it again costs {cost}.',
+  'ui.confirmMoving': 'Hand {card} to {target}? You cannot ask for it back.',
+  'ui.confirmYes': 'Go ahead',
+  'ui.confirmNo': 'Cancel',
+  'ui.shortcuts': 'Keys: R roll · T two dice · E end turn · S stats',
+
+  // bots
+  'ui.botLevel': 'Bot skill',
+  'ui.botCasual': 'Casual',
+  'ui.botCasualBlurb': 'The hand-written strategy. Beatable while you are learning.',
+  'ui.botTrained': 'Trained',
+  'ui.botTrainedBlurb': 'Tuned by self-play. It will punish a slow start.',
+  'ui.statsTitleLive': 'How the city is going',
 };
 
 const RU: Record<string, string> = {
@@ -865,6 +921,56 @@ const RU: Record<string, string> = {
   'ui.statsSpentSplit': 'На стройку ушло {total}: {cardCoins} на предприятия ({cards} шт.) и {landmarkCoins} на достопримечательности.',
   'ui.statsInvested': 'В Технологический стартап вложено: {n}.',
   'ui.statsPeak': 'Максимум монет на руках: {n}.',
+  'ui.filterLabel': 'Показать',
+  'ui.filterAll': 'Все',
+  'ui.filterAffordable': 'По карману',
+  'ui.sortLabel': 'Сортировка',
+  'ui.sortByNumber': 'По числу',
+  'ui.sortByCost': 'По цене',
+  'ui.sortByColour': 'По цвету',
+  'ui.boardShowing': '{shown} из {total}',
+  'ui.othersOwn': 'у других: {n}',
+  'ui.noCardsMatch': 'Сейчас вам ничего не по карману.',
+
+  'ui.city': 'Город',
+  'ui.incomeTitle': 'Доход по броскам',
+  'ui.incomeBlurb':
+    'Сколько ваш город получает на каждой сумме — в свой ход и в чужой. Синие карты платят в любой ход, зелёные — только в ваш.',
+  'ui.incomeYours': 'ваш бросок',
+  'ui.incomeTheirs': 'чужой бросок',
+  'ui.incomeOdds': 'Шансы для',
+  'ui.incomeOneDie': 'одного кубика',
+  'ui.incomeTwoDice': 'двух кубиков',
+  'ui.incomeUnreachable': 'недостижимо на одном кубике',
+  'ui.incomeNothing': 'Ваш город пока ничего не приносит.',
+  'ui.incomeExpected': 'В среднем за бросок: {mine} в свой ход и {theirs} в ход каждого соперника.',
+  'ui.incomeRowAria': 'Сумма {total}: {mine} в свой бросок, {theirs} в чужой, вероятность {chance}%.',
+
+  'ui.landmarkProgress': 'Построено достопримечательностей: {built} из {total}',
+  'ui.awayCountdown': 'нет на месте — автоход через {n} с',
+  'ui.awayNow': 'нет на месте — ход играется автоматически',
+
+  'ui.themeLabel': 'Тема',
+  'ui.themeAuto': 'Авто',
+  'ui.themeLight': 'Светлая',
+  'ui.themeDark': 'Тёмная',
+  'ui.soundLabel': 'Звук',
+  'ui.soundOn': 'Звук включён',
+  'ui.soundOff': 'Звук выключен',
+
+  'ui.confirmTitle': 'Вы уверены?',
+  'ui.confirmDemolish': 'Снести {landmark}? Отстроить заново будет стоить {cost}.',
+  'ui.confirmMoving': 'Отдать {card} игроку {target}? Обратно попросить не выйдет.',
+  'ui.confirmYes': 'Да, давайте',
+  'ui.confirmNo': 'Отмена',
+  'ui.shortcuts': 'Клавиши: R бросок · T два кубика · E конец хода · S статистика',
+
+  'ui.botLevel': 'Уровень ботов',
+  'ui.botCasual': 'Спокойный',
+  'ui.botCasualBlurb': 'Стратегия, написанная вручную. Пока учитесь — обыгрывается.',
+  'ui.botTrained': 'Обученный',
+  'ui.botTrainedBlurb': 'Настроен самообучением. Медленный старт не простит.',
+  'ui.statsTitleLive': 'Как идёт стройка',
 };
 
 const KK: Record<string, string> = {
@@ -1124,6 +1230,56 @@ const KK: Record<string, string> = {
   'ui.statsSpentSplit': 'Құрылысқа {total} кетті: кәсіпорындарға {cardCoins} ({cards} дана) және көрнекті нысандарға {landmarkCoins}.',
   'ui.statsInvested': 'Технологиялық стартапқа салынғаны: {n}.',
   'ui.statsPeak': 'Қолдағы ең көп монета: {n}.',
+  'ui.filterLabel': 'Көрсету',
+  'ui.filterAll': 'Барлығы',
+  'ui.filterAffordable': 'Қалтаға шақ',
+  'ui.sortLabel': 'Сұрыптау',
+  'ui.sortByNumber': 'Сан бойынша',
+  'ui.sortByCost': 'Баға бойынша',
+  'ui.sortByColour': 'Түс бойынша',
+  'ui.boardShowing': '{total} ішінен {shown}',
+  'ui.othersOwn': 'басқаларда: {n}',
+  'ui.noCardsMatch': 'Қазір қалтаңызға шақ ештеңе жоқ.',
+
+  'ui.city': 'Қала',
+  'ui.incomeTitle': 'Түсім — сан бойынша',
+  'ui.incomeBlurb':
+    'Әр қосындыда қалаңыз қанша жинайды — өз кезегіңізде және қарсыластың кезегінде. Көк карталар кез келген кезекте төлейді, жасылдар тек сіздікінде.',
+  'ui.incomeYours': 'өз тастауыңыз',
+  'ui.incomeTheirs': 'бөтен тастау',
+  'ui.incomeOdds': 'Ықтималдық:',
+  'ui.incomeOneDie': 'бір сүйек',
+  'ui.incomeTwoDice': 'екі сүйек',
+  'ui.incomeUnreachable': 'бір сүйекпен қолжетімсіз',
+  'ui.incomeNothing': 'Қалаңыз әзірге ештеңе әкелмейді.',
+  'ui.incomeExpected': 'Бір тастауға орташа: өз кезегіңізде {mine}, әр қарсыластың кезегінде {theirs}.',
+  'ui.incomeRowAria': 'Қосынды {total}: өз тастауыңызда {mine}, бөтен тастауда {theirs}, ықтималдығы {chance}%.',
+
+  'ui.landmarkProgress': 'Салынған көрнекті нысандар: {total} ішінен {built}',
+  'ui.awayCountdown': 'орнында жоқ — {n} с кейін автожүріс',
+  'ui.awayNow': 'орнында жоқ — жүріс автоматты ойналуда',
+
+  'ui.themeLabel': 'Тақырып',
+  'ui.themeAuto': 'Авто',
+  'ui.themeLight': 'Ашық',
+  'ui.themeDark': 'Күңгірт',
+  'ui.soundLabel': 'Дыбыс',
+  'ui.soundOn': 'Дыбыс қосулы',
+  'ui.soundOff': 'Дыбыс өшірулі',
+
+  'ui.confirmTitle': 'Сенімдісіз бе?',
+  'ui.confirmDemolish': '{landmark} нысанын бұзасыз ба? Қайта салу {cost} тұрады.',
+  'ui.confirmMoving': '{card} картасын {target} ойыншысына бересіз бе? Кері қайтара алмайсыз.',
+  'ui.confirmYes': 'Иә, болсын',
+  'ui.confirmNo': 'Болдырмау',
+  'ui.shortcuts': 'Пернелер: R тастау · T екі сүйек · E кезекті аяқтау · S статистика',
+
+  'ui.botLevel': 'Боттар деңгейі',
+  'ui.botCasual': 'Жеңіл',
+  'ui.botCasualBlurb': 'Қолмен жазылған стратегия. Үйреніп жүргенде ұтуға болады.',
+  'ui.botTrained': 'Жаттыққан',
+  'ui.botTrainedBlurb': 'Өзімен ойнап бапталған. Баяу бастағанды кешірмейді.',
+  'ui.statsTitleLive': 'Қала қалай салынып жатыр',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };

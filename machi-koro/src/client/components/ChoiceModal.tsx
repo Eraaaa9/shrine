@@ -5,6 +5,7 @@ import { cardName, cardText } from '../../shared/i18n';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
 import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   game: GameState;
@@ -109,6 +110,9 @@ function Moving({ game, you, act }: Props) {
   const opponents = game.players.filter((p) => p.id !== you.id);
   const [targetId, setTargetId] = useState(opponents[0]?.id ?? '');
   const [give, setGive] = useState<CardId | null>(null);
+  // Handing a building to an opponent is compulsory and permanent; ask first.
+  const [confirming, setConfirming] = useState(false);
+  const target = game.players.find((p) => p.id === targetId);
 
   return (
     <>
@@ -141,11 +145,22 @@ function Moving({ game, you, act }: Props) {
           type="button"
           className="primary"
           disabled={!give || !targetId}
-          onClick={() => give && act({ t: 'moving', targetId, give })}
+          onClick={() => give && setConfirming(true)}
         >
           {t('ui.handOver')}
         </button>
       </div>
+
+      {confirming && give && target && (
+        <ConfirmDialog
+          message={t('ui.confirmMoving', { card: give, target: target.name })}
+          onYes={() => {
+            setConfirming(false);
+            act({ t: 'moving', targetId, give });
+          }}
+          onNo={() => setConfirming(false)}
+        />
+      )}
     </>
   );
 }

@@ -2,22 +2,45 @@ import type { RuleSet } from './cards';
 import type { Params } from './i18n';
 import type { GameAction, GameState } from './types';
 
+/**
+ * How hard the bots play. `casual` is the hand-written strategy the bot shipped
+ * with; `trained` is what self-play produced, and beats it by a wide margin —
+ * see TRAINING.md. Anything else in the file is read as `trained`.
+ */
+export type BotLevel = 'casual' | 'trained';
+export const BOT_LEVELS: BotLevel[] = ['casual', 'trained'];
+export const DEFAULT_BOT_LEVEL: BotLevel = 'trained';
+
+export function normaliseBotLevel(value: unknown): BotLevel {
+  return value === 'casual' ? 'casual' : DEFAULT_BOT_LEVEL;
+}
+
 export interface SeatView {
   id: string;
   name: string;
   isBot: boolean;
   connected: boolean;
   isHost: boolean;
+  /**
+   * When this seat dropped, on the server's clock, or null while it is here.
+   * The client counts the seat's grace period down from it.
+   */
+  awaySince: number | null;
 }
 
 export interface RoomView {
   code: string;
   hostId: string;
   rules: RuleSet;
+  botLevel: BotLevel;
   seats: SeatView[];
   /** Null while the room is still in the lobby. */
   game: GameState | null;
   chat: ChatLine[];
+  /** The server's clock as this view was built, so countdowns survive a skewed one. */
+  now: number;
+  /** How long a dropped player's turn waits before the server plays it for them. */
+  autoplayAfterMs: number;
 }
 
 export interface ChatLine {
@@ -31,6 +54,7 @@ export type ClientMessage =
   | { t: 'join'; code: string; name: string }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'setRules'; rules: RuleSet }
+  | { t: 'setBotLevel'; level: BotLevel }
   | { t: 'addBot' }
   | { t: 'kick'; playerId: string }
   | { t: 'start' }

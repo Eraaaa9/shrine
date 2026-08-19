@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from '
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RuleSet } from '../shared/cards';
-import type { ChatLine } from '../shared/protocol';
+import type { BotLevel, ChatLine } from '../shared/protocol';
 import type { GameState } from '../shared/types';
 
 /** Bumped when the shape below changes. An older file is discarded, not migrated. */
@@ -28,6 +28,12 @@ export interface RoomSnapshot {
   code: string;
   hostId: string;
   rules: RuleSet;
+  /**
+   * Absent in files written before bot difficulty existed. It reads back as the
+   * default, which is what those rooms were playing, so there is nothing to
+   * migrate and no reason to throw a game in progress away over it.
+   */
+  botLevel?: BotLevel;
   seats: SeatSnapshot[];
   game: GameState | null;
   chat: ChatLine[];

@@ -1101,13 +1101,19 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
 // estimates used by the bots
 // ---------------------------------------------------------------------------
 
-/** Coins a player collects from the bank on a given total. */
-export function bankIncomeAt(state: GameState, p: PlayerState, total: number): number {
+/** Coins the blue cards pay out, which they do on anybody's roll. */
+function blueIncomeAt(state: GameState, p: PlayerState, total: number): number {
   let sum = 0;
   for (const card of triggered(p, total, 'blue', state.rules)) {
     const n = openCopies(p, card.id);
     sum += (card.id === 'tuna_boat' ? 7 : blueAmount(state, card, p)) * n;
   }
+  return sum;
+}
+
+/** Coins the green cards pay out, which they only do on their owner's turn. */
+function greenIncomeAt(state: GameState, p: PlayerState, total: number): number {
+  let sum = 0;
   for (const card of triggered(p, total, 'green', state.rules)) {
     const n = openCopies(p, card.id);
     if (card.id === 'demolition_company') sum += (landmarkCount(state, p) > 0 ? 8 : 0) * n;
@@ -1117,52 +1123,102 @@ export function bankIncomeAt(state: GameState, p: PlayerState, total: number): n
   return sum;
 }
 
-/** Rough net coin swing for the active player if `total` came up. */
-export function estimateIncomeAt(state: GameState, total: number): number {
-  const active = activePlayer(state);
-  const others = otherPlayers(state);
-  let sum = bankIncomeAt(state, active, total);
+/** Coins a player collects from the bank on a given total. */
+export function bankIncomeAt(state: GameState, p: PlayerState, total: number): number {
+  return blueIncomeAt(state, p, total) + greenIncomeAt(state, p, total);
+}
 
-  for (const card of triggered(active, total, 'purple', state.rules)) {
-    if (openCopies(active, card.id) <= 0) continue;
+/** What the majors would bring in for `p`, read against the table as it stands. */
+function purpleIncomeAt(state: GameState, p: PlayerState, total: number): number {
+  const others = state.players.filter((o) => o.id !== p.id);
+  let sum = 0;
+
+  for (const card of triggered(p, total, 'purple', state.rules)) {
+    if (openCopies(p, card.id) <= 0) continue;
     switch (card.id) {
       case 'stadium':
-        sum += others.reduce((a, p) => a + Math.min(2, p.coins), 0);
+        sum += others.reduce((a, o) => a + Math.min(2, o.coins), 0);
         break;
       case 'tv_station':
-        sum += Math.min(5, Math.max(0, ...others.map((p) => p.coins)));
+        sum += Math.min(5, Math.max(0, ...others.map((o) => o.coins)));
         break;
       case 'business_center':
         sum += 2;
         break;
       case 'publisher':
-        sum += others.reduce((a, p) => a + Math.min(p.coins, countIcon(p, 'bread') + countIcon(p, 'cup')), 0);
+        sum += others.reduce((a, o) => a + Math.min(o.coins, countIcon(o, 'bread') + countIcon(o, 'cup')), 0);
         break;
       case 'tax_office':
-        sum += others.reduce((a, p) => a + (p.coins >= 10 ? Math.floor(p.coins / 2) : 0), 0);
+        sum += others.reduce((a, o) => a + (o.coins >= 10 ? Math.floor(o.coins / 2) : 0), 0);
         break;
       case 'tech_startup':
-        sum += others.reduce((a, p) => a + Math.min(p.coins, active.investment), 0);
+        sum += others.reduce((a, o) => a + Math.min(o.coins, p.investment), 0);
         break;
       case 'renovation_company':
-        sum += others.reduce((a, p) => a + Math.min(p.coins, 2), 0);
+        sum += others.reduce((a, o) => a + Math.min(o.coins, 2), 0);
         break;
       case 'exhibit_hall':
         sum += 4;
         break;
       case 'park': {
-        const pot = state.players.reduce((a, p) => a + p.coins, 0);
-        sum += Math.ceil(pot / state.players.length) - active.coins;
+        const pot = state.players.reduce((a, o) => a + o.coins, 0);
+        sum += Math.ceil(pot / state.players.length) - p.coins;
         break;
       }
     }
   }
+  return sum;
+}
 
+/** What the opponents' restaurants would take off `p` if `p` rolled this total. */
+function redOwedAt(state: GameState, p: PlayerState, total: number): number {
   let owed = 0;
-  for (const p of others) {
-    for (const card of triggered(p, total, 'red', state.rules)) {
-      owed += redAmount(state, card, p, active) * openCopies(p, card.id);
+  for (const other of state.players) {
+    if (other.id === p.id) continue;
+    for (const card of triggered(other, total, 'red', state.rules)) {
+      owed += redAmount(state, card, other, p) * openCopies(other, card.id);
     }
   }
-  return sum - Math.min(owed, active.coins);
+  // Nobody can be billed for more than they are holding.
+  return Math.min(owed, p.coins);
+}
+
+/** What one dice total is worth to a city, from both sides of the table. */
+export interface IncomeAtTotal {
+  /** Net swing when this player rolls the total themselves. */
+  onYourTurn: number;
+  /** Take when somebody else rolls it: the blue cards, plus this player's restaurants. */
+  onTheirTurn: number;
+}
+
+/**
+ * A city's income curve, total by total. `estimateIncomeAt` is only the
+ * own-turn half of this; both halves matter to a human reading the board,
+ * because a Mine on 9 earns most of its keep off the opponents' rolls and a
+ * city judged on its own turn alone misprices every blue card in it.
+ */
+export function incomeAt(state: GameState, p: PlayerState, total: number): IncomeAtTotal {
+  const blue = blueIncomeAt(state, p, total);
+  const mine = blue + greenIncomeAt(state, p, total) + purpleIncomeAt(state, p, total);
+
+  // On somebody else's roll it is the restaurants that pay, so average the take
+  // over whoever might have done the rolling.
+  const others = state.players.filter((o) => o.id !== p.id);
+  let take = 0;
+  if (others.length > 0) {
+    for (const card of triggered(p, total, 'red', state.rules)) {
+      const n = openCopies(p, card.id);
+      if (n <= 0) continue;
+      const average =
+        others.reduce((a, roller) => a + Math.min(redAmount(state, card, p, roller), roller.coins), 0) / others.length;
+      take += average * n;
+    }
+  }
+
+  return { onYourTurn: mine - redOwedAt(state, p, total), onTheirTurn: blue + take };
+}
+
+/** Rough net coin swing for the active player if `total` came up. */
+export function estimateIncomeAt(state: GameState, total: number): number {
+  return incomeAt(state, activePlayer(state), total).onYourTurn;
 }
