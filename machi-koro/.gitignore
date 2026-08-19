@@ -3,3 +3,5 @@ dist/
 *.log
 # Saved rooms — runtime state, not source.
 .data/
+# Editor/agent tooling, per machine rather than per project.
+.claude/
