@@ -15,7 +15,7 @@ interface Row {
   key: StatKey;
   hits: number;
   earned: number;
-  /** What it cost to build. */
+  /** What it cost to put on the table — for the Tech Startup, invested coins too. */
   cost: number;
   /** Coins it took back out of the owner's pocket — usually an opponent's copy billing them. */
   paid: number;

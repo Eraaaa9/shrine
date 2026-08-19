@@ -79,10 +79,13 @@ function checkInvariants(state: GameState, where: string): void {
     const byKeySpent = Object.values(s.byKey).reduce((a, row) => a + (row?.spent ?? 0), 0);
     check(`${where}: ${p.name} per-building earnings add up`, byKeyEarned === s.earned, `${byKeyEarned} != ${s.earned}`);
     check(`${where}: ${p.name} per-building losses add up`, byKeyLost === s.lost, `${byKeyLost} != ${s.lost}`);
+    // Investments are booked against the Tech Startup too, so they belong here
+    // even though they are not a purchase.
+    const paidOut = s.spentOnCards + s.spentOnLandmarks + s.invested;
     check(
       `${where}: ${p.name} per-building costs add up`,
-      byKeySpent === s.spentOnCards + s.spentOnLandmarks,
-      `${byKeySpent} != ${s.spentOnCards + s.spentOnLandmarks}`
+      byKeySpent === paidOut,
+      `${byKeySpent} != ${paidOut}`
     );
     check(`${where}: ${p.name} bank share within earnings`, s.fromBank <= s.earned && s.fromBank >= 0);
     check(`${where}: ${p.name} bank share within losses`, s.toBank <= s.lost && s.toBank >= 0);
@@ -533,6 +536,7 @@ function millionairesRuleTests(): void {
     check('investing works', applyAction(g, a.id, { t: 'invest', amount: 1 }) === null);
     expect('the coin sits on the card', a.investment, 1);
     expect('and leaves your purse', a.coins, 2);
+    expect('the card is charged for it', a.stats.byKey.tech_startup?.spent, 1);
     expect('the turn then moves on', g.turn, 1);
 
     const g2 = createGame(seats(3), ROW, 113);

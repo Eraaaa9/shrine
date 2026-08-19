@@ -295,6 +295,16 @@ function noteBuild(p: PlayerState, key: StatKey, cost: number, isLandmark: boole
   else p.stats.spentOnCards += cost;
 }
 
+/**
+ * Coins put into the Tech Startup. They are not a purchase, so they stay out of
+ * the buildings total, but the card's own row has to show them or its profit
+ * reads as the whole take against a price of one coin.
+ */
+function noteInvest(p: PlayerState, amount: number): void {
+  ledger(p, 'tech_startup').spent += amount;
+  p.stats.invested += amount;
+}
+
 /** Move one copy between players, handing over an open card when there is one. */
 function transferCard(from: PlayerState, to: PlayerState, id: CardId): void {
   const wasClosed = openCopies(from, id) === 0 && closedCopies(from, id) > 0;
@@ -1027,7 +1037,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         if (active.coins < 1) return 'err.noCoinToInvest';
         active.coins -= 1;
         active.investment += 1;
-        active.stats.invested += 1;
+        noteInvest(active, 1);
         log(state, 'log.invest', { player: active.name, total: active.investment }, { who: active.id, kind: 'build' });
       }
       finishTurn(state);
