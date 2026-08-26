@@ -790,6 +790,24 @@ function statsTests(): void {
     expect('the Park tops the poorer player up', a.coins, 5);
     expect('booking the difference as earnings', a.stats.byKey.park?.earned, 4);
     expect('and takes from the richer one', b.stats.byKey.park?.lost, 4);
+    expect('the coins came off an opponent, not the bank', a.stats.fromBank, 0);
+    expect('and went to an opponent, not the bank', b.stats.toBank, 0);
+  }
+
+  {
+    // Rounding the share up can outrun the pot. Only that shortfall is the
+    // bank's; the rest is the richer player's money changing hands.
+    const g = createGame(seats(3), ROW, 206);
+    const [a, b, c] = g.players;
+    give(g, a, 'park');
+    a.coins = 10;
+    b.coins = 3;
+    c.coins = 0;
+    applyForcedRoll(g, [5, 6]);
+    expect('the richest hands over the whole surplus', a.stats.byKey.park?.lost, 5);
+    expect('none of which reaches the bank', a.stats.toBank, 0);
+    expect('the poorest is levelled up to the share', c.stats.byKey.park?.earned, 5);
+    expect('and the bank covers only the rounding', b.stats.fromBank + c.stats.fromBank, 2);
   }
 }
 
