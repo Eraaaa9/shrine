@@ -15,6 +15,7 @@
     "train": "tsx src/shared/train.ts",
     "icons": "node scripts/make-og.mjs",
     "test:restart": "node scripts/test-restart.mjs",
+    "test:save-retry": "tsx scripts/test-save-retry.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
