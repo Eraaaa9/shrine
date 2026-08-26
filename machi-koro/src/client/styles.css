@@ -41,6 +41,7 @@
   --player-you-bg: #15202b;
   --log-text: #c3cad9;
   --scrim: rgba(6, 9, 14, 0.72);
+  --window-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 
@@ -96,6 +97,7 @@
   --player-you-bg: #e8f3f1;
   --log-text: #2c3547;
   --scrim: rgba(22, 29, 43, 0.45);
+  --window-shadow: 0 24px 50px rgba(22, 29, 43, 0.28);
   color-scheme: light;
 }
 
@@ -1103,6 +1105,66 @@ input:focus {
   max-height: 88dvh;
   overflow-y: auto;
 }
+/* ---------- draggable choice windows ---------- */
+
+/* Same centring as the backdrop, but with no scrim and nothing catching clicks:
+   the board stays readable and hoverable while the decision is open. */
+.modal-layer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px;
+  z-index: 30;
+  pointer-events: none;
+}
+.modal-layer > .modal {
+  pointer-events: auto;
+}
+/* The title bar stays put while the body scrolls, so the handle is always there. */
+.choice-window {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--window-shadow);
+}
+.window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 15px 15px 0 0;
+  cursor: grab;
+  /* Let a finger drag the window instead of scrolling the page under it. */
+  touch-action: none;
+  user-select: none;
+}
+.window-bar.dragging {
+  cursor: grabbing;
+}
+.window-bar h2 {
+  margin: 0;
+}
+.window-grip {
+  padding: 2px 8px;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--muted);
+  cursor: grab;
+}
+.window-bar.dragging .window-grip {
+  cursor: grabbing;
+}
+.window-body {
+  padding: 16px 20px 20px;
+  overflow-y: auto;
+}
+
 .trade-side {
   margin: 14px 0;
 }

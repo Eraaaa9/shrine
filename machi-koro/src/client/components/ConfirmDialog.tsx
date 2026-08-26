@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useLang } from '../lang';
 
 interface Props {
@@ -14,6 +15,10 @@ interface Props {
  * property — the Demolition Company knocks a landmark down and the Moving
  * Company hands an establishment to an opponent — and both used to fire on a
  * single click. They are meant to be painful, not to be a misclick.
+ *
+ * It hangs off the document body rather than its opener: the choice windows can
+ * be dragged, and a transformed ancestor would anchor this fixed layer to the
+ * window instead of the screen.
  */
 export default function ConfirmDialog({ message, onYes, onNo }: Props) {
   const { t } = useLang();
@@ -30,7 +35,7 @@ export default function ConfirmDialog({ message, onYes, onNo }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onNo]);
 
-  return (
+  return createPortal(
     <div className="modal-backdrop confirm-backdrop" onClick={onNo}>
       <div className="modal confirm" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <h2>{t('ui.confirmTitle')}</h2>
@@ -44,6 +49,7 @@ export default function ConfirmDialog({ message, onYes, onNo }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

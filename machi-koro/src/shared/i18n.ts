@@ -578,6 +578,7 @@ const EN: Record<string, string> = {
   'ui.activateIt': 'Activate it',
   'ui.nothingAvailable': 'nothing available',
   'ui.closedList': 'Closed for renovation: {cards}',
+  'ui.moveWindow': 'Drag the bar to move this window — double-click it to re-centre',
 
   // post-game stats
   'ui.statsButton': 'Stats',
@@ -893,6 +894,7 @@ const RU: Record<string, string> = {
   'ui.activateIt': 'Активировать',
   'ui.nothingAvailable': 'ничего нет',
   'ui.closedList': 'Закрыто на ремонт: {cards}',
+  'ui.moveWindow': 'Перетащите заголовок, чтобы сдвинуть окно; двойной клик вернёт его в центр',
 
   // post-game stats
   'ui.statsButton': 'Итоги',
@@ -1202,6 +1204,7 @@ const KK: Record<string, string> = {
   'ui.activateIt': 'Іске қосу',
   'ui.nothingAvailable': 'ештеңе жоқ',
   'ui.closedList': 'Жөндеуге жабылған: {cards}',
+  'ui.moveWindow': 'Терезені жылжыту үшін тақырыбын сүйреңіз; қос шертсеңіз ортаға оралады',
 
   // post-game stats
   'ui.statsButton': 'Қорытынды',
