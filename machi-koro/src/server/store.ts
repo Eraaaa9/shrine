@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from '
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RuleSet } from '../shared/cards';
-import type { ChatLine } from '../shared/protocol';
+import type { BotLevel, ChatLine } from '../shared/protocol';
 import type { GameState } from '../shared/types';
 
 /** Bumped when the shape below changes. An older file is discarded, not migrated. */
@@ -28,6 +28,12 @@ export interface RoomSnapshot {
   code: string;
   hostId: string;
   rules: RuleSet;
+  /**
+   * Absent in files written before bot difficulty existed. It reads back as the
+   * default, which is what those rooms were playing, so there is nothing to
+   * migrate and no reason to throw a game in progress away over it.
+   */
+  botLevel?: BotLevel;
   seats: SeatSnapshot[];
   game: GameState | null;
   chat: ChatLine[];
@@ -87,6 +93,41 @@ export function readSnapshot(): RoomSnapshot[] {
   }
 }
 
+/**
+ * Waits between attempts at the rename below, and by its length the point at
+ * which the save is given up on — a little under a second in total.
+ *
+ * Windows refuses to replace a file that anything else is standing on, and
+ * something usually is: a virus scanner reads what was just written, and while
+ * it does the rename comes back EPERM.  The hold is over in milliseconds, so
+ * the first retry almost always carries it.  Waiting is worth it because the
+ * alternative is throwing a room's state away over a hiccup, but it is capped
+ * because a save runs on the server's own thread and a permanent block — a
+ * read-only file, a directory in the way — must not stop the game.
+ */
+const RENAME_WAITS = [5, 15, 40, 100, 250, 500];
+
+/** Codes Windows reports for "someone is on this file"; all of them pass. */
+const TRANSIENT = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+/** Block the thread. Saves are synchronous, including the one on shutdown. */
+function pause(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function publish(temporary: string): void {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      renameSync(temporary, FILE);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code ?? '';
+      if (attempt >= RENAME_WAITS.length || !TRANSIENT.has(code)) throw err;
+      pause(RENAME_WAITS[attempt]);
+    }
+  }
+}
+
 export function writeSnapshot(rooms: RoomSnapshot[]): void {
   const file: StateFile = { version: VERSION, savedAt: Date.now(), rooms };
   const temporary = `${FILE}.tmp`;
@@ -95,9 +136,12 @@ export function writeSnapshot(rooms: RoomSnapshot[]): void {
     // Write-then-rename: a crash mid-write leaves the previous file intact
     // rather than a half-written one that would be discarded on boot.
     writeFileSync(temporary, JSON.stringify(file), 'utf8');
-    renameSync(temporary, FILE);
+    publish(temporary);
   } catch (err) {
-    console.error(`Could not save rooms to ${FILE}:`, err);
+    // One line rather than a stack: this fires on a timer, so a lasting problem
+    // would otherwise fill the console with the same trace every few seconds.
+    const e = err as NodeJS.ErrnoException;
+    console.error(`Could not save rooms to ${FILE}: ${e.code ?? 'failed'} on ${e.syscall ?? 'write'}.`);
     try {
       unlinkSync(temporary);
     } catch {

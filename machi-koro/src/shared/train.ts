@@ -238,6 +238,10 @@ class Pool {
     }
   }
 
+  get size(): number {
+    return this.kids.length;
+  }
+
   run(job: Job): Promise<Done> {
     return new Promise((resolve) => {
       this.queue.push({ job, resolve });
@@ -248,6 +252,37 @@ class Pool {
   close(): void {
     for (const kid of this.kids) kid.kill();
   }
+}
+
+/**
+ * Play one match across the whole pool rather than on a single worker.
+ *
+ * Chunks are a whole number of seat rotations, because `playMatch` gives the
+ * challenger seat `i % players` and a chunk that ends mid-rotation would hand it
+ * the early seats more often than the late ones.  Splitting a match must not
+ * change what the match measures.
+ */
+async function runMatch(
+  pool: Pool,
+  seeds: number[],
+  rules: RuleSet,
+  players: number,
+  challenger: BotWeights,
+  champion: BotWeights,
+  parts = pool.size
+): Promise<MatchResult> {
+  const chunk = Math.max(players, Math.ceil(seeds.length / parts / players) * players);
+  const jobs: Promise<Done>[] = [];
+  for (let i = 0; i * chunk < seeds.length; i++) {
+    jobs.push(
+      pool.run({ id: i, seeds: seeds.slice(i * chunk, (i + 1) * chunk), rules, players, challenger, champion })
+    );
+  }
+  const done = await Promise.all(jobs);
+  return done.reduce(
+    (a, p) => ({ games: a.games + p.games, wins: a.wins + p.wins, stalls: a.stalls + p.stalls, turns: a.turns + p.turns }),
+    { games: 0, wins: 0, stalls: 0, turns: 0 }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -267,13 +302,27 @@ interface TrainOptions {
   label: string;
   /** Strategy the search starts from, and the champion it first has to beat. */
   start: BotWeights;
+  /**
+   * How wide the first generation samples, as a fraction of each weight's range.
+   * 0.3 searches the whole board and is what a run from the baseline wants; a run
+   * that starts from a strategy already worth shipping wants a tenth of that, so
+   * the candidates are neighbours of it rather than strangers.
+   */
+  sigma0: number;
+  /**
+   * How far past a fair share the promotion duel has to land before the new mean
+   * takes the crown.  A few hundred games put a couple of points of noise on that
+   * duel, so a plain `> fair` test crowns a coin flip half the time and the search
+   * wanders off a good champion on nothing but luck.
+   */
+  promotionMargin: number;
 }
 
 async function train(opt: TrainOptions): Promise<{ weights: BotWeights; games: number; log: string[] }> {
   const rand = rngFrom(opt.seed);
   const span = spans();
   let mean = clamp(toVec(opt.start));
-  let sigma = span.map((s) => s * 0.3);
+  let sigma = span.map((s) => s * opt.sigma0);
   let champion = toWeights(mean);
   let games = 0;
   /** Generations since the last promotion, which is how far the search widens. */
@@ -310,26 +359,40 @@ async function train(opt: TrainOptions): Promise<{ weights: BotWeights; games: n
     const nextSigma = mean.map((_, i) => {
       const mu = nextMean[i];
       const varr = best.reduce((a, c) => a + (c.v[i] - mu) ** 2, 0) / best.length;
-      // a small floor keeps the search from collapsing onto a lucky sample
-      return Math.max(Math.sqrt(varr), span[i] * 0.04);
+      // a small floor keeps the search from collapsing onto a lucky sample,
+      // measured against the width the run asked for so a local search stays local
+      return Math.max(Math.sqrt(varr), span[i] * opt.sigma0 * 0.13);
     });
 
-    // Only crown the new mean if it can actually beat the sitting champion.
+    // Two strategies get a shot at the crown, and neither takes it without
+    // beating the sitting champion on games it has not already been judged on.
+    //
+    // The elite mean is the cross-entropy method's own answer, but averaging the
+    // elites averages away the luck in their scores *and* a real edge held by
+    // one of them.  A generation of these plays too few games to tell those
+    // apart: an earlier run watched the best candidate score 27-36% against the
+    // champion for eighteen generations running while the mean of the elites
+    // duelled at 24%.  So the best single candidate stands too.  Picking it on a
+    // noisy score costs nothing, because the duel below re-tests it on fresh
+    // seeds — the score that selected it never crowns it.
     const promoSeeds = Array.from({ length: opt.promotionGames }, () => Math.floor(rand() * 2 ** 30));
-    const duel = await opt.pool.run({
-      id: -1,
-      seeds: promoSeeds,
-      rules: opt.rules,
-      players: opt.players,
-      challenger: toWeights(clamp(nextMean)),
-      champion,
-    });
-    games += opt.promotionGames;
+    const contenders = [
+      { what: 'mean', v: clamp(nextMean) },
+      { what: 'best', v: scored[0].v },
+    ];
+    const duels = await Promise.all(
+      contenders.map((c) =>
+        runMatch(opt.pool, promoSeeds, opt.rules, opt.players, toWeights(c.v), champion)
+      )
+    );
+    games += opt.promotionGames * contenders.length;
     const fair = 1 / opt.players;
-    const rate = duel.wins / duel.games;
-    const promoted = rate > fair;
+    const rates = duels.map((d) => d.wins / d.games);
+    const pick = rates[0] >= rates[1] ? 0 : 1;
+    const rate = rates[pick];
+    const promoted = rate > fair + opt.promotionMargin;
     if (promoted) {
-      mean = clamp(nextMean);
+      mean = clamp(contenders[pick].v);
       champion = toWeights(mean);
       sigma = nextSigma;
       held = 0;
@@ -344,15 +407,17 @@ async function train(opt: TrainOptions): Promise<{ weights: BotWeights; games: n
       // rather than a slow walk away from one.
       held++;
       mean = clamp(toVec(champion));
-      const widen = 0.08 + 0.04 * Math.min(held, 4);
+      const widen = opt.sigma0 * (0.27 + 0.13 * Math.min(held, 4));
       sigma = nextSigma.map((s, i) => Math.max(s, span[i] * widen));
     }
 
     const line =
       `  ${opt.label} gen ${String(gen).padStart(2)}  best=${(scored[0].rate * 100).toFixed(1)}%  ` +
       `mean-elite=${((best.reduce((a, c) => a + c.rate, 0) / best.length) * 100).toFixed(1)}%  ` +
-      `promotion duel=${(rate * 100).toFixed(1)}% ` +
-      (promoted ? '→ promoted' : `→ held${held > 1 ? ` (${held} in a row, searching wider)` : ''}`) +
+      `duels: mean=${(rates[0] * 100).toFixed(1)}% best=${(rates[1] * 100).toFixed(1)}% ` +
+      (promoted
+        ? `→ promoted the ${contenders[pick].what}`
+        : `→ held${held > 1 ? ` (${held} in a row, searching wider)` : ''}`) +
       (scored[0].stalls ? `  (${scored[0].stalls} stalled)` : '');
     console.log(line);
     log.push(line);
@@ -386,24 +451,9 @@ async function validate(
 ): Promise<{ rate: number; lo: number; hi: number; turns: number; games: number }> {
   const rand = rngFrom(seed);
   const seeds = Array.from({ length: games }, () => Math.floor(rand() * 2 ** 30));
-  const chunk = Math.ceil(games / 12);
-  const parts = await Promise.all(
-    Array.from({ length: Math.ceil(games / chunk) }, (_, i) =>
-      pool.run({
-        id: i,
-        seeds: seeds.slice(i * chunk, (i + 1) * chunk),
-        rules,
-        players,
-        challenger: tuned,
-        champion: opponent,
-      })
-    )
-  );
-  const wins = parts.reduce((a, p) => a + p.wins, 0);
-  const n = parts.reduce((a, p) => a + p.games, 0);
-  const turns = parts.reduce((a, p) => a + p.turns, 0) / n;
-  const [lo, hi] = wilson(wins, n);
-  return { rate: wins / n, lo, hi, turns, games: n };
+  const r = await runMatch(pool, seeds, rules, players, tuned, opponent);
+  const [lo, hi] = wilson(r.wins, r.games);
+  return { rate: r.wins / r.games, lo, hi, turns: r.turns / r.games, games: r.games };
 }
 
 /** What the trained strategy actually does, in words: what it buys and builds. */
@@ -489,7 +539,10 @@ function flag(name: string, fallback: number): number {
 }
 
 async function main(): Promise<void> {
-  const mode = process.argv.includes('--mode') ? process.argv[process.argv.indexOf('--mode') + 1] : 'both';
+  // Variable supply only, unless asked otherwise.  Fixed supply is the mode
+  // that gets played least and its strategy is in good shape, so spending half
+  // of every run on it buys nothing; `--mode fixed` or `--mode both` still work.
+  const mode = text('mode', 'variable');
   const players = flag('players', 4);
   const generations = flag('gens', 14);
   const population = flag('pop', 16);
@@ -504,6 +557,12 @@ async function main(): Promise<void> {
   // `baseline` from scratch, `tuned` continues this mode's trained strategy,
   // `fixed` hands the fixed-supply strategy to the variable-supply search.
   const init = text('init', 'baseline');
+  // How wide the first generation samples, as a fraction of each weight's range,
+  // and how far past a fair share a promotion duel has to land to be believed.
+  // A run from the baseline wants the whole board; a run continuing a shipped
+  // strategy wants a neighbourhood of it and a duel it cannot win on a coin flip.
+  const sigma0 = flag('sigma', init === 'baseline' ? 0.3 : 0.08);
+  const promotionMargin = flag('promo-margin', 0);
 
   const pool = new Pool(workers);
   const started = Date.now();
@@ -572,6 +631,8 @@ async function main(): Promise<void> {
       pool,
       label: m.key,
       start: init === 'tuned' ? m.tuned : init === 'fixed' ? TUNED_FIXED : BASELINE,
+      sigma0,
+      promotionMargin,
     });
     total += games;
 
@@ -643,10 +704,18 @@ async function main(): Promise<void> {
     '',
     `Produced by \`npm run train\` — ${total.toLocaleString()} games in ${mins} minutes.`,
     '',
+    modes.length === 1
+      ? `Only the ${modes[0].key}-supply strategy was trained; the other one is left as it stands.`
+      : '',
+    `Search: started from \`${init}\`, ${generations} generations of ${population} candidates ` +
+      `over ${gamesPerCandidate} games each, sampled at ${sigma0} of each weight's range, promoted on ` +
+      `the better of two ${promotionGames}-game duels at ${((1 / players + promotionMargin) * 100).toFixed(1)}%, ` +
+      `settled on ${finalGames} games a side.`,
+    '',
     updates.length
       ? `This run replaced ${updates.map((u) => `\`${u.name}\``).join(' and ')} in \`src/shared/bot-weights.ts\`.`
-      : 'This run shipped nothing: every candidate lost its head-to-head against the strategy it would have' +
-        ' replaced, so `src/shared/bot-weights.ts` is the last strategy that did win one, not the numbers below.',
+      : 'This run shipped nothing: no candidate beat the strategy it would have replaced, so' +
+        ' `src/shared/bot-weights.ts` is the last strategy that did win one, not the numbers below.',
     '',
   ];
   writeFileSync(fileURLToPath(new URL('../../TRAINING.md', import.meta.url)), [...header, ...report].join('\n'));

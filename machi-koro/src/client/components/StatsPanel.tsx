@@ -15,7 +15,7 @@ interface Row {
   key: StatKey;
   hits: number;
   earned: number;
-  /** What it cost to build. */
+  /** What it cost to put on the table — for the Tech Startup, invested coins too. */
   cost: number;
   /** Coins it took back out of the owner's pocket — usually an opponent's copy billing them. */
   paid: number;
@@ -62,7 +62,7 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal stats" onClick={(e) => e.stopPropagation()}>
         <div className="stats-head">
-          <h2>{t('ui.statsTitle')}</h2>
+          <h2>{t(game.phase === 'over' ? 'ui.statsTitle' : 'ui.statsTitleLive')}</h2>
           <button type="button" className="ghost small" onClick={onClose}>
             {t('ui.statsClose')}
           </button>

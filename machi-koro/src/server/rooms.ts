@@ -2,16 +2,31 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { DEFAULT_RULES, maxPlayers, type RuleSet } from '../shared/cards';
 import { BOT_NAMES, botAction } from '../shared/bot';
+import { BASELINE, weightsFor, type BotWeights } from '../shared/bot-weights';
 import { activePlayer, applyAction, createGame, demolishable, tradeableCards } from '../shared/engine';
-import type { ChatLine, RoomView, ServerMessage } from '../shared/protocol';
-import { MIN_PLAYERS } from '../shared/protocol';
+import type { BotLevel, ChatLine, RoomView, ServerMessage } from '../shared/protocol';
+import { DEFAULT_BOT_LEVEL, MIN_PLAYERS, normaliseBotLevel } from '../shared/protocol';
 import type { GameAction, GameState } from '../shared/types';
 import { readSnapshot, stateFile, writeSnapshot, type RoomSnapshot } from './store';
 
-/** How long a bot "thinks" before acting, so humans can follow along. */
-const BOT_DELAY_MS = 1100;
+/**
+ * How long a bot pauses before acting, so humans can follow along.
+ *
+ * A bot's turn is not one decision but an average of two and a half and as many
+ * as seven — roll, re-roll, Space Port, Harbor, a card effect, build, invest —
+ * and charging every one of them the same full beat made a three-bot round take
+ * eight seconds of watching nothing.
+ *
+ * Only the throw is worth waiting for: the dice tumble for about 600ms in the
+ * browser, and the total is the one thing at the table nobody can predict.
+ * What the bot then does with it is written into the log as it happens, so it
+ * can go at a glance.
+ */
+const BOT_THINK_MS = 200;
+const BOT_AFTER_ROLL_MS = 600;
+const BOT_STEP_MS = 200;
 /** A disconnected player's turn is auto-played after this long so games never stall. */
-const AUTOPLAY_AFTER_MS = 45_000;
+export const AUTOPLAY_AFTER_MS = 45_000;
 const ROOM_IDLE_MS = 3 * 60 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** Saves are batched: a busy turn touches the room several times in a few ms. */
@@ -30,12 +45,20 @@ export class Room {
   readonly code: string;
   hostId = '';
   rules: RuleSet = { ...DEFAULT_RULES };
+  botLevel: BotLevel = DEFAULT_BOT_LEVEL;
   seats: Seat[] = [];
   game: GameState | null = null;
   chat: ChatLine[] = [];
   lastActivity = Date.now();
   private nextChatId = 1;
   private timer: NodeJS.Timeout | null = null;
+  /**
+   * The throw the last automatic move was taken on top of. Only the first step
+   * after a fresh `rollId` has to wait for the dice to land — and it is tracked
+   * here rather than in `scheduleAuto`, which runs again on every broadcast, so
+   * that somebody sending a chat message cannot spend the pause on their behalf.
+   */
+  private rollPlayedThrough = -1;
 
   constructor(code: string) {
     this.code = code;
@@ -48,6 +71,7 @@ export class Room {
       code: this.code,
       hostId: this.hostId,
       rules: this.rules,
+      botLevel: this.botLevel,
       seats: this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot, token: s.token })),
       game: this.game,
       chat: this.chat,
@@ -60,6 +84,7 @@ export class Room {
     const room = new Room(snap.code);
     room.hostId = snap.hostId;
     room.rules = snap.rules;
+    room.botLevel = normaliseBotLevel(snap.botLevel);
     room.game = snap.game;
     room.chat = snap.chat;
     room.nextChatId = snap.nextChatId;
@@ -156,6 +181,26 @@ export class Room {
 
   // -- automation ----------------------------------------------------------
 
+  /**
+   * The strategy this room's bots play. A human who has dropped is auto-played
+   * with the same weights — they are getting a favour, not an opponent, so the
+   * casual setting applies to them too.
+   */
+  private botWeights(): BotWeights {
+    return this.botLevel === 'casual' ? BASELINE : weightsFor(this.rules);
+  }
+
+  /**
+   * How long to wait before the next automatic move. The pause that follows a
+   * throw has to cover the dice animation, or the board would change while they
+   * were still tumbling; the rest of the turn does not.
+   */
+  private botPause(): number {
+    if (!this.game) return BOT_STEP_MS;
+    if (this.game.phase === 'roll') return BOT_THINK_MS;
+    return this.game.rollId === this.rollPlayedThrough ? BOT_STEP_MS : BOT_AFTER_ROLL_MS;
+  }
+
   /** Queue a move for a bot, or for a human who has been gone too long. */
   scheduleAuto(): void {
     if (this.timer) clearTimeout(this.timer);
@@ -166,10 +211,12 @@ export class Room {
     if (!seat) return;
 
     if (seat.isBot) {
-      this.timer = setTimeout(() => this.runAuto(), BOT_DELAY_MS);
+      this.timer = setTimeout(() => this.runAuto(), this.botPause());
     } else if (seat.disconnectedAt !== null) {
-      const wait = AUTOPLAY_AFTER_MS - (Date.now() - seat.disconnectedAt);
-      this.timer = setTimeout(() => this.runAuto(), Math.max(1000, wait));
+      const left = AUTOPLAY_AFTER_MS - (Date.now() - seat.disconnectedAt);
+      // Their grace period comes first; once it is spent the rest of the turn
+      // is played out at the bots' pace rather than a flat second a step.
+      this.timer = setTimeout(() => this.runAuto(), Math.max(this.botPause(), left));
     }
   }
 
@@ -184,6 +231,8 @@ export class Room {
       this.scheduleAuto();
       return;
     }
+    // Whatever happens below happens after this throw has had its moment.
+    this.rollPlayedThrough = this.game.rollId;
     if (!seat.isBot) {
       this.game.log.push({
         id: this.game.nextLogId++,
@@ -194,7 +243,7 @@ export class Room {
     }
 
     try {
-      const action = botAction(this.game) ?? fallbackAction(this.game);
+      const action = botAction(this.game, this.botWeights()) ?? fallbackAction(this.game);
       let error = applyAction(this.game, seat.id, action);
       if (error) {
         // Never let a bad heuristic wedge the game.
@@ -225,15 +274,22 @@ export class Room {
       code: this.code,
       hostId: this.hostId,
       rules: this.rules,
+      botLevel: this.botLevel,
       seats: this.seats.map((s) => ({
         id: s.id,
         name: s.name,
         isBot: s.isBot,
         connected: s.socket !== null,
         isHost: s.id === this.hostId,
+        awaySince: s.disconnectedAt,
       })),
       game: this.game,
       chat: this.chat,
+      // Sent alongside the timestamps above rather than left to the browser:
+      // a client whose clock is minutes out would otherwise show a countdown
+      // that is already finished, or one that never starts.
+      now: Date.now(),
+      autoplayAfterMs: AUTOPLAY_AFTER_MS,
     };
   }
 

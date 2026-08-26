@@ -8,7 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { describeRules, maxPlayers, normaliseRules } from '../shared/cards';
 import type { Params } from '../shared/i18n';
 import type { ClientMessage, ServerMessage } from '../shared/protocol';
-import { MIN_PLAYERS } from '../shared/protocol';
+import { MIN_PLAYERS, normaliseBotLevel } from '../shared/protocol';
 import { createRoom, getRoom, loadRooms, roomCount, saveRooms, sweepRooms, type Room, type Seat } from './rooms';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -149,6 +149,13 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
         return fail(ws, 'err.tooManyForRules', { max: maxPlayers(wanted) });
       }
       room.rules = wanted;
+      break;
+    }
+
+    case 'setBotLevel': {
+      if (!requireHost(ws, entry)) return;
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
+      room.botLevel = normaliseBotLevel(msg.level);
       break;
     }
 

@@ -4,6 +4,8 @@ import { rulesCode } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import { MIN_PLAYERS } from '../../shared/protocol';
 import { LangSwitch, useLang } from '../lang';
+import { SoundSwitch, ThemeSwitch } from '../prefs';
+import BotLevelPicker from './BotLevelPicker';
 import Chat from './Chat';
 import RulesPicker from './RulesPicker';
 
@@ -34,6 +36,8 @@ export default function Lobby({ room, youId, send }: Props) {
     <div className="lobby">
       <header>
         <h1>{t('ui.room', { code: room.code })}</h1>
+        <SoundSwitch />
+        <ThemeSwitch />
         <LangSwitch />
         <button type="button" className="ghost" onClick={() => send({ t: 'leave' })}>
           {t('ui.leave')}
@@ -77,6 +81,7 @@ export default function Lobby({ room, youId, send }: Props) {
         {isHost ? (
           <>
             <RulesPicker rules={room.rules} onChange={(rules) => send({ t: 'setRules', rules })} />
+            <BotLevelPicker level={room.botLevel} onChange={(level) => send({ t: 'setBotLevel', level })} />
             <div className="row">
               <button type="button" onClick={() => send({ t: 'addBot' })} disabled={room.seats.length >= max}>
                 {t('ui.addBot')}
@@ -94,6 +99,7 @@ export default function Lobby({ room, youId, send }: Props) {
         ) : (
           <>
             <RulesPicker rules={room.rules} onChange={() => undefined} disabled />
+            <BotLevelPicker level={room.botLevel} onChange={() => undefined} disabled />
             <p className="muted">{t('ui.waitingForHost', { rules: rulesCode(room.rules) })}</p>
           </>
         )}

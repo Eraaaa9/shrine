@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_RULES, type RuleSet } from '../../shared/cards';
 import type { ClientMessage } from '../../shared/protocol';
 import { LangSwitch, useLang } from '../lang';
+import { SoundSwitch, ThemeSwitch } from '../prefs';
 import { roomFromUrl } from '../net';
 import RulesPicker from './RulesPicker';
 
@@ -35,6 +36,8 @@ export default function Landing({ send }: Props) {
         <h1>
           <span className="die">⚂</span> {t('ui.title')}
         </h1>
+        <SoundSwitch />
+        <ThemeSwitch />
         <LangSwitch />
       </div>
       <p className="tagline">{t('ui.tagline')}</p>

@@ -1,9 +1,11 @@
-import { landmarksFor } from '../../shared/cards';
+import { useState } from 'react';
+import { landmarksFor, type LandmarkId } from '../../shared/cards';
 import { canBuild, demolishable } from '../../shared/engine';
 import { landmarkName, landmarkText, type Lang } from '../../shared/i18n';
 import type { ClientMessage } from '../../shared/protocol';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
 import { useLang } from '../lang';
+import ConfirmDialog from './ConfirmDialog';
 import DiceTray from './DiceTray';
 
 interface Props {
@@ -34,6 +36,9 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
   const opponents = game.players.filter((p) => p.id !== you?.id);
   const landmarks = landmarksFor(game.rules);
   const modalPhase = ['trade', 'moving', 'renovation', 'exhibit'].includes(game.phase);
+  // Knocking a landmark down is compulsory but not reversible, so the click
+  // that does it asks first.
+  const [confirmDemolish, setConfirmDemolish] = useState<LandmarkId | null>(null);
 
   return (
     <div className="controls">
@@ -140,7 +145,7 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
                     type="button"
                     key={id}
                     className="landmark-buy"
-                    onClick={() => act({ t: 'demolish', landmarkId: id })}
+                    onClick={() => setConfirmDemolish(id)}
                   >
                     {landmarkName(lang as Lang, id)} <em>{landmarks.find((l) => l.id === id)!.cost}</em>
                   </button>
@@ -197,7 +202,22 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
         ) : (
           <span className="muted">{t('ui.spectating', { player: active.name })}</span>
         )}
+        <span className="muted shortcut-hint">{t('ui.shortcuts')}</span>
       </div>
+
+      {confirmDemolish && game.phase === 'demolish' && (
+        <ConfirmDialog
+          message={t('ui.confirmDemolish', {
+            landmark: confirmDemolish,
+            cost: landmarks.find((l) => l.id === confirmDemolish)!.cost,
+          })}
+          onYes={() => {
+            act({ t: 'demolish', landmarkId: confirmDemolish });
+            setConfirmDemolish(null);
+          }}
+          onNo={() => setConfirmDemolish(null)}
+        />
+      )}
     </div>
   );
 }

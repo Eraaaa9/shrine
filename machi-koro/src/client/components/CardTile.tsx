@@ -12,6 +12,12 @@ interface Props {
   card: CardDef;
   supply: number;
   owned: number;
+  /**
+   * Copies the rest of the table holds. Whether an opponent already has two
+   * Family Restaurants changes whether you want the third, and that was only
+   * discoverable by scanning every panel.
+   */
+  others: number;
   /** The card triggers on the total currently showing on the dice. */
   hot?: boolean;
   buyable?: boolean;
@@ -20,7 +26,7 @@ interface Props {
   onBuy?: () => void;
 }
 
-export default function CardTile({ card, supply, owned, hot, buyable, mark, onBuy }: Props) {
+export default function CardTile({ card, supply, owned, others, hot, buyable, mark, onBuy }: Props) {
   const { lang, t } = useLang();
   const classes = ['card', card.color];
   if (hot) classes.push('hot');
@@ -59,6 +65,7 @@ export default function CardTile({ card, supply, owned, hot, buyable, mark, onBu
       <span className="card-foot">
         <span className="cards-left">{t('ui.cardsLeft', { n: supply })}</span>
         {owned > 0 && <span className="owned">{t('ui.youOwn', { n: owned })}</span>}
+        {others > 0 && <span className="owned others">{t('ui.othersOwn', { n: others })}</span>}
       </span>
     </button>
   );

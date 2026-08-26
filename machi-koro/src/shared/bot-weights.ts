@@ -198,49 +198,62 @@ export const WEIGHT_KEYS = Object.keys(WEIGHT_RANGE) as (keyof BotWeights)[];
 /**
  * Fixed supply: every stack is on the table from the first turn.
  *
- * Kept from the run before the Space Port.  Three retrains have failed to beat
- * it head to head — 21.3%, 24.8% and 21.6% against a table of these, where a
- * fair share is 25% — so their numbers were dropped and these stayed.
+ * The strategy these replace had turned back four retrains in a row — the last
+ * of them to a dead heat — because every one of those runs started from the
+ * hand-written baseline and searched the whole weight range, and never climbed
+ * back to a strategy that already takes three quarters of its games off the
+ * baseline.  Searching a neighbourhood of the incumbent instead, and letting
+ * the single best candidate of a generation stand for the crown beside the
+ * mean of the elites, finally beat it: **26.3%** against a table of the old
+ * weights (95% CI 24.8–27.9) while the old weights take only **20.4%** coming
+ * back the other way (19.0–21.9), of 3000 games each and a fair share of 25%.
+ * Against the hand-written baseline, 75.7%.
  *
- * `purpleRealism` is the one number here that self-play did not find: pricing
- * the purple cards off the actual table wins 27.3% against these same weights
- * with it switched off (of 4000 games, and the flat version takes only 23.7%
- * coming back the other way).  Full realism beats a half blend too, 26.7% to
- * 24.0%, so it ships at 1.
+ * The opening changed with them.  The old strategy rushed the Harbor every
+ * single game and reached the Train Station around turn 14; these take the
+ * Train Station first two games in three, on turn 8.
+ *
+ * `purpleRealism` was hand-set to 1 here rather than found — pricing the purple
+ * cards off the actual table beat pricing them off flat constants 27.3% to
+ * 23.7%, and beat a half blend 26.7% to 24.0%.  This run left it at 0.98, which
+ * is that same answer arrived at the other way round.
+ *
+ * Not retrained by default any more: `npm run train` does variable supply only,
+ * which is the mode that gets played.  `--mode fixed` still trains these.
  */
 export const TUNED_FIXED: BotWeights = {
-  cardValue: 0.7139,
-  costEfficiency: 1.1083,
-  buyThreshold: -0.2905,
-  duplicatePenalty: -0.625,
-  scarcityBonus: 0.847,
-  denialWeight: -0.2494,
-  futureDice: 0.0708,
-  tableDice: 1.0,
-  blueWeight: 1.1257,
-  greenWeight: 0.5057,
-  redWeight: 0.2166,
-  purpleWeight: 2.7476,
-  purpleRealism: 1,
+  cardValue: 0.9034,
+  costEfficiency: 1.9834,
+  buyThreshold: 0.1546,
+  duplicatePenalty: -0.3931,
+  scarcityBonus: 0.8721,
+  denialWeight: 0.4444,
+  futureDice: 0.0231,
+  tableDice: 0.9297,
+  blueWeight: 0.9703,
+  greenWeight: 0.591,
+  redWeight: 0.1678,
+  purpleWeight: 2.682,
+  purpleRealism: 0.9776,
   purpleHorizon: 0,
-  purpleVolatile: 1,
-  landmarkValue: 0.7359,
-  landmarkUnlock: 0.0,
-  landmarkProgress: 14.9513,
-  landmarkRush: -0.1801,
-  landmarkOrder: 0.6613,
-  saveMargin: 3.2523,
-  saveScore: 0.5595,
-  twoDiceBias: 0.2669,
-  rerollMargin: 0.3829,
-  harborMargin: 0.495,
-  spacePortMargin: 0,
-  threatWeight: 0.2208,
-  exhibitThreshold: 4.5706,
-  investFloor: 2.8563,
-  investCap: 11.5589,
-  renovationSelfHarm: 1.7729,
-  jitter: 0.0136,
+  purpleVolatile: 0.8113,
+  landmarkValue: 0.0457,
+  landmarkUnlock: 0.0224,
+  landmarkProgress: 9.9997,
+  landmarkRush: 0.1662,
+  landmarkOrder: 0.2987,
+  saveMargin: 3.3188,
+  saveScore: 0,
+  twoDiceBias: -0.328,
+  rerollMargin: 0.3666,
+  harborMargin: 2.0476,
+  spacePortMargin: 0.4077,
+  threatWeight: 0.4382,
+  exhibitThreshold: 4.5401,
+  investFloor: 4.6969,
+  investCap: 9.9025,
+  renovationSelfHarm: 1.9785,
+  jitter: 0.0248,
 };
 
 /**
@@ -255,47 +268,58 @@ export const TUNED_FIXED: BotWeights = {
  * be worth taxing and the bot stops buying majors at all.
  *
  * Two corrections fix it, and each was worth measuring on its own:
- * `purpleHorizon` 1 values an opponent at their usual purse rather than
- * today's (21.9% → 24.2%), and `purpleVolatile` 0.5 halves the trust placed in
- * pockets while leaving what they have *built* read in full — the Publisher's
- * bread and cup icons, the Renovation Company's open stacks, which do not
- * evaporate between turns.  Together: 26.6% against these weights with the
- * flat constants, of 12,000 games, and the flat version takes only 24.1%
- * coming back the other way.
+ * `purpleHorizon` values an opponent at their usual purse rather than today's
+ * (21.9% → 24.2%), and `purpleVolatile` halves the trust placed in pockets
+ * while leaving what they have *built* read in full — the Publisher's bread
+ * and cup icons, the Renovation Company's open stacks, which do not evaporate
+ * between turns.  Together: 26.6% against these weights with the flat
+ * constants, of 12,000 games, and the flat version takes only 24.1% coming
+ * back the other way.
+ *
+ * Both were set by hand, at 1 and 0.5.  Self-play was then given them to tune
+ * along with everything else and came back with 0.89 and 0.47 — the same
+ * reading of the table, found on its own.
+ *
+ * These weights beat the ones they replace as a challenger, **27.7%** against
+ * a table of them (95% CI 26.2–29.4, fair share 25%), but only draw level as a
+ * defender: the old weights still take 24.9% against a table of these
+ * (23.4–26.4).  A clear win one way round and a tie the other is a smaller
+ * result than the fixed-supply run's, and worth knowing when reading the next
+ * one.  Against the hand-written baseline, 58.4%, up from 55.5%.
  */
 export const TUNED_VARIABLE: BotWeights = {
-  cardValue: 1.6879,
-  costEfficiency: 1.0851,
-  buyThreshold: 0.2381,
-  duplicatePenalty: 0.5194,
-  scarcityBonus: 0.7037,
-  denialWeight: 0.1584,
-  futureDice: 0.2482,
-  tableDice: 0.6913,
-  blueWeight: 1.9873,
-  greenWeight: 0.8403,
-  redWeight: 0.8424,
-  purpleWeight: 2.8477,
-  purpleRealism: 1,
-  purpleHorizon: 1,
-  purpleVolatile: 0.5,
-  landmarkValue: 1.29,
-  landmarkUnlock: 0.1615,
-  landmarkProgress: 0.0613,
-  landmarkRush: 2.6455,
-  landmarkOrder: 0.7212,
-  saveMargin: 0.8693,
-  saveScore: 0.7712,
-  twoDiceBias: 0.7111,
-  rerollMargin: 0.6407,
-  harborMargin: 1.7923,
-  spacePortMargin: -0.7599,
-  threatWeight: 0.5166,
-  exhibitThreshold: 0.749,
-  investFloor: 2.9945,
-  investCap: 9.5238,
-  renovationSelfHarm: 0.7205,
-  jitter: 0.0291,
+  cardValue: 2.2515,
+  costEfficiency: 1.2585,
+  buyThreshold: 0.503,
+  duplicatePenalty: 0.3047,
+  scarcityBonus: 0.4543,
+  denialWeight: -0.3729,
+  futureDice: 0.2701,
+  tableDice: 0.5929,
+  blueWeight: 2.1464,
+  greenWeight: 1.0121,
+  redWeight: 0.7021,
+  purpleWeight: 2.9895,
+  purpleRealism: 0.9076,
+  purpleHorizon: 0.887,
+  purpleVolatile: 0.4677,
+  landmarkValue: 0.8759,
+  landmarkUnlock: 0,
+  landmarkProgress: 0,
+  landmarkRush: 2.2883,
+  landmarkOrder: 0.7192,
+  saveMargin: 1.3109,
+  saveScore: 0.4613,
+  twoDiceBias: 0.3894,
+  rerollMargin: 0.9213,
+  harborMargin: 1.788,
+  spacePortMargin: -0.0025,
+  threatWeight: 0.3387,
+  exhibitThreshold: 1.3887,
+  investFloor: 3.7457,
+  investCap: 8.1141,
+  renovationSelfHarm: 0.7492,
+  jitter: 0.0085,
 };
 
 export function weightsFor(rules: RuleSet): BotWeights {
