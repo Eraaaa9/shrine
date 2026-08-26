@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Params } from '../shared/i18n';
 import type { ClientMessage, RoomView, ServerMessage } from '../shared/protocol';
+import { mergeLog } from '../shared/protocol';
+import type { LogEntry } from '../shared/types';
 
 export interface UiError {
   key: string;
@@ -52,12 +54,27 @@ export interface Connection {
   dismissError: () => void;
 }
 
+/**
+ * Puts the whole log back on a room view that carries only the new lines. An
+ * update that added none hands back the very same array, so the panel that
+ * renders it and the effects that watch it see nothing move.
+ */
+function withFullLog(room: RoomView, log: { current: LogEntry[] }): RoomView {
+  const full = mergeLog(log.current, room);
+  log.current = full;
+  return room.game && room.logAppend ? { ...room, game: { ...room.game, log: full } } : room;
+}
+
 export function useConnection(): Connection {
   const [status, setStatus] = useState<Connection['status']>('connecting');
   const [room, setRoom] = useState<RoomView | null>(null);
   const [youId, setYouId] = useState<string | null>(null);
   const [error, setError] = useState<UiError | null>(null);
 
+  // The history this client has stitched together. The server sends it in full
+  // once per socket and only the new lines after that, so it lives out here
+  // rather than being read back off the last room view.
+  const log = useRef<LogEntry[]>([]);
   const socket = useRef<WebSocket | null>(null);
   const outbox = useRef<ClientMessage[]>([]);
   const retry = useRef<number | undefined>(undefined);
@@ -101,10 +118,11 @@ export function useConnection(): Connection {
             setRoomInUrl(message.code);
             break;
           case 'room':
-            setRoom(message.room);
+            setRoom(withFullLog(message.room, log));
             break;
           case 'left':
             joined.current = false;
+            log.current = [];
             saveSeat(null);
             setRoomInUrl(null);
             setRoom(null);
@@ -120,6 +138,9 @@ export function useConnection(): Connection {
 
       ws.onclose = () => {
         if (disposed) return;
+        // The next socket is sent the history in full, so drop what we have
+        // rather than risk stitching the old lines onto the new ones.
+        log.current = [];
         setStatus('closed');
         retry.current = window.setTimeout(connect, 1500);
       };

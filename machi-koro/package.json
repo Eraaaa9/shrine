@@ -14,9 +14,10 @@
     "simulate": "tsx src/shared/simulate.ts",
     "train": "tsx src/shared/train.ts",
     "icons": "node scripts/make-og.mjs",
-    "test:restart": "node scripts/test-restart.mjs",
+    "test:restart": "tsx scripts/test-restart.mts",
     "test:save-retry": "tsx scripts/test-save-retry.mjs",
     "test:exhibit": "tsx scripts/test-exhibit.mts",
+    "test:traffic": "tsx scripts/test-traffic.mts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -6,7 +6,7 @@ import { BASELINE, weightsFor, type BotWeights } from '../shared/bot-weights';
 import { activePlayer, applyAction, createGame, demolishable, tradeableCards } from '../shared/engine';
 import type { BotLevel, ChatLine, RoomView, ServerMessage } from '../shared/protocol';
 import { DEFAULT_BOT_LEVEL, MIN_PLAYERS, normaliseBotLevel } from '../shared/protocol';
-import type { GameAction, GameState } from '../shared/types';
+import type { GameAction, GameState, LogEntry } from '../shared/types';
 import { readSnapshot, stateFile, writeSnapshot, type RoomSnapshot } from './store';
 
 /**
@@ -39,6 +39,24 @@ export interface Seat {
   token: string;
   socket: WebSocket | null;
   disconnectedAt: number | null;
+  /**
+   * Id of the newest log line this seat's current socket has been sent, so the
+   * next view can carry the handful written since instead of all 300 again.
+   * Zero means "has heard nothing yet", which is where a fresh socket and a
+   * fresh game both start.
+   */
+  logSentTo: number;
+}
+
+/** The log lines written after `id`. The log is sorted, so this is a tail. */
+function logSince(log: LogEntry[], id: number): LogEntry[] {
+  const from = log.findIndex((entry) => entry.id > id);
+  return from < 0 ? [] : log.slice(from);
+}
+
+/** The newest id in a batch, or `fallback` when the batch is empty. */
+function newestLogId(log: LogEntry[], fallback: number): number {
+  return log.length > 0 ? log[log.length - 1].id : fallback;
 }
 
 export class Room {
@@ -92,6 +110,7 @@ export class Room {
     room.seats = snap.seats.map((s) => ({
       ...s,
       socket: null,
+      logSentTo: 0,
       // Everyone is disconnected after a restart. Dating that to now rather than
       // to the save gives players the full grace period to come back before a
       // stalled turn is auto-played.
@@ -110,6 +129,7 @@ export class Room {
       token: randomBytes(16).toString('hex'),
       socket,
       disconnectedAt: socket ? null : Date.now(),
+      logSentTo: 0,
     };
     this.seats.push(seat);
     if (!this.hostId) this.hostId = seat.id;
@@ -168,6 +188,9 @@ export class Room {
       this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot })),
       this.rules
     );
+    // The new game numbers its log from one again, so every cursor into the old
+    // one is meaningless: send the next view in full.
+    for (const seat of this.seats) seat.logSentTo = 0;
     this.touch();
     return null;
   }
@@ -269,7 +292,14 @@ export class Room {
     this.touch();
   }
 
-  view(): RoomView {
+  /**
+   * The room as one seat should see it. Everything but the log is the same for
+   * everybody; the log is trimmed to the lines that seat has not been sent yet,
+   * which is what keeps a 300-line history off the wire on every single move.
+   */
+  view(seat?: Seat): RoomView {
+    const logAppend = this.game !== null && seat !== undefined && seat.logSentTo > 0;
+    const game = logAppend ? { ...this.game!, log: logSince(this.game!.log, seat!.logSentTo) } : this.game;
     return {
       code: this.code,
       hostId: this.hostId,
@@ -283,7 +313,8 @@ export class Room {
         isHost: s.id === this.hostId,
         awaySince: s.disconnectedAt,
       })),
-      game: this.game,
+      game,
+      logAppend,
       chat: this.chat,
       // Sent alongside the timestamps above rather than left to the browser:
       // a client whose clock is minutes out would otherwise show a countdown
@@ -298,9 +329,13 @@ export class Room {
   }
 
   broadcast(): void {
-    const payload = JSON.stringify({ t: 'room', room: this.view() } satisfies ServerMessage);
     for (const seat of this.seats) {
-      if (seat.socket && seat.socket.readyState === 1) seat.socket.send(payload);
+      if (!seat.socket || seat.socket.readyState !== 1) continue;
+      const room = this.view(seat);
+      seat.socket.send(JSON.stringify({ t: 'room', room } satisfies ServerMessage));
+      // Only ever advanced for a seat that was actually written to, so a socket
+      // that missed a broadcast is still owed the lines it did not get.
+      seat.logSentTo = newestLogId(room.game?.log ?? [], seat.logSentTo);
     }
     this.scheduleAuto();
     // Every state change ends in a broadcast, so this is the one hook that

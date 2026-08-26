@@ -1,6 +1,6 @@
 import type { RuleSet } from './cards';
 import type { Params } from './i18n';
-import type { GameAction, GameState } from './types';
+import { LOG_LIMIT, type GameAction, type GameState, type LogEntry } from './types';
 
 /**
  * How hard the bots play. `casual` is the hand-written strategy the bot shipped
@@ -36,6 +36,14 @@ export interface RoomView {
   seats: SeatView[];
   /** Null while the room is still in the lobby. */
   game: GameState | null;
+  /**
+   * Whether `game.log` carries only the lines written since this client's last
+   * view, to be appended to the ones it already has, rather than the whole
+   * history. The server sends the history in full to a socket it has not
+   * spoken to yet — and to every socket when a fresh game restarts the ids —
+   * so a client never has to ask for a gap to be filled.
+   */
+  logAppend: boolean;
   chat: ChatLine[];
   /** The server's clock as this view was built, so countdowns survive a skewed one. */
   now: number;
@@ -71,3 +79,18 @@ export type ServerMessage =
   | { t: 'error'; key: string; params?: Params };
 
 export const MIN_PLAYERS = 2;
+
+/**
+ * The full history a client should be holding once `view` arrives, given what
+ * it held before. Increments are appended and trimmed to the same cap the
+ * engine keeps, so the stitched log matches the server's line for line; a view
+ * that added nothing hands `held` straight back, keeping the array identity a
+ * React render can lean on.
+ */
+export function mergeLog(held: LogEntry[], view: RoomView): LogEntry[] {
+  if (!view.game) return [];
+  if (!view.logAppend) return view.game.log;
+  if (view.game.log.length === 0) return held;
+  const merged = [...held, ...view.game.log];
+  return merged.length > LOG_LIMIT ? merged.slice(merged.length - LOG_LIMIT) : merged;
+}

@@ -11,6 +11,7 @@ import {
   type RuleSet,
 } from './cards';
 import { rulesCode, type Params } from './i18n';
+import { LOG_LIMIT } from './types';
 import type {
   BuildingStat,
   GameAction,
@@ -164,7 +165,7 @@ function log(
   extra: { who?: string; kind?: LogEntry['kind'] } = {}
 ): void {
   state.log.push({ id: state.nextLogId++, key, params, who: extra.who, kind: extra.kind });
-  if (state.log.length > 300) state.log.splice(0, state.log.length - 300);
+  if (state.log.length > LOG_LIMIT) state.log.splice(0, state.log.length - LOG_LIMIT);
 }
 
 export function activePlayer(state: GameState): PlayerState {
