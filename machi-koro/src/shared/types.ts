@@ -82,6 +82,13 @@ export type Phase =
   | 'invest'
   | 'over';
 
+/**
+ * How many lines of history a game keeps. The engine trims to it, and the
+ * client trims to it again as it stitches the increments together, so both
+ * ends of the wire agree on what "the whole log" is.
+ */
+export const LOG_LIMIT = 300;
+
 export interface LogEntry {
   id: number;
   /** Translation key; the client renders it in the reader's own language. */

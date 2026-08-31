@@ -182,7 +182,14 @@ export const WEIGHT_RANGE: Record<keyof BotWeights, [min: number, max: number]> 
   spacePortMargin: [-3, 3],
 
   threatWeight: [0, 1],
-  exhibitThreshold: [0, 14],
+  // An activation fires every copy you own, so the payout on offer is not
+  // bounded by one card: over 200 games the best candidate came to 24+ coins
+  // on a tenth of the decisions and reached 54, where the old ceiling of 14
+  // could not say "hold it for a big one".  Raising it bought nothing, as it
+  // turns out -- a search free to go to 40 settled at 1.9, so the bots want to
+  // spend the Exhibit Hall on nearly whatever it finds.  The room stays open
+  // because the ceiling, not the search, was the reason nobody had asked.
+  exhibitThreshold: [0, 40],
   investFloor: [0, 20],
   investCap: [0, 16],
   renovationSelfHarm: [0, 3],

@@ -34,7 +34,20 @@ if (existsSync(clientDist)) {
 }
 
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+// Views are mostly the same strings over and over — card ids, log keys, player
+// names — so deflate takes a state update down by about nine tenths. It is off
+// by default in `ws` because a compressor is held per connection; the threshold
+// keeps the small messages out of it, and this server holds a handful of
+// players per room rather than thousands of sockets.
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  perMessageDeflate: {
+    threshold: 512,
+    zlibDeflateOptions: { level: 6, memLevel: 7 },
+    concurrencyLimit: 10,
+  },
+});
 
 interface Attachment {
   room: Room;
@@ -58,6 +71,9 @@ function attach(ws: WebSocket, room: Room, seat: Seat): void {
   }
   seat.socket = ws;
   seat.disconnectedAt = null;
+  // A socket that has just arrived holds no history, so the next view it gets
+  // has to be the whole log rather than the tail.
+  seat.logSentTo = 0;
   attached.set(ws, { room, seat });
   send(ws, { t: 'joined', code: room.code, youId: seat.id, token: seat.token });
 }

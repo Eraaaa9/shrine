@@ -11,6 +11,7 @@ import {
   type RuleSet,
 } from './cards';
 import { rulesCode, type Params } from './i18n';
+import { LOG_LIMIT } from './types';
 import type {
   BuildingStat,
   GameAction,
@@ -164,7 +165,7 @@ function log(
   extra: { who?: string; kind?: LogEntry['kind'] } = {}
 ): void {
   state.log.push({ id: state.nextLogId++, key, params, who: extra.who, kind: extra.kind });
-  if (state.log.length > 300) state.log.splice(0, state.log.length - 300);
+  if (state.log.length > LOG_LIMIT) state.log.splice(0, state.log.length - LOG_LIMIT);
 }
 
 export function activePlayer(state: GameState): PlayerState {
@@ -582,11 +583,20 @@ function resolvePurple(state: GameState): void {
       case 'park': {
         const pot = state.players.reduce((sum, p) => sum + p.coins, 0);
         const each = Math.ceil(pot / state.players.length);
-        // Levelling up comes partly from the bank and partly from the richer
-        // players, so the ledger books each side as a plain gain or loss.
+        // Levelling up moves coins from the richer players to the poorer ones,
+        // so the ledger books those as transfers. Rounding the share up can ask
+        // for more than the table holds; only that shortfall comes from the bank.
+        let pool = 0;
         for (const p of state.players) {
-          if (each > p.coins) gain(p, id, each - p.coins, true);
-          else drain(p, id, p.coins - each, true);
+          if (p.coins > each) pool += drain(p, id, p.coins - each, false);
+        }
+        for (const p of state.players) {
+          if (p.coins >= each) continue;
+          const owed = each - p.coins;
+          const shared = Math.min(pool, owed);
+          pool -= shared;
+          gain(p, id, shared, false);
+          gain(p, id, owed - shared, true);
         }
         log(state, 'log.park', { each }, { who: active.id, kind: 'income' });
         break;
@@ -618,37 +628,63 @@ export function exhibitCandidates(state: GameState, p: PlayerState): CardId[] {
 /** Immediate coin swing if this card were activated once for its owner. */
 export function activationValue(state: GameState, p: PlayerState, id: CardId): number {
   const card = CARD_BY_ID[id];
-  if (card.id === 'tuna_boat') return 7;
-  if (card.id === 'demolition_company') return landmarkCount(state, p) > 0 ? 8 : 0;
-  if (card.id === 'moving_company') return tradeableCards(p).length > 0 ? 4 : 0;
-  if (card.color === 'blue') return blueAmount(state, card, p);
-  if (card.color === 'green') return greenAmount(state, card, p);
+  // the Exhibit Hall fires every open copy you own, so the payout scales with them
+  const n = openCopies(p, id);
+  if (n <= 0) return 0;
+  if (card.id === 'tuna_boat') return 7 * n;
+  if (card.id === 'demolition_company') return Math.min(n, landmarkCount(state, p)) * 8;
+  if (card.id === 'moving_company') return tradeableCards(p).length > 0 ? 4 * n : 0;
+  if (card.color === 'blue') return blueAmount(state, card, p) * n;
+  if (card.color === 'green') return greenAmount(state, card, p) * n;
   return 0;
 }
 
-/** Run one card's effect for its owner, as the Exhibit Hall allows. */
-function activateOnce(state: GameState, p: PlayerState, id: CardId): void {
+/**
+ * Run a card's effect for its owner, as the Exhibit Hall allows: every open copy
+ * of the chosen establishment fires, and only the owner is paid — an opponent's
+ * copies of a blue card stay quiet.
+ */
+function activateAll(state: GameState, p: PlayerState, id: CardId): void {
   const card = CARD_BY_ID[id];
-  noteHits(p, id);
+  const n = wakeUp(state, p, card);
+  if (n <= 0) return;
+  noteHits(p, id, n);
   if (id === 'demolition_company') {
-    if (landmarkCount(state, p) > 0) state.pending.push('demolish');
+    for (let i = 0; i < n; i++) {
+      if (landmarkCount(state, p) > 0) state.pending.push('demolish');
+      else log(state, 'log.noDemolish', { player: p.name }, { who: p.id, kind: 'income' });
+    }
     return;
   }
   if (id === 'moving_company') {
-    if (tradeableCards(p).length > 0) state.pending.push('moving');
+    for (let i = 0; i < n; i++) {
+      if (tradeableCards(p).length > 0) state.pending.push('moving');
+      else log(state, 'log.noMoving', { player: p.name }, { who: p.id, kind: 'income' });
+    }
     return;
   }
-  const amount = card.color === 'blue' ? blueAmount(state, card, p) : greenAmount(state, card, p);
+  // one roll for the card, then a payout per copy — as on a rolled 12-14
+  let amount: number;
+  if (id === 'tuna_boat') {
+    const roll = die(state) + die(state);
+    log(state, 'log.tunaRoll', { total: roll }, { kind: 'roll' });
+    amount = roll * n;
+  } else {
+    amount = (card.color === 'blue' ? blueAmount(state, card, p) : greenAmount(state, card, p)) * n;
+  }
   if (amount > 0) {
     gain(p, id, amount, true);
-    log(state, 'log.getsVia', { player: p.name, amount, card: id }, { who: p.id, kind: 'income' });
+    log(state, 'log.getsVia', { player: p.name, amount, card: id, times: times(n) }, { who: p.id, kind: 'income' });
   } else if (amount < 0) {
     const lost = drain(p, id, -amount, true);
-    log(state, 'log.paysVia', { player: p.name, amount: lost, card: id }, { who: p.id, kind: 'income' });
+    log(state, 'log.paysVia', { player: p.name, amount: lost, card: id, times: times(n) }, { who: p.id, kind: 'income' });
   } else {
     log(state, 'log.activatesNothing', { player: p.name, card: id }, { who: p.id, kind: 'income' });
   }
-  if (id === 'winery') p.closed.winery = Math.min(copies(p, 'winery'), closedCopies(p, 'winery') + 1);
+  if (id === 'winery') {
+    p.closed.winery = n;
+    log(state, 'log.wineryCloses', { player: p.name }, { who: p.id, kind: 'income' });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,7 +1059,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         return null;
       }
       if (!exhibitCandidates(state, active).includes(action.cardId)) return 'err.cannotActivate';
-      activateOnce(state, active, action.cardId);
+      activateAll(state, active, action.cardId);
       active.cards.exhibit_hall = copies(active, 'exhibit_hall') - 1;
       state.supply.exhibit_hall = (state.supply.exhibit_hall ?? 0) + 1;
       log(state, 'log.exhibitReturn', { player: active.name }, { who: active.id, kind: 'build' });

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { CARD_BY_ID, ICON_GLYPH, cardsFor, type CardId } from '../../shared/cards';
 import { activationValue, closedCopies, copies, exhibitCandidates, openCopies, tradeableCards } from '../../shared/engine';
 import { cardName, cardText } from '../../shared/i18n';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
 import { useLang } from '../lang';
+import useWindowDrag from '../windowDrag';
 import { formatActivates } from './CardTile';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -63,7 +64,6 @@ function Trade({ game, you, act }: Props) {
 
   return (
     <>
-      <h2>{t('ui.bcTitle')}</h2>
       <p className="muted">{t('ui.bcBlurb')}</p>
 
       <div className="trade-side">
@@ -116,7 +116,6 @@ function Moving({ game, you, act }: Props) {
 
   return (
     <>
-      <h2>{t('ui.movingTitle')}</h2>
       <p className="muted">{t('ui.movingBlurb')}</p>
 
       <div className="trade-side">
@@ -168,23 +167,23 @@ function Moving({ game, you, act }: Props) {
 function Renovation({ game, you, act }: Props) {
   const { t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
-  const owned = cardsFor(game.rules).filter(
-    (c) => c.icon !== 'major' && game.players.some((p) => openCopies(p, c.id) > 0)
-  );
-  const takings = pick
-    ? game.players
-        .filter((p) => p.id !== you.id)
-        .reduce((sum, p) => sum + Math.min(openCopies(p, pick), p.coins), 0)
-    : 0;
+  // What closing every copy would pay: each opponent hands over a coin per copy
+  // of theirs, and a broke opponent cannot hand over more than they have.
+  const takings = (id: CardId) =>
+    game.players.filter((p) => p.id !== you.id).reduce((sum, p) => sum + Math.min(openCopies(p, id), p.coins), 0);
+  // Best payout first, and where two pay the same, the pricier building — closing
+  // it costs the table more.
+  const owned = cardsFor(game.rules)
+    .filter((c) => c.icon !== 'major' && game.players.some((p) => openCopies(p, c.id) > 0))
+    .sort((a, b) => takings(b.id) - takings(a.id) || b.cost - a.cost);
 
   return (
     <>
-      <h2>{t('ui.renovationTitle')}</h2>
       <p className="muted">{t('ui.renovationBlurb')}</p>
 
       <div className="trade-side">
         <h3>{t('ui.closeEvery')}</h3>
-        <CardChips ids={owned.map((c) => c.id)} selected={pick} onPick={setPick} />
+        <CardChips ids={owned.map((c) => c.id)} selected={pick} onPick={setPick} worth={takings} />
       </div>
 
       {pick && (
@@ -194,7 +193,7 @@ function Renovation({ game, you, act }: Props) {
               .filter((p) => openCopies(p, pick) > 0)
               .map((p) => `${p.name} ×${openCopies(p, pick)}`)
               .join(', '),
-            amount: takings,
+            amount: takings(pick),
           })}
         </p>
       )}
@@ -211,11 +210,13 @@ function Renovation({ game, you, act }: Props) {
 function Exhibit({ game, you, act }: Props) {
   const { t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
-  const candidates = exhibitCandidates(game, you);
+  // Same order as the Renovation list: biggest payout first, ties to the pricier card.
+  const candidates = [...exhibitCandidates(game, you)].sort(
+    (a, b) => activationValue(game, you, b) - activationValue(game, you, a) || CARD_BY_ID[b].cost - CARD_BY_ID[a].cost
+  );
 
   return (
     <>
-      <h2>{t('ui.exhibitTitle')}</h2>
       <p className="muted">{t('ui.exhibitBlurb')}</p>
 
       <div className="trade-side">
@@ -241,33 +242,68 @@ function Exhibit({ game, you, act }: Props) {
   );
 }
 
-/** The card effects that need a full-screen decision. */
+/** The nudge an arrow key gives the window, and a bigger one with Shift held. */
+const STEP = 24;
+const STRIDE = 96;
+
+/** The card effects that stop the turn for a decision. */
 export default function ChoiceModal(props: Props) {
   const { lang, t } = useLang();
   const { game, you } = props;
-  const body =
-    game.phase === 'trade' ? (
-      <Trade {...props} />
-    ) : game.phase === 'moving' ? (
-      <Moving {...props} />
-    ) : game.phase === 'renovation' ? (
-      <Renovation {...props} />
-    ) : game.phase === 'exhibit' ? (
-      <Exhibit {...props} />
-    ) : null;
+  const drag = useWindowDrag();
+  const panel =
+    game.phase === 'trade'
+      ? { title: 'ui.bcTitle', body: <Trade {...props} /> }
+      : game.phase === 'moving'
+        ? { title: 'ui.movingTitle', body: <Moving {...props} /> }
+        : game.phase === 'renovation'
+          ? { title: 'ui.renovationTitle', body: <Renovation {...props} /> }
+          : game.phase === 'exhibit'
+            ? { title: 'ui.exhibitTitle', body: <Exhibit {...props} /> }
+            : null;
 
-  if (!body) return null;
+  if (!panel) return null;
   const closed = (Object.keys(you.closed) as CardId[]).filter((id) => closedCopies(you, id) > 0);
 
+  const onGripKey = (event: ReactKeyboardEvent) => {
+    const step = event.shiftKey ? STRIDE : STEP;
+    const by: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const move = by[event.key];
+    if (!move) return;
+    event.preventDefault();
+    drag.nudge(move[0], move[1]);
+  };
+
+  // No scrim and no backdrop catching clicks: these windows cover half the board,
+  // and the whole point of being able to shove one aside is to read what is under it.
   return (
-    <div className="modal-backdrop">
-      <div className="modal">
-        {body}
-        {closed.length > 0 && (
-          <p className="muted small-note">
-            {t('ui.closedList', { cards: closed.map((id) => cardName(lang, id)).join(', ') })}
-          </p>
-        )}
+    <div className="modal-layer">
+      <div className="modal choice-window" ref={drag.ref} style={drag.style}>
+        <div className={drag.dragging ? 'window-bar dragging' : 'window-bar'} {...drag.handle}>
+          <h2>{t(panel.title)}</h2>
+          <button
+            type="button"
+            className="window-grip"
+            aria-label={t('ui.moveWindow')}
+            title={t('ui.moveWindow')}
+            onKeyDown={onGripKey}
+          >
+            ⠿
+          </button>
+        </div>
+        <div className="window-body">
+          {panel.body}
+          {closed.length > 0 && (
+            <p className="muted small-note">
+              {t('ui.closedList', { cards: closed.map((id) => cardName(lang, id)).join(', ') })}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

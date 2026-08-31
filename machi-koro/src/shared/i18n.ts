@@ -365,8 +365,8 @@ const EN: Record<string, string> = {
   'log.redTakeBroke': '{player} takes {amount} from {from} — {card}{times} ({from} is broke)',
   'log.gets': '{player} gets {amount} — {card}{times}',
   'log.pays': '{player} pays {amount} to the bank — {card}{times}',
-  'log.getsVia': '{player} gets {amount} — {card} (via the Exhibit Hall)',
-  'log.paysVia': '{player} pays {amount} — {card} (via the Exhibit Hall)',
+  'log.getsVia': '{player} gets {amount} — {card}{times} (via the Exhibit Hall)',
+  'log.paysVia': '{player} pays {amount} — {card}{times} (via the Exhibit Hall)',
   'log.activatesNothing': '{player} activates {card} for nothing.',
   'log.reopens': "{player}'s {card}{times} reopens after renovation.",
   'log.wineryCloses': "{player}'s Winery closes for renovation.",
@@ -578,6 +578,7 @@ const EN: Record<string, string> = {
   'ui.activateIt': 'Activate it',
   'ui.nothingAvailable': 'nothing available',
   'ui.closedList': 'Closed for renovation: {cards}',
+  'ui.moveWindow': 'Drag the bar to move this window — double-click it to re-centre',
 
   // post-game stats
   'ui.statsButton': 'Stats',
@@ -688,8 +689,8 @@ const RU: Record<string, string> = {
   'log.redTakeBroke': '{player} забирает {amount} у {from} — {card}{times} (у {from} больше нет монет)',
   'log.gets': '{player} получает {amount} — {card}{times}',
   'log.pays': '{player} платит {amount} в банк — {card}{times}',
-  'log.getsVia': '{player} получает {amount} — {card} (через Выставочный зал)',
-  'log.paysVia': '{player} платит {amount} — {card} (через Выставочный зал)',
+  'log.getsVia': '{player} получает {amount} — {card}{times} (через Выставочный зал)',
+  'log.paysVia': '{player} платит {amount} — {card}{times} (через Выставочный зал)',
   'log.activatesNothing': '{player} активирует {card} впустую.',
   'log.reopens': '{card}{times} игрока {player} снова открывается после ремонта.',
   'log.wineryCloses': 'Винодельня игрока {player} закрывается на ремонт.',
@@ -901,6 +902,7 @@ const RU: Record<string, string> = {
   'ui.activateIt': 'Активировать',
   'ui.nothingAvailable': 'ничего нет',
   'ui.closedList': 'Закрыто на ремонт: {cards}',
+  'ui.moveWindow': 'Перетащите заголовок, чтобы сдвинуть окно; двойной клик вернёт его в центр',
 
   // post-game stats
   'ui.statsButton': 'Итоги',
@@ -1005,8 +1007,8 @@ const KK: Record<string, string> = {
   'log.redTakeBroke': '{player} {from} ойыншысынан {amount} алады — {card}{times} ({from} ойыншысында монета қалмады)',
   'log.gets': '{player} {amount} алады — {card}{times}',
   'log.pays': '{player} банкке {amount} төлейді — {card}{times}',
-  'log.getsVia': '{player} {amount} алады — {card} (Көрме залы арқылы)',
-  'log.paysVia': '{player} {amount} төлейді — {card} (Көрме залы арқылы)',
+  'log.getsVia': '{player} {amount} алады — {card}{times} (Көрме залы арқылы)',
+  'log.paysVia': '{player} {amount} төлейді — {card}{times} (Көрме залы арқылы)',
   'log.activatesNothing': '{player} {card} картасын босқа іске қосады.',
   'log.reopens': '{player} ойыншысының {card}{times} картасы жөндеуден кейін қайта ашылды.',
   'log.wineryCloses': '{player} ойыншысының Шарап зауыты жөндеуге жабылады.',
@@ -1218,6 +1220,7 @@ const KK: Record<string, string> = {
   'ui.activateIt': 'Іске қосу',
   'ui.nothingAvailable': 'ештеңе жоқ',
   'ui.closedList': 'Жөндеуге жабылған: {cards}',
+  'ui.moveWindow': 'Терезені жылжыту үшін тақырыбын сүйреңіз; қос шертсеңіз ортаға оралады',
 
   // post-game stats
   'ui.statsButton': 'Қорытынды',

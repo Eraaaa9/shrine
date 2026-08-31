@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
+import { mergeLog } from '../src/shared/protocol';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tsx = path.join(root, 'node_modules/tsx/dist/cli.mjs');
@@ -77,7 +78,15 @@ function stopServer(child) {
 function client(port) {
   const ws = new WebSocket(`ws://localhost:${port}/ws`);
   const seen = [];
-  ws.on('message', (raw) => seen.push(JSON.parse(String(raw))));
+  // Room views carry only the log lines written since this socket last heard
+  // from the server, so the history is stitched here exactly as the browser
+  // stitches it — see `mergeLog`.
+  let log = [];
+  ws.on('message', (raw) => {
+    const message = JSON.parse(String(raw));
+    seen.push(message);
+    if (message.t === 'room') log = mergeLog(log, message.room);
+  });
 
   const waitFor = async (predicate, what, timeout = 5000) => {
     const deadline = Date.now() + timeout;
@@ -97,6 +106,8 @@ function client(port) {
     waitFor,
     /** The most recent room view, which is the one the UI would be showing. */
     latestRoom: () => [...seen].reverse().find((m) => m.t === 'room')?.room,
+    /** The whole history this socket has heard, not just the newest slice. */
+    log: () => log,
     close: () => ws.close(),
   };
 }
@@ -127,6 +138,7 @@ async function main() {
   await sleep(2500);
 
   const before = alice.latestRoom();
+  const beforeLog = alice.log();
   check('a game is running before the restart', before.game != null && before.game.phase !== 'over');
   check('the room has both seats', before.seats.length === 2, `${before.seats.length} seats`);
   check('the game is waiting on the human', before.game.players[before.game.turn].id === joined.youId);
@@ -146,11 +158,12 @@ async function main() {
 
   await returning.waitFor((m) => m.t === 'room', 'the restored room');
   const after = returning.latestRoom();
+  const afterLog = returning.log();
 
   check('the game came back', after.game != null);
   check('same turn number', after.game.turnCount === before.game.turnCount, `${after.game.turnCount} vs ${before.game.turnCount}`);
   check('same phase', after.game.phase === before.game.phase, `${after.game.phase} vs ${before.game.phase}`);
-  check('same log', after.game.log.length === before.game.log.length, `${after.game.log.length} vs ${before.game.log.length}`);
+  check('same log', afterLog.length === beforeLog.length, `${afterLog.length} vs ${beforeLog.length}`);
   check(
     'same coins',
     JSON.stringify(after.game.players.map((p) => p.coins)) === JSON.stringify(before.game.players.map((p) => p.coins)),
@@ -166,9 +179,10 @@ async function main() {
 
   // The game must still be playable, not just readable: the restored seat has to
   // still own its turn, and the engine has to accept a move against the state.
+  const lastId = afterLog[afterLog.length - 1].id;
   returning.send({ t: 'action', action: { t: 'roll', dice: 1 } });
   const played = await returning
-    .waitFor((m) => m.t === 'room' && m.room.game.log.length > before.game.log.length, 'the roll to land')
+    .waitFor((m) => m.t === 'room' && m.room.game.log.some((entry) => entry.id > lastId), 'the roll to land')
     .catch(() => null);
   const refused = returning.seen.find((m) => m.t === 'error');
   check('the restored game accepts moves', played != null, refused ? `server said ${refused.key}` : 'nothing was logged');
