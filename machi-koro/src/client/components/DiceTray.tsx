@@ -10,6 +10,8 @@ interface Props {
   total: number;
   /** Bumped by the engine on every throw, so a reroll of the same faces still animates. */
   rollId: number;
+  /** Extra turn earned (e.g. doubles with Amusement Park). */
+  extraTurn?: boolean;
 }
 
 function reducedMotion(): boolean {
@@ -20,7 +22,7 @@ function reducedMotion(): boolean {
  * The dice tumble through random faces for a beat before settling on what the
  * server actually rolled — the result is never in doubt, it just lands late.
  */
-export default function DiceTray({ dice, total, rollId }: Props) {
+export default function DiceTray({ dice, total, rollId, extraTurn }: Props) {
   const { t } = useLang();
   const [tumbling, setTumbling] = useState<number[] | null>(null);
   const seen = useRef(rollId);
@@ -52,6 +54,7 @@ export default function DiceTray({ dice, total, rollId }: Props) {
   }, [rollId]);
 
   const shown = tumbling ?? dice;
+  const isDoubles = !tumbling && dice.length === 2 && dice[0] === dice[1];
 
   return (
     <div className="dice-tray">
@@ -60,12 +63,21 @@ export default function DiceTray({ dice, total, rollId }: Props) {
           once, when it is actually true. */}
       <span className="dice-faces" aria-hidden="true">
         {shown.map((d, i) => (
-          <span key={i} className={tumbling ? 'die-face tumbling' : 'die-face landed'}>
+          <span key={i} className={tumbling ? 'die-face tumbling' : isDoubles ? 'die-face landed doubles' : 'die-face landed'}>
             {DIE_FACE[d]}
           </span>
         ))}
         {dice.length > 0 && (
           <span className={tumbling ? 'dice-total pending' : 'dice-total'}>{tumbling ? '…' : total}</span>
+        )}
+        {isDoubles && (
+          <span
+            className={extraTurn ? 'doubles-badge extra-turn' : 'doubles-badge'}
+            title={extraTurn ? t('ui.extraTurnBadge') : t('ui.doubles')}
+          >
+            ✨ {t('ui.doubles')}
+            {extraTurn ? ` (${t('ui.extraTurnBadge')})` : ''}
+          </span>
         )}
       </span>
       <span className="sr-only" role="status">
