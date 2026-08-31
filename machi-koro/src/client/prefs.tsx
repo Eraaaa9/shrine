@@ -5,8 +5,12 @@ import { play, type Cue } from './sound';
 export type Theme = 'auto' | 'light' | 'dark';
 export const THEMES: Theme[] = ['auto', 'light', 'dark'];
 
+export type CardView = 'classic' | 'visual';
+export const CARD_VIEWS: CardView[] = ['classic', 'visual'];
+
 const THEME_KEY = 'machikoro.theme';
 const SOUND_KEY = 'machikoro.sound';
+const CARD_VIEW_KEY = 'machikoro.cardView';
 
 function savedTheme(): Theme {
   try {
@@ -28,6 +32,16 @@ function savedSound(): boolean {
   }
 }
 
+function savedCardView(): CardView {
+  try {
+    const stored = localStorage.getItem(CARD_VIEW_KEY) as CardView | null;
+    if (stored && CARD_VIEWS.includes(stored)) return stored;
+  } catch {
+    /* private browsing */
+  }
+  return 'visual'; // Default to modern visual 3D view
+}
+
 function systemPrefersLight(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
 }
@@ -37,6 +51,8 @@ interface PrefsValue {
   setTheme: (theme: Theme) => void;
   sound: boolean;
   setSound: (on: boolean) => void;
+  cardView: CardView;
+  setCardView: (view: CardView) => void;
   /** Play a cue, unless the player has the sound off. */
   cue: (cue: Cue) => void;
 }
@@ -46,12 +62,15 @@ const PrefsContext = createContext<PrefsValue>({
   setTheme: () => undefined,
   sound: false,
   setSound: () => undefined,
+  cardView: 'visual',
+  setCardView: () => undefined,
   cue: () => undefined,
 });
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [theme, setStoredTheme] = useState<Theme>(savedTheme);
   const [sound, setStoredSound] = useState<boolean>(savedSound);
+  const [cardView, setStoredCardView] = useState<CardView>(savedCardView);
 
   const setTheme = useCallback((next: Theme) => {
     setStoredTheme(next);
@@ -72,6 +91,15 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     // Switching it on is a click, which is the gesture the audio context needs
     // to start — so take the chance to prove the setting worked.
     if (on) play('coin');
+  }, []);
+
+  const setCardView = useCallback((next: CardView) => {
+    setStoredCardView(next);
+    try {
+      localStorage.setItem(CARD_VIEW_KEY, next);
+    } catch {
+      /* private browsing */
+    }
   }, []);
 
   // "Auto" is resolved here rather than in a media query, so the stylesheet only
@@ -96,8 +124,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const value = useMemo<PrefsValue>(
-    () => ({ theme, setTheme, sound, setSound, cue: (c: Cue) => sound && play(c) }),
-    [theme, setTheme, sound, setSound]
+    () => ({ theme, setTheme, sound, setSound, cardView, setCardView, cue: (c: Cue) => sound && play(c) }),
+    [theme, setTheme, sound, setSound, cardView, setCardView]
   );
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>;

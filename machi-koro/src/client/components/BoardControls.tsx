@@ -1,5 +1,6 @@
 import type { CardDef } from '../../shared/cards';
 import { useLang } from '../lang';
+import { usePrefs, type CardView } from '../prefs';
 
 export type BoardFilter = 'all' | 'affordable';
 export type BoardSort = 'number' | 'cost' | 'colour';
@@ -30,15 +31,16 @@ interface Props {
 }
 
 /**
- * Filter and sort for the supply.
- *
- * With every expansion on and a fixed supply the board is 39 different cards,
- * which is a wall to read and the reason the rulebook recommends the variable
- * supply at all. Being able to ask for just the ones you can afford, or to
- * group them by colour, solves most of that without changing the rules.
+ * Filter, sort and view mode for the supply.
  */
 export default function BoardControls({ filter, sort, onFilter, onSort, shown, total }: Props) {
   const { t } = useLang();
+  const { cardView, setCardView } = usePrefs();
+
+  const views: { key: CardView; label: string; icon: string }[] = [
+    { key: 'visual', label: t('ui.viewVisual'), icon: '🃏' },
+    { key: 'classic', label: t('ui.viewClassic'), icon: '📋' },
+  ];
 
   const filters: { key: BoardFilter; label: string }[] = [
     { key: 'all', label: t('ui.filterAll') },
@@ -52,6 +54,22 @@ export default function BoardControls({ filter, sort, onFilter, onSort, shown, t
 
   return (
     <div className="board-controls">
+      <div className="board-group" role="group" aria-label={t('ui.viewModeLabel')}>
+        <span className="muted">{t('ui.viewModeLabel')}</span>
+        {views.map((option) => (
+          <button
+            type="button"
+            key={option.key}
+            className={option.key === cardView ? 'chip on' : 'chip'}
+            aria-pressed={option.key === cardView}
+            onClick={() => setCardView(option.key)}
+          >
+            <span aria-hidden="true" style={{ marginRight: 4 }}>{option.icon}</span>
+            {option.label}
+          </button>
+        ))}
+      </div>
+
       <div className="board-group" role="group" aria-label={t('ui.filterLabel')}>
         <span className="muted">{t('ui.filterLabel')}</span>
         {filters.map((option) => (

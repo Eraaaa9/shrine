@@ -506,8 +506,8 @@ input:focus {
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  gap: 10px;
   /* The "new"/"sold out" tags overhang the top edge of their card; without this
      the scrolling board would slice the ones on the first row in half. */
   padding-top: 13px;
@@ -638,6 +638,229 @@ input:focus {
   color: var(--accent);
 }
 
+/* ---------- Visual 3D Flip Cards ---------- */
+
+.card.visual-mode {
+  padding: 0;
+  min-height: 205px;
+  perspective: 1000px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.card.visual-mode.buyable:hover {
+  transform: none;
+}
+
+.card-3d-flipper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 205px;
+  transition: transform 0.45s cubic-bezier(0.2, 0.85, 0.4, 1.2);
+  transform-style: preserve-3d;
+  border-radius: 12px;
+}
+
+.card.visual-mode .card-name {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card.visual-mode.flipped .card-3d-flipper {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  padding: 9px 10px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--line);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.card.blue .card-face {
+  border-top-color: var(--blue);
+}
+.card.green .card-face {
+  border-top-color: var(--green);
+}
+.card.red .card-face {
+  border-top-color: var(--red);
+}
+.card.purple .card-face {
+  border-top-color: var(--purple);
+}
+
+.card.buyable .card-face {
+  border-right-color: var(--card-edge);
+  border-bottom-color: var(--card-edge);
+  border-left-color: var(--card-edge);
+  background: var(--card-face);
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+  cursor: pointer;
+}
+
+.card.buyable:hover .card-face {
+  background: var(--card-face-hover);
+  box-shadow: inset 0 0 0 1px var(--accent), 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.card.hot .card-face {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px var(--gold-halo);
+}
+.card.hot.buyable .card-face {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px var(--gold-halo), inset 0 0 0 1px var(--accent-ring);
+}
+
+.card-face-front {
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+  background: var(--panel-2);
+  z-index: 1;
+  overflow-y: auto;
+}
+
+.card-visual-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 0;
+  text-align: center;
+}
+
+.card-big-emoji {
+  font-size: 46px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
+  transition: transform 0.18s ease;
+  user-select: none;
+}
+
+.card.buyable:hover .card-big-emoji {
+  transform: scale(1.15);
+}
+
+.card.visual-mode .card-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 4px;
+  box-sizing: border-box;
+}
+
+.card-counts-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--muted);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-counts-row .cards-left,
+.card-counts-row .owned {
+  white-space: nowrap;
+}
+
+.card-buy-btn {
+  width: 100%;
+  height: 28px;
+  margin: 2px 0 0 0;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-align: center;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-back-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.card-name-back {
+  font-weight: 600;
+  font-size: 12px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-back-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.card-back-emoji-mini {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.card-back-text {
+  font-size: 11.5px;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.card-back-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.card-back-hint {
+  font-size: 10px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-3d-flipper {
+    transition: none;
+  }
+}
+
 /* ---------- variable supply: stacks arriving and running out ----------
 
    Under the variable supply the ten face-up stacks change during the game, and
@@ -664,6 +887,8 @@ input:focus {
   position: absolute;
   top: -8px;
   right: 8px;
+  z-index: 30;
+  transform: translateZ(30px);
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -671,6 +896,8 @@ input:focus {
   border-radius: 999px;
   padding: 2px 7px;
   white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .card.fresh .card-flag {
   background: var(--accent);
@@ -679,6 +906,13 @@ input:focus {
 .card.gone .card-flag {
   background: var(--red);
   color: var(--flag-gone-text);
+}
+.card.visual-mode.fresh .card-face {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.card.visual-mode.gone .card-face {
+  opacity: 0.45;
 }
 @keyframes card-deal {
   0% {
@@ -1042,6 +1276,44 @@ input:focus {
 }
 .dice-total.pending {
   color: var(--muted);
+}
+.die-face.doubles {
+  color: #ff9800;
+  filter: drop-shadow(0 0 6px rgba(255, 152, 0, 0.6));
+}
+.doubles-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+  box-shadow: 0 0 12px rgba(255, 152, 0, 0.5);
+  animation: doubles-pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+.doubles-badge.extra-turn {
+  background: linear-gradient(135deg, #ff5722, #e64a19);
+  box-shadow: 0 0 14px rgba(255, 87, 34, 0.6);
+}
+@keyframes doubles-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .die-face.tumbling,
