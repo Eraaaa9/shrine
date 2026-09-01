@@ -81,6 +81,8 @@ export default function GameView({ room, youId, send }: Props) {
   };
 
   // ---- sound --------------------------------------------------------------
+  // Every cue is keyed off something that only moves forward, so a re-render or
+  // a reconnect cannot replay the turn that has already happened.
   const heardRoll = useRef(game.rollId);
   const heardLog = useRef(game.log.length > 0 ? game.log[game.log.length - 1].id : 0);
   const heardCoins = useRef(you?.coins ?? 0);

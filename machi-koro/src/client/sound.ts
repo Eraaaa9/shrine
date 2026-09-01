@@ -1,5 +1,10 @@
 /**
- * The game's noises, synthesized in real-time with Web Audio API.
+ * The game's noises, synthesised rather than loaded.
+ *
+ * A handful of short cues do not justify shipping audio files — and this repo
+ * carries no artwork or recordings on purpose — so they are built out of
+ * oscillators and a noise burst at play time. Nothing is fetched, nothing is
+ * decoded, and the whole thing costs a couple of hundred bytes in the bundle.
  */
 
 export type Cue =
@@ -17,6 +22,11 @@ export type Cue =
 
 let context: AudioContext | null = null;
 
+/**
+ * Browsers refuse to start an AudioContext outside a user gesture, so the first
+ * one is created lazily and a context that is still suspended (a cue that fired
+ * from a bot's turn before the player ever clicked) is nudged awake.
+ */
 function audio(): AudioContext | null {
   const Ctor = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
@@ -31,7 +41,7 @@ function audio(): AudioContext | null {
   return context;
 }
 
-/** One tone with an envelope. `to` bends the pitch over the note. */
+/** One tone with a plucked envelope. `to` bends the pitch over the note. */
 function tone(at: number, from: number, to: number, seconds: number, gain: number, type: OscillatorType): void {
   const ctx = context!;
   const osc = ctx.createOscillator();
@@ -39,6 +49,7 @@ function tone(at: number, from: number, to: number, seconds: number, gain: numbe
   osc.type = type;
   osc.frequency.setValueAtTime(from, at);
   if (to !== from) osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), at + seconds);
+  // Ramping to a true zero is undefined for an exponential curve, hence the floor.
   level.gain.setValueAtTime(0.0001, at);
   level.gain.exponentialRampToValueAtTime(gain, at + 0.012);
   level.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
@@ -47,13 +58,14 @@ function tone(at: number, from: number, to: number, seconds: number, gain: numbe
   osc.stop(at + seconds + 0.02);
 }
 
-/** Filtered noise burst for dice rattle. */
+/** A filtered noise burst — dice landing on a table. */
 function rattle(at: number, seconds: number, gain: number, freq = 1600): void {
   const ctx = context!;
   const frames = Math.floor(ctx.sampleRate * seconds);
   const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < frames; i++) {
+    // Decaying white noise: loud at the throw, gone by the time it settles.
     data[i] = (Math.random() * 2 - 1) * (1 - i / frames) ** 2;
   }
   const source = ctx.createBufferSource();
