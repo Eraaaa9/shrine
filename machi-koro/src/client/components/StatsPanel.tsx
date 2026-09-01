@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { CARD_BY_ID, type CardId } from '../../shared/cards';
+import { CITY_EVENT_BY_ID } from '../../shared/events';
+import { MAYOR_BY_ID } from '../../shared/mayors';
 import { landmarkCount } from '../../shared/engine';
 import { statName } from '../../shared/i18n';
 import type { GameState, PlayerState, StatKey } from '../../shared/types';
@@ -41,13 +43,17 @@ function averageRoll(p: PlayerState): string {
   return p.stats.rolls > 0 ? (p.stats.pips / p.stats.rolls).toFixed(1) : '—';
 }
 
+/** Coins with a sign, so a row reads as profit or loss at a glance. */
 function Signed({ n }: { n: number }) {
   return <span className={n > 0 ? 'stat-pos' : n < 0 ? 'stat-neg' : 'muted'}>{n > 0 ? `+${n}` : n}</span>;
 }
 
 function swatch(key: StatKey): string {
   const card = CARD_BY_ID[key as CardId];
-  return card ? `stat-swatch ${card.color}` : 'stat-swatch landmark';
+  if (card) return `stat-swatch ${card.color}`;
+  if (key in MAYOR_BY_ID) return 'stat-swatch mayor';
+  if (key in CITY_EVENT_BY_ID) return 'stat-swatch event';
+  return 'stat-swatch landmark';
 }
 
 export default function StatsPanel({ game, youId, onClose }: Props) {

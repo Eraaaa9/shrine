@@ -297,9 +297,12 @@ export function landmarkText(lang: Lang, id: LandmarkId): string {
   return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id].text;
 }
 
-/** Name of whatever a post-game row is about — an establishment or a landmark. */
+/** Name of whatever a post-game row is about — a building, a mayor or an event. */
 export function statName(lang: Lang, key: string): string {
-  return key in LANDMARK_BY_ID ? landmarkName(lang, key as LandmarkId) : cardName(lang, key as CardId);
+  if (key in LANDMARK_BY_ID) return landmarkName(lang, key as LandmarkId);
+  if (key in MAYOR_BY_ID) return mayorName(lang, key as MayorId);
+  if (key in CITY_EVENT_BY_ID) return eventName(lang, key as CityEventId);
+  return cardName(lang, key as CardId);
 }
 
 /** Short label for the landmark chips, where space is tight. */
