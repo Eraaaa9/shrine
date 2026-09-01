@@ -19,6 +19,7 @@ import LogPanel from './LogPanel';
 import PlayerPanel from './PlayerPanel';
 import ReactionsBar from './ReactionsBar';
 import StatsPanel from './StatsPanel';
+import VictoryModal from './VictoryModal';
 
 const MODAL_PHASES = ['trade', 'moving', 'renovation', 'exhibit'];
 
@@ -36,6 +37,7 @@ export default function GameView({ room, youId, send }: Props) {
   const game = room.game!;
   const [tab, setTab] = useState<Tab>('log');
   const [showStats, setShowStats] = useState(false);
+  const [showVictory, setShowVictory] = useState(true);
   const [filter, setFilter] = useState<BoardFilter>('all');
   const [sort, setSort] = useState<BoardSort>('number');
 
@@ -299,11 +301,23 @@ export default function GameView({ room, youId, send }: Props) {
           act={act}
           send={send}
           onStats={() => setShowStats(true)}
+          onOpenVictory={() => setShowVictory(true)}
         />
       </footer>
 
       {yourTurn && you && MODAL_PHASES.includes(game.phase) && <ChoiceModal game={game} you={you} act={act} />}
       {showStats && <StatsPanel game={game} youId={youId} onClose={() => setShowStats(false)} />}
+      {over && showVictory && (
+        <VictoryModal
+          game={game}
+          room={room}
+          youId={youId ?? ''}
+          isHost={room.hostId === youId}
+          onClose={() => setShowVictory(false)}
+          onStats={() => setShowStats(true)}
+          send={send}
+        />
+      )}
     </div>
   );
 }

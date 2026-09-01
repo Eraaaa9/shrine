@@ -82,6 +82,7 @@ export type ClientMessage =
   | { t: 'start' }
   | { t: 'action'; action: GameAction }
   | { t: 'rematch' }
+  | { t: 'toLobby' }
   | { t: 'chat'; text: string }
   | { t: 'reaction'; emoji: string; text?: string }
   | { t: 'leave' };

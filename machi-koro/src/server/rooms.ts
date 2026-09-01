@@ -206,6 +206,14 @@ export class Room {
     return null;
   }
 
+  toLobby(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.game = null;
+    for (const seat of this.seats) seat.logSentTo = 0;
+    this.touch();
+  }
+
   play(seatId: string, action: GameAction): string | null {
     if (!this.game) return 'err.notStarted';
     const error = applyAction(this.game, seatId, action);

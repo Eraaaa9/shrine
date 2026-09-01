@@ -225,6 +225,12 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
       break;
     }
 
+    case 'toLobby': {
+      if (!requireHost(ws, entry)) return;
+      room.toLobby();
+      break;
+    }
+
     case 'action': {
       const error = room.play(seat.id, msg.action);
       if (error) {

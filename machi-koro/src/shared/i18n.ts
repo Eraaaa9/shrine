@@ -858,6 +858,13 @@ const EN: Record<string, string> = {
   'ui.chooseMayorTitle': 'Choose Your Mayor',
   'ui.chooseMayorBlurb': 'Each player gains a unique passive ability for the whole game.',
   'ui.totalGain': 'Total earnings',
+  'ui.victoryTitle': 'Victory!',
+  'ui.victoryWinnerDesc': '{player} constructed all landmarks and won the game!',
+  'ui.toLobby': 'Return to Lobby',
+  'ui.inspectBoard': 'Inspect City',
+  'ui.showVictory': '🏆 Victory Summary',
+  'ui.nextMayorTitle': 'Choose Mayor for next game:',
+  'ui.winnerMayor': 'Winning Mayor',
 };
 
 const RU: Record<string, string> = {
@@ -1232,6 +1239,13 @@ const RU: Record<string, string> = {
   'ui.chooseMayorTitle': 'Выберите своего мэра',
   'ui.chooseMayorBlurb': 'Уникальная пассивная способность на весь матч.',
   'ui.totalGain': 'Итоговый доход',
+  'ui.victoryTitle': 'Победа!',
+  'ui.victoryWinnerDesc': '{player} достроил(а) все достопримечательности и побеждает!',
+  'ui.toLobby': 'Вернуться в лобби',
+  'ui.inspectBoard': 'Посмотреть город',
+  'ui.showVictory': '🏆 Итоги победы',
+  'ui.nextMayorTitle': 'Выберите Мэра на следующую партию:',
+  'ui.winnerMayor': 'Мэр-победитель',
 };
 
 const KK: Record<string, string> = {
@@ -1606,6 +1620,13 @@ const KK: Record<string, string> = {
   'ui.chooseMayorTitle': 'Өз әкіміңізді таңдаңыз',
   'ui.chooseMayorBlurb': 'Бүкіл ойынға арналған бірегей пассивті қабілет.',
   'ui.totalGain': 'Жалпы табыс',
+  'ui.victoryTitle': 'Жеңіс!',
+  'ui.victoryWinnerDesc': '{player} барлық көрнекті нысандарды салып, жеңіске жетті!',
+  'ui.toLobby': 'Лоббиге оралу',
+  'ui.inspectBoard': 'Қаланы көру',
+  'ui.showVictory': '🏆 Жеңіс нәтижесі',
+  'ui.nextMayorTitle': 'Келесі ойынға Әкімді таңдаңыз:',
+  'ui.winnerMayor': 'Жеңімпаз Әкім',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };

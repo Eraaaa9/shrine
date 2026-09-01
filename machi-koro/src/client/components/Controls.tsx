@@ -16,6 +16,7 @@ interface Props {
   act: (action: GameAction) => void;
   send: (message: ClientMessage) => void;
   onStats: () => void;
+  onOpenVictory?: () => void;
 }
 
 /** Translation key describing what the table is waiting for. */
@@ -30,13 +31,13 @@ export function phaseHint(
   return t(phaseKey(game), { player: game.players[game.turn]?.name ?? '' });
 }
 
-export default function Controls({ game, you, yourTurn, isHost, act, send, onStats }: Props) {
+export default function Controls({ game, you, yourTurn, isHost, act, send, onStats, onOpenVictory }: Props) {
   const { lang, t } = useLang();
   const active = game.players[game.turn];
   const opponents = game.players.filter((p) => p.id !== you?.id);
   const landmarks = landmarksFor(game.rules);
   const modalPhase = ['trade', 'moving', 'renovation', 'exhibit'].includes(game.phase);
-  // Knocking a landmark down is compulsory but not reversible, so the click
+  // Demolishing a landmark is compulsory and permanent; a button on this bar
   // that does it asks first.
   const [confirmDemolish, setConfirmDemolish] = useState<LandmarkId | null>(null);
 
@@ -48,15 +49,25 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
         {game.phase === 'over' ? (
           <>
             <span className="winner">
-              {t('ui.wins', { player: game.players.find((p) => p.id === game.winnerId)?.name ?? '' })}
+              🏆 {t('ui.wins', { player: game.players.find((p) => p.id === game.winnerId)?.name ?? '' })}
             </span>
+            {onOpenVictory && (
+              <button type="button" className="ghost" onClick={onOpenVictory}>
+                {t('ui.showVictory')}
+              </button>
+            )}
             <button type="button" onClick={onStats}>
-              {t('ui.statsButton')}
+              📊 {t('ui.statsButton')}
             </button>
             {isHost ? (
-              <button type="button" className="primary" onClick={() => send({ t: 'rematch' })}>
-                {t('ui.playAgain')}
-              </button>
+              <>
+                <button type="button" className="secondary" onClick={() => send({ t: 'toLobby' })}>
+                  🏠 {t('ui.toLobby')}
+                </button>
+                <button type="button" className="primary" onClick={() => send({ t: 'rematch' })}>
+                  🔄 {t('ui.playAgain')}
+                </button>
+              </>
             ) : (
               <span className="muted">{t('ui.waitingRematch')}</span>
             )}
