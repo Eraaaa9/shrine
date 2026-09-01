@@ -107,6 +107,36 @@ export interface BotWeights {
   /** How much the Renovation Company cares about closing its own cards. */
   renovationSelfHarm: number;
 
+  // --- mayors and events ----------------------------------------------------
+  // Only read in a game with the mayors switched on.  In one without they are
+  // dead weight, which is why they sit at the end: a search that never sees a
+  // mayor is free to leave them wherever it likes without disturbing the rest.
+  /**
+   * Whether a permanent holding is priced under the event that happens to be
+   * up.  A city event lasts one round and a card lasts the rest of the game, so
+   * reading the event into a purchase writes the boats off for good during a
+   * Harbor Storm and pays over the odds for a factory during an Economic Boom —
+   * but the event is also real income for as long as it is up, so which way
+   * this lands is a question for self-play rather than for taste.  Read as a
+   * switch at 0.5, not as a dial: blending the two would double the cost of
+   * every valuation the bot makes to answer a question with two answers.
+   */
+  eventTrust: number;
+  /**
+   * How much the Banker's dividend is worth defending.  The Banker only draws it
+   * while still holding `bankerFloor` coins when the turn ends, so every purchase
+   * that spends past that line costs a dividend.  This is what that costs, in
+   * multiples of the dividend, charged against the purchase that would do it.
+   */
+  bankerHold: number;
+  /**
+   * How much better a re-roll has to look when it is the Urbanist's charge that
+   * pays for it rather than the Radio Tower.  The tower's re-roll comes back
+   * every turn and is worth spending on a small gain; the mayor's is earned by
+   * building a landmark and does not come back until the next one.
+   */
+  mayorRerollMargin: number;
+
   /** Spread on the buy score, so equal-looking cities do not play identically. */
   jitter: number;
 }
@@ -146,6 +176,10 @@ export const BASELINE: BotWeights = {
   investFloor: 4,
   investCap: 8,
   renovationSelfHarm: 0.5,
+
+  eventTrust: 1,
+  bankerHold: 0,
+  mayorRerollMargin: 0.5,
 
   jitter: 0.1,
 };
@@ -193,6 +227,10 @@ export const WEIGHT_RANGE: Record<keyof BotWeights, [min: number, max: number]> 
   investFloor: [0, 20],
   investCap: [0, 16],
   renovationSelfHarm: [0, 3],
+
+  eventTrust: [0, 1],
+  bankerHold: [0, 3],
+  mayorRerollMargin: [-2, 4],
 
   jitter: [0, 0.4],
 };
@@ -260,6 +298,9 @@ export const TUNED_FIXED: BotWeights = {
   investFloor: 4.6969,
   investCap: 9.9025,
   renovationSelfHarm: 1.9785,
+  eventTrust: 0,
+  bankerHold: 0,
+  mayorRerollMargin: 0.3666,
   jitter: 0.0248,
 };
 
@@ -293,6 +334,13 @@ export const TUNED_FIXED: BotWeights = {
  * (23.4–26.4).  A clear win one way round and a tie the other is a smaller
  * result than the fixed-supply run's, and worth knowing when reading the next
  * one.  Against the hand-written baseline, 58.4%, up from 55.5%.
+ *
+ * These survived the first run under city events and the mayors, which is the
+ * game as it is now dealt: a search of 18 generations and 142 544 games from
+ * these weights came back with a candidate that took only 23.5% against a
+ * table of them (95% CI 22.0-25.1, fair share 25%) while they took 26.8%
+ * coming back the other way (25.3-28.4).  Nothing shipped, so the numbers
+ * below are unchanged by that run.
  */
 export const TUNED_VARIABLE: BotWeights = {
   cardValue: 2.2515,
@@ -326,9 +374,75 @@ export const TUNED_VARIABLE: BotWeights = {
   investFloor: 3.7457,
   investCap: 8.1141,
   renovationSelfHarm: 0.7492,
+  eventTrust: 0,
+  bankerHold: 0,
+  mayorRerollMargin: 0.9213,
   jitter: 0.0085,
 };
 
-export function weightsFor(rules: RuleSet): BotWeights {
-  return rules.variableSupply ? TUNED_VARIABLE : TUNED_FIXED;
+/**
+ * Variable supply at a five-player table.
+ *
+ * A fifth seat is a different game, not a longer one: your own roll comes round
+ * a fifth of the time instead of a quarter, which pays the blue cards and the
+ * restaurants at everyone else's expense, and the race is long enough that the
+ * landmarks at the end of it are actually reached.  The mayors already move
+ * with the table — `mayorTuning` sets a different dial at every size — so the
+ * strategy that reads them moves with it too, rather than a four-player
+ * strategy being asked to cover both.
+ *
+ * Seeded as a copy of the four-player weights.  The first five-player run
+ * under events and mayors — 18 generations, 142 544 games — failed to beat
+ * that seed and shipped nothing: the candidate took 21.8% attacking a table of
+ * it (95% CI 20.4-23.3, fair share 20%), but the seed still held 20.3% coming
+ * back the other way (18.9-21.8), and a candidate has to win both ways round.
+ * So these are still the four-player numbers, and the slot exists so that the
+ * next five-player run has somewhere to land that is not the four-player
+ * strategy.  Replaced by `npm run train -- --players 5`.
+ */
+export const TUNED_VARIABLE_5P: BotWeights = {
+  cardValue: 2.2515,
+  costEfficiency: 1.2585,
+  buyThreshold: 0.503,
+  duplicatePenalty: 0.3047,
+  scarcityBonus: 0.4543,
+  denialWeight: -0.3729,
+  futureDice: 0.2701,
+  tableDice: 0.5929,
+  blueWeight: 2.1464,
+  greenWeight: 1.0121,
+  redWeight: 0.7021,
+  purpleWeight: 2.9895,
+  purpleRealism: 0.9076,
+  purpleHorizon: 0.887,
+  purpleVolatile: 0.4677,
+  landmarkValue: 0.8759,
+  landmarkUnlock: 0,
+  landmarkProgress: 0,
+  landmarkRush: 2.2883,
+  landmarkOrder: 0.7192,
+  saveMargin: 1.3109,
+  saveScore: 0.4613,
+  twoDiceBias: 0.3894,
+  rerollMargin: 0.9213,
+  harborMargin: 1.788,
+  spacePortMargin: -0.0025,
+  threatWeight: 0.3387,
+  exhibitThreshold: 1.3887,
+  investFloor: 3.7457,
+  investCap: 8.1141,
+  renovationSelfHarm: 0.7492,
+  eventTrust: 0,
+  bankerHold: 0,
+  mayorRerollMargin: 0.9213,
+  jitter: 0.0085,
+};
+
+/**
+ * The strategy a table of this shape plays.  `players` decides nothing below
+ * five, because that is the only size trained on its own so far.
+ */
+export function weightsFor(rules: RuleSet, players = 4): BotWeights {
+  if (!rules.variableSupply) return TUNED_FIXED;
+  return players >= 5 ? TUNED_VARIABLE_5P : TUNED_VARIABLE;
 }

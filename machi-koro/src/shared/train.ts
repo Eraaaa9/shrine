@@ -22,19 +22,31 @@ import {
   BASELINE,
   TUNED_FIXED,
   TUNED_VARIABLE,
+  TUNED_VARIABLE_5P,
   WEIGHT_KEYS,
   WEIGHT_RANGE,
   type BotWeights,
 } from './bot-weights';
 import { botAction } from './bot';
 import { activePlayer, applyAction, createGame, type Seat } from './engine';
-import { CARD_BY_ID, landmarksFor, type CardId, type LandmarkId, type RuleSet } from './cards';
+import { CARD_BY_ID, describeRules, landmarksFor, type CardId, type LandmarkId, type RuleSet } from './cards';
 
 const HERE = fileURLToPath(import.meta.url);
 const WEIGHTS_FILE = fileURLToPath(new URL('./bot-weights.ts', import.meta.url));
 
-const FIXED: RuleSet = { harbor: true, millionaires: true, variableSupply: false };
-const VARIABLE: RuleSet = { harbor: true, millionaires: true, variableSupply: true };
+/**
+ * The two supply modes, each trained at the game as it is actually dealt.
+ *
+ * City events and the mayors are on by default, because they are on by default
+ * in a real room (`DEFAULT_RULES`) — a strategy tuned without them is tuned for
+ * a game nobody plays.  They cost the search nothing but the weights that read
+ * them, and `--no-events` / `--no-mayors` still take them back off.
+ */
+const events = !process.argv.includes('--no-events');
+const mayors = !process.argv.includes('--no-mayors');
+
+const FIXED: RuleSet = { harbor: true, millionaires: true, variableSupply: false, events, mayors };
+const VARIABLE: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events, mayors };
 
 /**
  * A game is abandoned after this many actions or turns; a strategy that cannot
@@ -524,6 +536,40 @@ function writeWeights(updates: { name: string; weights: BotWeights }[]): void {
   writeFileSync(WEIGHTS_FILE, src);
 }
 
+/**
+ * Sections of the last report this run has not reproduced.
+ *
+ * A run trains one supply mode at one table size and then rewrites the whole
+ * file, which quietly threw away the report for every other combination: the
+ * four-player numbers would vanish the moment a five-player run finished, even
+ * though the strategy they describe is still the one shipping.  So anything
+ * this run did not measure is carried forward under its own heading.
+ */
+function carriedSections(file: string, produced: string[]): string[] {
+  let old: string;
+  try {
+    old = readFileSync(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const kept = old
+    .split(/^## /m)
+    .slice(1)
+    .filter((s) => !produced.some((h) => s.startsWith(h)))
+    .map((s) => `## ${s.trimEnd()}`);
+  if (!kept.length) return [];
+  return [
+    '---',
+    '',
+    'The sections below come from earlier runs, at a different table size or a',
+    'different supply mode. This run did not re-measure them, and the strategies',
+    'they describe are still the ones in `bot-weights.ts`.',
+    '',
+    ...kept,
+    '',
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
@@ -572,7 +618,15 @@ async function main(): Promise<void> {
 
   const modes = [
     { key: 'fixed', rules: FIXED, name: 'TUNED_FIXED', tuned: TUNED_FIXED },
-    { key: 'variable', rules: VARIABLE, name: 'TUNED_VARIABLE', tuned: TUNED_VARIABLE },
+    {
+      key: 'variable',
+      rules: VARIABLE,
+      // A five-player table is its own game — your roll comes round a fifth of
+      // the time rather than a quarter — so it keeps its own strategy rather
+      // than overwriting the one the four-player runs settled on.
+      name: players >= 5 ? 'TUNED_VARIABLE_5P' : 'TUNED_VARIABLE',
+      tuned: players >= 5 ? TUNED_VARIABLE_5P : TUNED_VARIABLE,
+    },
   ].filter((m) => mode === 'both' || mode === m.key);
 
   if (process.argv.includes('--ab')) {
@@ -669,6 +723,8 @@ async function main(): Promise<void> {
     report.push(
       `## ${m.key} supply (${players} players)`,
       '',
+      `Rules: ${describeRules(m.rules)}.`,
+      '',
       ...(ships
         ? []
         : [
@@ -704,9 +760,8 @@ async function main(): Promise<void> {
     '',
     `Produced by \`npm run train\` — ${total.toLocaleString()} games in ${mins} minutes.`,
     '',
-    modes.length === 1
-      ? `Only the ${modes[0].key}-supply strategy was trained; the other one is left as it stands.`
-      : '',
+    `This run trained ${modes.map((m) => `${m.key} supply`).join(' and ')} at a ${players}-player table; ` +
+      'anything else is left as it stands.',
     `Search: started from \`${init}\`, ${generations} generations of ${population} candidates ` +
       `over ${gamesPerCandidate} games each, sampled at ${sigma0} of each weight's range, promoted on ` +
       `the better of two ${promotionGames}-game duels at ${((1 / players + promotionMargin) * 100).toFixed(1)}%, ` +
@@ -718,7 +773,9 @@ async function main(): Promise<void> {
         ' `src/shared/bot-weights.ts` is the last strategy that did win one, not the numbers below.',
     '',
   ];
-  writeFileSync(fileURLToPath(new URL('../../TRAINING.md', import.meta.url)), [...header, ...report].join('\n'));
+  const reportFile = fileURLToPath(new URL('../../TRAINING.md', import.meta.url));
+  const carried = carriedSections(reportFile, modes.map((m) => `${m.key} supply (${players} players)`));
+  writeFileSync(reportFile, [...header, ...report, ...carried].join('\n'));
   const written = updates.length ? updates.map((u) => u.name).join(', ') : 'nothing — every candidate was held';
   console.log(`\n${total.toLocaleString()} games in ${mins} minutes. bot-weights.ts: ${written}. Report in TRAINING.md.`);
 }

@@ -221,7 +221,7 @@ export class Room {
    * casual setting applies to them too.
    */
   private botWeights(): BotWeights {
-    return this.botLevel === 'casual' ? BASELINE : weightsFor(this.rules);
+    return this.botLevel === 'casual' ? BASELINE : weightsFor(this.rules, this.game?.players.length ?? this.seats.length);
   }
 
   /**

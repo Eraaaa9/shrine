@@ -28,6 +28,7 @@ import {
   tradeableCards,
 } from './engine';
 import { BASELINE, weightsFor, type BotWeights } from './bot-weights';
+import { mayorTuning } from './mayors';
 import type { GameAction, GameState, PlayerState } from './types';
 
 export type { BotWeights } from './bot-weights';
@@ -50,6 +51,30 @@ function activationProb(activates: number[], twoDice: boolean, harbor: boolean):
     }
   }
   return Math.min(1, p);
+}
+
+/**
+ * The board as it reads once the round turns over.
+ *
+ * A city event lasts one round; a card bought under it lasts the rest of the
+ * game.  Pricing a purchase against whatever event happens to be up gets it
+ * wrong in both directions — the bot writes the boats off for good during a
+ * Harbor Storm and pays over the odds for a factory during an Economic Boom.
+ * So everything that judges a permanent holding reads an event-free board.
+ * The dice decisions, which really are about this turn, go on reading the
+ * event that is up, and so do the prices: a discount you are being offered now
+ * is real money now.
+ */
+function settled(state: GameState): GameState {
+  return state.currentEvent === null ? state : { ...state, currentEvent: null };
+}
+
+/** What spending this much would cost a Banker who is over the floor. */
+function bankerCost(state: GameState, me: PlayerState, spend: number, w: BotWeights): number {
+  if (!state.rules.mayors || me.mayor !== 'banker' || w.bankerHold === 0) return 0;
+  const dials = mayorTuning(state.players.length);
+  if (me.coins < dials.bankerFloor || me.coins - spend >= dials.bankerFloor) return 0;
+  return w.bankerHold * dials.bankerDividend;
 }
 
 /** Average take of a restaurant card, over the opponents who might roll. */
@@ -204,7 +229,8 @@ function activationsPerRound(
  * prices the same city under the other dice mode, which is how the bot can see
  * that a 7-and-up engine is worth something before the Train Station is up.
  */
-function deckIncome(state: GameState, p: PlayerState, w: BotWeights, diceOverride?: boolean): number {
+function deckIncome(raw: GameState, p: PlayerState, w: BotWeights, diceOverride?: boolean): number {
+  const state = w.eventTrust >= 0.5 ? raw : settled(raw);
   const twoDice = diceOverride ?? p.landmarks.train_station;
   const harbor = Boolean(p.landmarks.harbor);
   let sum = 0;
@@ -232,6 +258,19 @@ function deckIncome(state: GameState, p: PlayerState, w: BotWeights, diceOverrid
     }
     sum += rate * per * count;
   }
+
+  // The Agronomist's subsidy is income like any other, and it switches on at a
+  // count of blue cards — so pricing it here is what lets the bot see that the
+  // blue card taking it over the line is worth a coin a turn more than the one
+  // before it was.
+  if (state.rules.mayors && p.mayor === 'agronomist') {
+    const dials = mayorTuning(state.players.length);
+    const blue = cardsFor(state.rules)
+      .filter((c) => c.color === 'blue')
+      .reduce((n, c) => n + copies(p, c.id), 0);
+    if (blue >= dials.agronomistBlue) sum += dials.agronomistSubsidy;
+  }
+
   return sum;
 }
 
@@ -466,7 +505,8 @@ function landmarkScore(state: GameState, me: PlayerState, l: LandmarkDef, w: Bot
     w.landmarkUnlock * unlockValue(state, l, after, w) +
     w.landmarkProgress +
     w.landmarkRush * built +
-    w.landmarkOrder * (landmarkCost(state, me, l) / 10)
+    w.landmarkOrder * (landmarkCost(state, me, l) / 10) -
+    bankerCost(state, me, landmarkCost(state, me, l), w)
   );
 }
 
@@ -497,6 +537,7 @@ function chooseBuild(state: GameState, w: BotWeights): GameAction {
 
     let score = w.cardValue * value + w.costEfficiency * (value / price);
     score -= w.duplicatePenalty * copies(me, card.id);
+    score -= bankerCost(state, me, price, w);
     if (left <= 1) score += w.scarcityBonus;
     if (rival && card.icon !== 'major') {
       score += w.denialWeight * Math.max(0, marginalValue(state, rival, card.id, w, rivalBase)) * (left <= 2 ? 1 : 0.25);
@@ -525,7 +566,7 @@ function chooseBuild(state: GameState, w: BotWeights): GameAction {
 /** Decide what the current player (a bot, or a stalled human) should do. */
 export function botAction(state: GameState, weights?: BotWeights): GameAction | null {
   const me = activePlayer(state);
-  const w = weights ?? weightsFor(state.rules);
+  const w = weights ?? weightsFor(state.rules, state.players.length);
 
   switch (state.phase) {
     case 'roll': {
@@ -536,7 +577,10 @@ export function botAction(state: GameState, weights?: BotWeights): GameAction | 
     case 'reroll': {
       const current = estimateIncomeAt(state, state.diceTotal);
       const expected = expectedRoll(state, state.dice.length === 2 ? 2 : 1);
-      return { t: 'reroll', again: current < expected - w.rerollMargin };
+      // The Radio Tower's re-roll is back next turn; the Urbanist's charge is
+      // not, so which of the two is paying decides how good the roll has to be.
+      const margin = me.landmarks.radio_tower ? w.rerollMargin : w.mayorRerollMargin;
+      return { t: 'reroll', again: current < expected - margin };
     }
 
     case 'spaceport': {
