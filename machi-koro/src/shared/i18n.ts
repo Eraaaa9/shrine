@@ -490,6 +490,7 @@ const EN: Record<string, string> = {
   'log.tunaRoll': 'Tuna Boat roll: {total}.',
   'log.redTake': '{player} takes {amount} from {from} — {card}{times}',
   'log.redTakeBroke': '{player} takes {amount} from {from} — {card}{times} ({from} is broke)',
+  'log.redTakeProtected': '{player} takes {amount} from {from} — {card}{times} ({from} protected 2 coins with Restaurateur Mayor)',
   'log.gets': '{player} gets {amount} — {card}{times}',
   'log.pays': '{player} pays {amount} to the bank — {card}{times}',
   'log.getsVia': '{player} gets {amount} — {card}{times} (via the Exhibit Hall)',
@@ -841,6 +842,7 @@ const EN: Record<string, string> = {
   'ui.mayorPower': 'Mayor Ability',
   'ui.chooseMayorTitle': 'Choose Your Mayor',
   'ui.chooseMayorBlurb': 'Each player gains a unique passive ability for the whole game.',
+  'ui.totalGain': 'Total earnings',
 };
 
 const RU: Record<string, string> = {
@@ -868,6 +870,7 @@ const RU: Record<string, string> = {
   'log.tunaRoll': 'Бросок Траулера: {total}.',
   'log.redTake': '{player} забирает {amount} у {from} — {card}{times}',
   'log.redTakeBroke': '{player} забирает {amount} у {from} — {card}{times} (у {from} больше нет монет)',
+  'log.redTakeProtected': '{player} забирает {amount} у {from} — {card}{times} ({from} защитил 2 монеты благодаря Мэру-Ресторатору)',
   'log.gets': '{player} получает {amount} — {card}{times}',
   'log.pays': '{player} платит {amount} в банк — {card}{times}',
   'log.getsVia': '{player} получает {amount} — {card}{times} (через Выставочный зал)',
@@ -1213,6 +1216,7 @@ const RU: Record<string, string> = {
   'ui.mayorPower': 'Способность Мэра',
   'ui.chooseMayorTitle': 'Выберите своего мэра',
   'ui.chooseMayorBlurb': 'Уникальная пассивная способность на весь матч.',
+  'ui.totalGain': 'Итоговый доход',
 };
 
 const KK: Record<string, string> = {
@@ -1240,6 +1244,7 @@ const KK: Record<string, string> = {
   'log.tunaRoll': 'Тунец қайығының тастауы: {total}.',
   'log.redTake': '{player} {from} ойыншысынан {amount} алады — {card}{times}',
   'log.redTakeBroke': '{player} {from} ойыншысынан {amount} алады — {card}{times} ({from} ойыншысында монета қалмады)',
+  'log.redTakeProtected': '{player} {from} ойыншысынан {amount} алады — {card}{times} ({from} Мейрамханашы Әкім арқасында 2 монетаны қорғап қалды)',
   'log.gets': '{player} {amount} алады — {card}{times}',
   'log.pays': '{player} банкке {amount} төлейді — {card}{times}',
   'log.getsVia': '{player} {amount} алады — {card}{times} (Көрме залы арқылы)',
@@ -1585,6 +1590,7 @@ const KK: Record<string, string> = {
   'ui.mayorPower': 'Әкімнің қабілеті',
   'ui.chooseMayorTitle': 'Өз әкіміңізді таңдаңыз',
   'ui.chooseMayorBlurb': 'Бүкіл ойынға арналған бірегей пассивті қабілет.',
+  'ui.totalGain': 'Жалпы табыс',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };

@@ -45,7 +45,7 @@ function CardChips({
             <b>{formatActivates(card.activates)}</b>
             {ICON_GLYPH[card.icon]} {cardName(lang, id)}
             {count > 1 && <i>×{count}</i>}
-            {value !== undefined && <i>{value >= 0 ? `+${value}` : value}</i>}
+            {value !== undefined && <i className="chip-worth">{value >= 0 ? `+${value} ¤` : `${value} ¤`}</i>}
           </button>
         );
       })}
@@ -106,7 +106,7 @@ function Trade({ game, you, act }: Props) {
 }
 
 function Moving({ game, you, act }: Props) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const opponents = game.players.filter((p) => p.id !== you.id);
   const [targetId, setTargetId] = useState(opponents[0]?.id ?? '');
   const [give, setGive] = useState<CardId | null>(null);
@@ -139,6 +139,12 @@ function Moving({ game, you, act }: Props) {
         </div>
       </div>
 
+      {give && target && (
+        <p className="muted">
+          {cardName(lang, give)} ➔ {target.name} (<b>+4 ¤</b>)
+        </p>
+      )}
+
       <div className="row end">
         <button
           type="button"
@@ -146,7 +152,7 @@ function Moving({ game, you, act }: Props) {
           disabled={!give || !targetId}
           onClick={() => give && setConfirming(true)}
         >
-          {t('ui.handOver')}
+          {t('ui.handOver')} (+4 ¤)
         </button>
       </div>
 
@@ -165,12 +171,19 @@ function Moving({ game, you, act }: Props) {
 }
 
 function Renovation({ game, you, act }: Props) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
   // What closing every copy would pay: each opponent hands over a coin per copy
-  // of theirs, and a broke opponent cannot hand over more than they have.
+  // of theirs, taking into account broke players and Restaurateur Mayor protection (2 coins).
+  const takingsFrom = (p: PlayerState, id: CardId) => {
+    const count = openCopies(p, id);
+    if (count <= 0) return 0;
+    const available = p.mayor === 'restaurateur' ? Math.max(0, p.coins - 2) : p.coins;
+    return Math.min(count, available);
+  };
   const takings = (id: CardId) =>
-    game.players.filter((p) => p.id !== you.id).reduce((sum, p) => sum + Math.min(openCopies(p, id), p.coins), 0);
+    game.players.filter((p) => p.id !== you.id).reduce((sum, p) => sum + takingsFrom(p, id), 0);
+
   // Best payout first, and where two pay the same, the pricier building — closing
   // it costs the table more.
   const owned = cardsFor(game.rules)
@@ -187,20 +200,32 @@ function Renovation({ game, you, act }: Props) {
       </div>
 
       {pick && (
-        <p className="muted">
-          {t('ui.renovationPreview', {
-            owners: game.players
-              .filter((p) => openCopies(p, pick) > 0)
-              .map((p) => `${p.name} ×${openCopies(p, pick)}`)
-              .join(', '),
-            amount: takings(pick),
-          })}
-        </p>
+        <div className="muted" style={{ margin: '8px 0', fontSize: '12px' }}>
+          <div>
+            <b>{cardName(lang, pick)}:</b> {t('ui.totalGain')}: <b style={{ color: 'var(--green)' }}>+{takings(pick)} ¤</b>
+          </div>
+          <div style={{ marginTop: '3px' }}>
+            {game.players
+              .filter((p) => p.id !== you.id && openCopies(p, pick) > 0)
+              .map((p) => {
+                const count = openCopies(p, pick);
+                const pays = takingsFrom(p, pick);
+                const isRestaurateur = p.mayor === 'restaurateur';
+                return `${p.name} ×${count} (➔ +${pays} ¤${isRestaurateur ? ', ☕ Защита 2¤' : ''})`;
+              })
+              .join(' · ')}
+          </div>
+        </div>
       )}
 
       <div className="row end">
-        <button type="button" className="primary" disabled={!pick} onClick={() => pick && act({ t: 'renovation', cardId: pick })}>
-          {t('ui.closeForRenovation')}
+        <button
+          type="button"
+          className="primary"
+          disabled={!pick}
+          onClick={() => pick && act({ t: 'renovation', cardId: pick })}
+        >
+          {t('ui.closeForRenovation')}{pick ? ` (+${takings(pick)} ¤)` : ''}
         </button>
       </div>
     </>
@@ -234,8 +259,13 @@ function Exhibit({ game, you, act }: Props) {
         <button type="button" className="ghost" onClick={() => act({ t: 'exhibit', cardId: null })}>
           {t('ui.keepExhibit')}
         </button>
-        <button type="button" className="primary" disabled={!pick} onClick={() => pick && act({ t: 'exhibit', cardId: pick })}>
-          {t('ui.activateIt')}
+        <button
+          type="button"
+          className="primary"
+          disabled={!pick}
+          onClick={() => pick && act({ t: 'exhibit', cardId: pick })}
+        >
+          {t('ui.activateIt')}{pick ? ` (+${activationValue(game, you, pick)} ¤)` : ''}
         </button>
       </div>
     </>

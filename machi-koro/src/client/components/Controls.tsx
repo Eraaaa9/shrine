@@ -129,11 +129,23 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
             {game.phase === 'tv' && (
               <>
                 <span className="prompt">{t('ui.tvPrompt')}</span>
-                {opponents.map((p) => (
-                  <button type="button" key={p.id} className="primary" onClick={() => act({ t: 'tv', targetId: p.id })}>
-                    {p.name} <em>({p.coins})</em>
-                  </button>
-                ))}
+                {opponents.map((p) => {
+                  const available = p.mayor === 'restaurateur' ? Math.max(0, p.coins - 2) : p.coins;
+                  const steal = Math.min(5, available);
+                  const isProtected = p.mayor === 'restaurateur';
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      className="primary"
+                      disabled={steal <= 0}
+                      onClick={() => act({ t: 'tv', targetId: p.id })}
+                    >
+                      {p.name} <em>(+{steal} ¤)</em>
+                      {isProtected && <span className="tag mayor-badge" style={{ fontSize: '10px', marginLeft: '4px' }}>☕ Защита 2¤</span>}
+                    </button>
+                  );
+                })}
               </>
             )}
 
@@ -147,7 +159,7 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
                     className="landmark-buy"
                     onClick={() => setConfirmDemolish(id)}
                   >
-                    {landmarkName(lang as Lang, id)} <em>{landmarks.find((l) => l.id === id)!.cost}</em>
+                    {landmarkName(lang as Lang, id)} <em>(➔ +8 ¤)</em>
                   </button>
                 ))}
               </>

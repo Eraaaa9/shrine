@@ -483,9 +483,15 @@ function resolveIncome(state: GameState): void {
         paid += pay(active, p, want, card.id);
       }
       if (wanted > 0) {
+        const logKey =
+          paid < wanted
+            ? active.mayor === 'restaurateur' && active.coins > 0
+              ? 'log.redTakeProtected'
+              : 'log.redTakeBroke'
+            : 'log.redTake';
         log(
           state,
-          paid < wanted ? 'log.redTakeBroke' : 'log.redTake',
+          logKey,
           { player: p.name, amount: paid, from: active.name, card: card.id, times: times(n) },
           { who: p.id, kind: 'income' }
         );
