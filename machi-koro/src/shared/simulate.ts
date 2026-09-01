@@ -12,6 +12,7 @@ import {
   hasTranslation,
   landmarkName,
   landmarkText,
+  mayorText,
   messages,
   placeholders,
   statName,
@@ -20,7 +21,7 @@ import {
 import { botAction } from './bot';
 import { BASELINE, type BotWeights } from './bot-weights';
 import { CITY_EVENTS, type CityEventId } from './events';
-import { MAYORS, type MayorId } from './mayors';
+import { MAYORS, MAX_TABLE, MIN_TABLE, mayorTuning, type MayorId, type MayorTuning } from './mayors';
 import {
   activePlayer,
   applyAction,
@@ -1031,6 +1032,16 @@ function withMayors(state: GameState, ...mayors: (MayorId | null)[]): GameState 
 }
 
 function mayorRuleTests(): void {
+  // Every game below seats two, so these are the two-player dials: the numbers
+  // are deliberately literal, because a test that recomputes them from
+  // `mayorTuning` would pass whatever the tuning happened to say.
+  const two = mayorTuning(2);
+  expect('the two-player Agronomist wants six fields', two.agronomistBlue, 6);
+  expect('the two-player Restaurateur keeps two back', two.restaurateurShield, 2);
+  expect('the two-player Banker pays two', two.bankerDividend, 2);
+  expect('the two-player Urbanist rebates two', two.urbanistCashback, 2);
+  expect('the two-player Navigator reaches a six', two.adventurerHarbor, 6);
+
   {
     // The Industrialist's coin rides on the factory firing, not on owning it.
     const g = withMayors(createGame(seats(2), MAYORS_ON, 301), 'industrialist', null);
@@ -1041,23 +1052,23 @@ function mayorRuleTests(): void {
   }
 
   {
+    // The extra coin rides on every icon the factory counts, not on the payout.
     const g = withMayors(createGame(seats(2), MAYORS_ON, 302), 'industrialist', null);
     const a = g.players[0];
     give(g, a, 'ranch', 2);
     give(g, a, 'cheese_factory');
     applyForcedRoll(g, [7]);
-    expect('a factory that does fire pays a coin more', a.coins, 10);
+    expect('a factory that does fire pays a coin more per cow', a.coins, 11);
   }
 
   {
-    // The Industrialist gets the Train Station at a builder's price.
-    const g = withMayors(createGame(seats(2), MAYORS_ON, 312), 'industrialist', null);
+    // Every green card wearing the factory icon is a factory, as the text says.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 315), 'industrialist', null);
     const a = g.players[0];
-    a.coins = 2;
-    applyForcedRoll(g, [4]);
-    const err = applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' });
-    check('the Train Station is within reach at two', err === null, String(err));
-    expect('and booked at what was paid', a.stats.byKey.train_station?.spent, 2);
+    give(g, a, 'cafe', 2);
+    give(g, a, 'food_warehouse');
+    applyForcedRoll(g, [6, 6]);
+    expect('the Food Warehouse counts as one too', a.coins, 3 + 3 * 2);
   }
 
   {
@@ -1132,10 +1143,10 @@ function mayorRuleTests(): void {
   }
 
   {
-    // Three fields open the Agronomist's turn a coin up.
+    // Six fields open the Agronomist's turn a coin up.
     const g = withMayors(createGame(seats(2), MAYORS_ON, 308), 'agronomist', null);
     const a = g.players[0];
-    give(g, a, 'ranch', 2);
+    give(g, a, 'ranch', 5);
     passTurn(g);
     passTurn(g);
     expect('the Agronomist draws a subsidy', a.stats.byKey.agronomist?.earned, 1);
@@ -1143,46 +1154,59 @@ function mayorRuleTests(): void {
   }
 
   {
-    // Two fields are not a farm.
+    // Five fields are not yet a farm.
     const g = withMayors(createGame(seats(2), MAYORS_ON, 314), 'agronomist', null);
     const a = g.players[0];
-    give(g, a, 'ranch');
+    give(g, a, 'ranch', 4);
     passTurn(g);
     passTurn(g);
-    expect('two fields draw nothing', a.stats.byKey.agronomist?.earned, undefined);
+    expect('five fields draw nothing', a.stats.byKey.agronomist?.earned, undefined);
   }
 
   {
-    // The Banker takes a dividend on a turn ended with eight coins.
+    // The Banker takes a dividend on a turn ended with six coins.
     const g = withMayors(createGame(seats(2), MAYORS_ON, 309), 'banker', null);
     const a = g.players[0];
-    a.coins = 8;
+    a.coins = 6;
     applyForcedRoll(g, [4]);
     applyAction(g, a.id, { t: 'pass' });
-    expect('the dividend lands', a.coins, 10);
+    expect('the dividend lands', a.coins, 8);
     expect('booked to the mayor', a.stats.byKey.banker?.earned, 2);
     expect('and not to the Wheat Field', a.stats.byKey.wheat_field?.earned, undefined);
   }
 
   {
-    // The Adventurer's Harbor reaches down to an eight.
-    const g = rollingTotal(8, (seed) => {
+    // The Navigator's Harbor reaches down to a six at this table size.
+    const g = rollingTotal(6, (seed) => {
       const s = withMayors(createGame(seats(2), MAYORS_ON, seed), 'adventurer', null);
       s.players[0].landmarks.harbor = true;
       s.players[0].landmarks.train_station = true;
       return s;
     });
-    expect('the Harbor is offered on an eight', g.phase, 'harbor');
+    expect('the Harbor is offered on a six', g.phase, 'harbor');
   }
 
   {
-    const g = rollingTotal(8, (seed) => {
+    const g = rollingTotal(6, (seed) => {
       const s = withMayors(createGame(seats(2), MAYORS_ON, seed), null, null);
       s.players[0].landmarks.harbor = true;
       s.players[0].landmarks.train_station = true;
       return s;
     });
-    check('without the Adventurer an eight is just an eight', g.phase !== 'harbor', g.phase);
+    check('without the Navigator a six is just a six', g.phase !== 'harbor', g.phase);
+  }
+
+  {
+    // The same ability is worth a different number at a bigger table, and the
+    // engine reads the table it is actually playing rather than a fixed dial.
+    const g = rollingTotal(6, (seed) => {
+      const s = withMayors(createGame(seats(5), MAYORS_ON, seed), 'adventurer', null, null, null, null);
+      s.players[0].landmarks.harbor = true;
+      s.players[0].landmarks.train_station = true;
+      return s;
+    });
+    check('a six is out of the Navigator’s reach on five', g.phase !== 'harbor', g.phase);
+    expect('because a bigger table pushes the bar up', mayorTuning(5).adventurerHarbor, 7);
   }
 }
 
@@ -1259,6 +1283,16 @@ function botPricingTests(): void {
     }
   }
 }
+/** Which dials each mayor's rules text quotes, so a stale number cannot hide. */
+const MAYOR_DIALS: Record<MayorId, (keyof MayorTuning)[]> = {
+  agronomist: ['agronomistBlue'],
+  restaurateur: ['restaurateurShield'],
+  industrialist: [],
+  banker: ['bankerFloor', 'bankerDividend'],
+  urbanist: ['urbanistCashback'],
+  adventurer: ['adventurerHarbor'],
+};
+
 // ---------------------------------------------------------------------------
 // full games
 // ---------------------------------------------------------------------------
@@ -1334,6 +1368,22 @@ function translationTests(): void {
   for (const lang of LANGS) {
     for (const m of MAYORS) {
       check(`${lang}: the ${m.id} mayor names its stats row`, statName(lang, m.id) !== m.id);
+    }
+    // The mayors' numbers move with the table size, so their rules text quotes
+    // dials rather than digits. A translation that dropped a placeholder would
+    // render a sentence with a hole in it, or — worse — keep printing whatever
+    // number was true when it was written.
+    for (const m of MAYORS) {
+      const small = mayorText(lang, m.id, MIN_TABLE);
+      const large = mayorText(lang, m.id, MAX_TABLE);
+      check(`${lang}: the ${m.id} mayor has rules text`, small.length > 0);
+      check(`${lang}: the ${m.id} mayor leaves no placeholder unfilled`, !/[{}]/.test(small + large), small);
+      const moves = MAYOR_DIALS[m.id].some((dial) => mayorTuning(MIN_TABLE)[dial] !== mayorTuning(MAX_TABLE)[dial]);
+      check(
+        `${lang}: the ${m.id} mayor reprints its dial for the table`,
+        moves === (small !== large),
+        moves ? `same text at ${MIN_TABLE} and ${MAX_TABLE} players: "${small}"` : `text moved without a dial moving`
+      );
     }
     for (const e of CITY_EVENTS) {
       check(`${lang}: the ${e.id} event names its stats row`, statName(lang, e.id) !== e.id);

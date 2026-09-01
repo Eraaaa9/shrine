@@ -5,10 +5,12 @@ import { useLang } from '../lang';
 interface Props {
   selected: MayorId;
   onChange: (mayor: MayorId) => void;
+  /** Seats at the table: the abilities are worth different numbers at each size. */
+  players: number;
   disabled?: boolean;
 }
 
-export default function MayorPicker({ selected, onChange, disabled }: Props) {
+export default function MayorPicker({ selected, onChange, players, disabled }: Props) {
   const { lang, t } = useLang();
 
   return (
@@ -35,7 +37,7 @@ export default function MayorPicker({ selected, onChange, disabled }: Props) {
                 <span className="mayor-card-name">{mayorName(lang, m.id)}</span>
                 {isSelected && <span className="mayor-card-check">✓</span>}
               </div>
-              <div className="mayor-card-desc">{mayorText(lang, m.id)}</div>
+              <div className="mayor-card-desc">{mayorText(lang, m.id, players)}</div>
             </button>
           );
         })}

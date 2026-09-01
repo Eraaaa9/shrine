@@ -18,7 +18,8 @@
     "test:save-retry": "tsx scripts/test-save-retry.mjs",
     "test:exhibit": "tsx scripts/test-exhibit.mts",
     "test:traffic": "tsx scripts/test-traffic.mts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "balance:mayors": "tsx scripts/mayor-balance.mts"
   },
   "dependencies": {
     "express": "^5.2.1",

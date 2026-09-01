@@ -56,7 +56,7 @@ function activationProb(activates: number[], twoDice: boolean, harbor: boolean):
 function redPerActivation(state: GameState, card: CardDef, owner: PlayerState): number {
   const others = state.players.filter((p) => p.id !== owner.id);
   if (!others.length) return 0;
-  return others.reduce((sum, roller) => sum + Math.min(redAmount(state, card, owner, roller), payable(roller) + 4), 0) / others.length;
+  return others.reduce((sum, roller) => sum + Math.min(redAmount(state, card, owner, roller), payable(state, roller) + 4), 0) / others.length;
 }
 
 /** What a purple card pays on an average table, knowing nothing about this one. */

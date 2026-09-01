@@ -82,13 +82,13 @@ export default function PlayerPanel({
               className="tag mayor-badge"
               tabIndex={0}
               role="button"
-              aria-label={`${mayorName(lang, player.mayor)}: ${mayorText(lang, player.mayor)}`}
+              aria-label={`${mayorName(lang, player.mayor)}: ${mayorText(lang, player.mayor, game.players.length)}`}
             >
               {mayorIcon(player.mayor)}
               <span className="mayor-title-text">{mayorName(lang, player.mayor)}</span>
               <span className="mayor-tooltip">
                 <strong>{mayorIcon(player.mayor)} {mayorName(lang, player.mayor)}</strong>
-                <p>{mayorText(lang, player.mayor)}</p>
+                <p>{mayorText(lang, player.mayor, game.players.length)}</p>
               </span>
             </span>
           )}
@@ -102,9 +102,9 @@ export default function PlayerPanel({
       </div>
 
       {player.mayor && isYou && (
-        <div className="player-mayor-summary" title={mayorText(lang, player.mayor)}>
+        <div className="player-mayor-summary" title={mayorText(lang, player.mayor, game.players.length)}>
           <span className="mayor-summary-icon">{mayorIcon(player.mayor)}</span>
-          <span className="mayor-summary-text">{mayorText(lang, player.mayor)}</span>
+          <span className="mayor-summary-text">{mayorText(lang, player.mayor, game.players.length)}</span>
         </div>
       )}
 
