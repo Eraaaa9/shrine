@@ -4,7 +4,7 @@ import type { MayorId } from './mayors';
 import type { Params } from './i18n';
 
 /** Anything that can move a coin, and so can head a row in the post-game table. */
-export type StatKey = CardId | LandmarkId;
+export type StatKey = CardId | LandmarkId | MayorId | CityEventId;
 
 /** What one building did for the player over a whole game. */
 export interface BuildingStat {

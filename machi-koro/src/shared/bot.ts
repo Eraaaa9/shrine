@@ -13,6 +13,7 @@ import {
   blueAmount,
   canBuild,
   canBuy,
+  cardCost,
   closedCopies,
   copies,
   countIcon,
@@ -20,7 +21,9 @@ import {
   estimateIncomeAt,
   exhibitCandidates,
   greenAmount,
+  landmarkCost,
   openCopies,
+  payable,
   redAmount,
   tradeableCards,
 } from './engine';
@@ -53,7 +56,7 @@ function activationProb(activates: number[], twoDice: boolean, harbor: boolean):
 function redPerActivation(state: GameState, card: CardDef, owner: PlayerState): number {
   const others = state.players.filter((p) => p.id !== owner.id);
   if (!others.length) return 0;
-  return others.reduce((sum, roller) => sum + Math.min(redAmount(state, card, owner, roller), roller.coins + 4), 0) / others.length;
+  return others.reduce((sum, roller) => sum + Math.min(redAmount(state, card, owner, roller), payable(state, roller) + 4), 0) / others.length;
 }
 
 /** What a purple card pays on an average table, knowing nothing about this one. */
@@ -235,9 +238,14 @@ function deckIncome(state: GameState, p: PlayerState, w: BotWeights, diceOverrid
 /** Green payouts, with the awkward cards priced by what they really cost you. */
 function greenValue(state: GameState, card: CardDef, p: PlayerState): number {
   if (card.id === 'demolition_company') {
+    // What it really pays is eight coins less the price of putting back up
+    // whatever it knocks down — at the price this player would be charged.
     const cheapest = landmarksFor(state.rules)
       .filter((l) => !l.free && p.landmarks[l.id])
-      .reduce((min: number | null, l) => (min === null || l.cost < min ? l.cost : min), null);
+      .reduce((min: number | null, l) => {
+        const cost = landmarkCost(state, p, l);
+        return min === null || cost < min ? cost : min;
+      }, null);
     return cheapest === null ? 0 : 8 - cheapest;
   }
   if (card.id === 'moving_company') return tradeableCards(p).length ? 3 : 0;
@@ -355,12 +363,8 @@ function chooseMoving(state: GameState, w: BotWeights): GameAction {
 function chooseDemolish(state: GameState): GameAction {
   const me = activePlayer(state);
   const built = demolishable(state, me);
-  const cheapest = built.reduce((min, id) =>
-    landmarksFor(state.rules).find((l) => l.id === id)!.cost <
-    landmarksFor(state.rules).find((l) => l.id === min)!.cost
-      ? id
-      : min
-  );
+  const rebuild = (id: LandmarkId) => landmarkCost(state, me, landmarksFor(state.rules).find((l) => l.id === id)!);
+  const cheapest = built.reduce((min, id) => (rebuild(id) < rebuild(min) ? id : min));
   return { t: 'demolish', landmarkId: cheapest };
 }
 
@@ -407,7 +411,7 @@ function colourWeight(card: CardDef, w: BotWeights): number {
 function landmarkGap(state: GameState, me: PlayerState): number | null {
   const left = landmarksFor(state.rules).filter((l) => !l.free && !me.landmarks[l.id]);
   if (!left.length) return null;
-  return Math.min(...left.map((l) => l.cost)) - me.coins;
+  return Math.min(...left.map((l) => landmarkCost(state, me, l))) - me.coins;
 }
 
 /** The same player with one more landmark up, for pricing what it unlocks. */
@@ -462,7 +466,7 @@ function landmarkScore(state: GameState, me: PlayerState, l: LandmarkDef, w: Bot
     w.landmarkUnlock * unlockValue(state, l, after, w) +
     w.landmarkProgress +
     w.landmarkRush * built +
-    w.landmarkOrder * (l.cost / 10)
+    w.landmarkOrder * (landmarkCost(state, me, l) / 10)
   );
 }
 
@@ -488,7 +492,7 @@ function chooseBuild(state: GameState, w: BotWeights): GameAction {
   for (const card of cardsFor(state.rules)) {
     if (!canBuy(state, me, card.id)) continue;
     const value = marginalValueAhead(state, me, card.id, w, base, otherBase) * colourWeight(card, w);
-    const price = Math.max(1, card.cost);
+    const price = Math.max(1, cardCost(state, me, card));
     const left = state.supply[card.id] ?? 0;
 
     let score = w.cardValue * value + w.costEfficiency * (value / price);

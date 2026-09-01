@@ -74,7 +74,7 @@ export default function Lobby({ room, youId, send }: Props) {
               {seat.mayor && (
                 <span
                   className="tag mayor-badge"
-                  title={`${mayorName(lang, seat.mayor)}: ${mayorText(lang, seat.mayor)}`}
+                  title={`${mayorName(lang, seat.mayor)}: ${mayorText(lang, seat.mayor, room.seats.length)}`}
                 >
                   {mayorIcon(seat.mayor)} {mayorName(lang, seat.mayor)}
                 </span>
@@ -92,6 +92,7 @@ export default function Lobby({ room, youId, send }: Props) {
         <MayorPicker
           selected={youSeat?.mayor ?? 'agronomist'}
           onChange={(mayor) => send({ t: 'setMayor', mayor })}
+          players={room.seats.length}
         />
 
         {isHost ? (

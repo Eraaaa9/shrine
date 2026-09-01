@@ -4,7 +4,7 @@
  * The simulation is the safety net for the engine: it plays whole games, checks
  * invariants after every action, and fails loudly on an illegal state.
  */
-import { cardsFor, describeRules, landmarksFor, winLandmarks, type CardId, type RuleSet } from './cards';
+import { LANDMARK_BY_ID, cardsFor, describeRules, landmarksFor, winLandmarks, type CardId, type RuleSet } from './cards';
 import {
   LANGS,
   cardName,
@@ -12,20 +12,29 @@ import {
   hasTranslation,
   landmarkName,
   landmarkText,
+  mayorText,
   messages,
   placeholders,
+  statName,
   t,
 } from './i18n';
 import { botAction } from './bot';
+import { BASELINE, type BotWeights } from './bot-weights';
+import { CITY_EVENTS, type CityEventId } from './events';
+import { MAYORS, MAX_TABLE, MIN_TABLE, mayorTuning, type MayorId, type MayorTuning } from './mayors';
 import {
   activePlayer,
   applyAction,
   applyForcedRoll,
+  canBuild,
+  canBuy,
   closedCopies,
   copies,
   createGame,
   findPlayer,
   hasWon,
+  incomeAt,
+  landmarkCost,
   type Seat,
 } from './engine';
 import type { GameAction, GameState, PlayerState } from './types';
@@ -35,9 +44,14 @@ const HARBOR: RuleSet = { harbor: true, millionaires: false, variableSupply: fal
 const ROW: RuleSet = { harbor: false, millionaires: true, variableSupply: false };
 const BRIGHT: RuleSet = { harbor: true, millionaires: true, variableSupply: false };
 const BRIGHT_VAR: RuleSet = { harbor: true, millionaires: true, variableSupply: true };
+// `EVENTS`/`MAYORS_ON` keep the fixed supply, so a card a test hands out is
+// still on the board when the test looks for it; `EVENTS_RULES`/`MAYORS_RULES`
+// take the variable one, which is what the default rules actually play.
+const EVENTS: RuleSet = { harbor: true, millionaires: true, variableSupply: false, events: true, mayors: false };
+const MAYORS_ON: RuleSet = { harbor: true, millionaires: true, variableSupply: false, events: false, mayors: true };
 const EVENTS_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events: true };
 const MAYORS_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, mayors: true };
-const FULL_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events: true, mayors: true };
+const EVERYTHING: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events: true, mayors: true };
 
 let failures = 0;
 
@@ -64,6 +78,23 @@ function give(state: GameState, p: PlayerState, id: CardId, n = 1): void {
 
 function stacksOnOffer(state: GameState): number {
   return Object.values(state.supply).filter((n) => (n ?? 0) > 0).length;
+}
+
+/** Roll, buy nothing, hand the turn on — for tests that need the table to come round. */
+function passTurn(state: GameState): void {
+  const p = activePlayer(state);
+  applyForcedRoll(state, [4]);
+  applyAction(state, p.id, { t: 'pass' });
+}
+
+/** The first seeded game whose opening two-dice roll comes up `total`. */
+function rollingTotal(total: number, make: (seed: number) => GameState): GameState {
+  for (let seed = 1; seed < 2000; seed++) {
+    const g = make(seed);
+    applyAction(g, activePlayer(g).id, { t: 'roll', dice: 2 });
+    if (g.diceTotal === total) return g;
+  }
+  throw new Error(`no seed opened on a ${total}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +189,13 @@ function statsSanity(state: GameState, where: string): void {
   const taken = state.players.reduce((a, p) => a + p.stats.earned - p.stats.fromBank, 0);
   const given = state.players.reduce((a, p) => a + p.stats.lost - p.stats.toBank, 0);
   expect(`${where}: coins taken from opponents match coins handed over`, taken, given);
+
+  // The awards read off these two: they are one set of moves seen from both
+  // ends, and a subset of everything that reached a player rather than the bank.
+  const stolen = state.players.reduce((a, p) => a + p.stats.stolenFromOthers, 0);
+  const handed = state.players.reduce((a, p) => a + p.stats.paidToOthers, 0);
+  expect(`${where}: what was stolen matches what was paid over`, stolen, handed);
+  check(`${where}: and never counts more than the coins that changed hands`, stolen <= taken, `${stolen} > ${taken}`);
 
   for (const p of state.players) {
     check(`${where}: ${p.name} rolled at least once a turn`, p.stats.rolls >= p.stats.turns, `${p.stats.rolls} rolls, ${p.stats.turns} turns`);
@@ -758,12 +796,13 @@ function eventsRuleTests(): void {
 
 function mayorsRuleTests(): void {
   {
-    // Agronomist gets 1 coin if owning >= 3 blue cards
+    // Agronomist gets 1 coin for a farm — six blue cards at a two-player table,
+    // counting the Wheat Field every city opens with.
     const g = createGame(seats(2), MAYORS_RULES, 1);
     const a = g.players[0];
     a.mayor = 'agronomist';
-    give(g, a, 'wheat_field', 2);
-    give(g, a, 'forest', 1);
+    give(g, a, 'wheat_field', 3);
+    give(g, a, 'forest', 2);
     // next turn
     g.turn = 0;
     applyForcedRoll(g, [2]);
@@ -786,19 +825,22 @@ function mayorsRuleTests(): void {
   }
 
   {
-    // Industrialist gets Train Station for 2 coins
+    // The Industrialist used to get the Train Station at half price. That
+    // discount is what paid for the wider factory bonus, so the landmark is at
+    // face value now and three coins no longer buy it.
     const g = createGame(seats(2), MAYORS_RULES, 3);
     const a = g.players[0];
     a.mayor = 'industrialist';
     a.coins = 2;
     applyForcedRoll(g, [1]);
-    check('Industrialist builds Train Station for 2 coins', applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' }) === null);
-    expect('Train station built', a.landmarks.train_station, true);
-    expect('Only 2 coins paid', a.coins, 1); // 2 start + 1 wheat - 2 cost = 1
+    check('the Train Station is out of reach at three coins', applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' }) !== null);
+    check('so it stays unbuilt', !a.landmarks.train_station);
+    expect('and nothing was charged for it', a.coins, 3); // 2 set + 1 wheat
   }
 
   {
-    // Banker gets 2 coins dividend at end of turn if holding >= 8 coins
+    // Banker draws a dividend at end of turn — two coins at a two-player table,
+    // on any turn ended holding at least six.
     const g = createGame(seats(2), MAYORS_RULES, 4);
     const a = g.players[0];
     a.mayor = 'banker';
@@ -901,6 +943,452 @@ function statsTests(): void {
 }
 
 // ---------------------------------------------------------------------------
+// city events
+// ---------------------------------------------------------------------------
+
+/** A game parked on one city event, so a test is not at the mercy of the deck. */
+function eventGame(event: CityEventId, seed: number, players = 2): GameState {
+  const g = createGame(seats(players), EVENTS, seed);
+  g.currentEvent = event;
+  return g;
+}
+
+function eventRuleTests(): void {
+  {
+    // The boom adds a coin to every primary industry, for everybody.
+    const g = eventGame('economic_boom', 401);
+    const [a, b] = g.players;
+    applyForcedRoll(g, [1]);
+    expect('the boom tops up the roller’s Wheat Field', a.coins, 5);
+    expect('and the opponent’s, blue paying the whole table', b.coins, 5);
+  }
+
+  {
+    // The festival adds a coin to every restaurant bill.
+    const g = eventGame('food_festival', 402);
+    const [a, b] = g.players;
+    give(g, b, 'cafe');
+    applyForcedRoll(g, [3]);
+    expect('the Café bills two at the festival', b.coins, 5);
+    expect('and the roller pays before their own Bakery pays them', a.coins, 2);
+  }
+
+  {
+    // The strike shaves a coin off the factory rate, floored at one.
+    const g = eventGame('factory_strike', 403);
+    const a = g.players[0];
+    give(g, a, 'ranch', 2);
+    give(g, a, 'cheese_factory');
+    applyForcedRoll(g, [7]);
+    expect('the Cheese Factory pays two a cow, not three', a.coins, 7);
+  }
+
+  {
+    // The storm shuts the boats even for a city that built the Harbor.
+    const g = eventGame('harbor_storm', 404);
+    const a = g.players[0];
+    a.landmarks.harbor = true;
+    give(g, a, 'mackerel_boat');
+    applyForcedRoll(g, [4, 4]);
+    expect('the Mackerel Boat stays in port', a.coins, 3);
+  }
+
+  {
+    // And the Harbor's own +2 goes with them.
+    const g = rollingTotal(10, (seed) => {
+      const s = eventGame('harbor_storm', seed);
+      s.players[0].landmarks.harbor = true;
+      s.players[0].landmarks.train_station = true;
+      return s;
+    });
+    check('the storm withdraws the Harbor bonus', g.phase !== 'harbor', g.phase);
+  }
+
+  {
+    // The big catch opens the boats to a city with no Harbor at all.
+    const g = eventGame('big_catch', 405);
+    const a = g.players[0];
+    give(g, a, 'mackerel_boat');
+    expect('the boat starts dry', a.landmarks.harbor, false);
+    applyForcedRoll(g, [4, 4]);
+    expect('the Mackerel Boat lands its three', a.coins, 6);
+  }
+
+  {
+    // The inspector closes the priciest restaurant, and only that one.
+    const g = eventGame('health_inspection', 406);
+    const [, b] = g.players;
+    give(g, b, 'cafe');
+    give(g, b, 'family_restaurant');
+    applyForcedRoll(g, [3]);
+    expect('the cheap Café keeps billing', b.coins, 4);
+
+    const g2 = eventGame('health_inspection', 407);
+    const [, b2] = g2.players;
+    give(g2, b2, 'cafe');
+    give(g2, b2, 'family_restaurant');
+    applyForcedRoll(g2, [4, 5]);
+    expect('the priciest restaurant is shut', b2.coins, 3);
+  }
+
+  {
+    // The tax takes a coin off anyone ending a turn on ten or more.
+    const g = eventGame('tax_hike', 408);
+    const a = g.players[0];
+    a.coins = 10;
+    applyForcedRoll(g, [4]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('a full purse is taxed', a.coins, 9);
+    expect('the Tax Office is not blamed for it', a.stats.byKey.tax_office?.lost, undefined);
+    expect('the event carries the charge', a.stats.byKey.tax_hike?.lost, 1);
+  }
+
+  {
+    // Social aid picks a broke player up as their turn opens.
+    const g = eventGame('social_aid', 409);
+    const [a, b] = g.players;
+    b.coins = 0;
+    applyForcedRoll(g, [4]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('the broke player is helped up', b.coins, 2);
+    expect('the City Hall is not credited for it', b.stats.byKey.city_hall?.earned, undefined);
+    expect('the event is', b.stats.byKey.social_aid?.earned, 2);
+  }
+
+  {
+    // A seven pays a bonus while the clover is out.
+    const g = eventGame('lucky_seven', 410);
+    const a = g.players[0];
+    applyForcedRoll(g, [3, 4]);
+    expect('the seven pays three', a.coins, 6);
+    expect('the Wheat Field is not credited for it', a.stats.byKey.wheat_field?.earned, undefined);
+    expect('the event is', a.stats.byKey.lucky_seven?.earned, 3);
+  }
+
+  {
+    // The grant knocks two coins off every landmark, floored at one.
+    const g = eventGame('urban_grant', 411);
+    const a = g.players[0];
+    a.coins = 2;
+    applyForcedRoll(g, [4]);
+    const err = applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' });
+    check('the grant puts the Train Station in reach', err === null, String(err));
+    expect('and it is charged at the granted price', a.coins, 0);
+    expect('booked at what was actually paid', a.stats.byKey.train_station?.spent, 2);
+  }
+
+  {
+    // The subsidy knocks a coin off every establishment, floored at one.
+    const g = eventGame('subsidized_market', 412);
+    const a = g.players[0];
+    a.coins = 1;
+    applyForcedRoll(g, [4]);
+    const err = applyAction(g, a.id, { t: 'buy', cardId: 'cafe' });
+    check('the Café is affordable at the subsidised price', err === null, String(err));
+    expect('and never drops below one coin', a.coins, 0);
+  }
+
+  {
+    // Anti-monopoly locks the landmark leader out of the major establishments.
+    const g = eventGame('anti_monopoly', 413);
+    const [a, b] = g.players;
+    a.landmarks.train_station = true;
+    a.coins = 40;
+    b.coins = 40;
+    expect('the leader cannot take a major', canBuy(g, a, 'stadium'), false);
+    expect('the player behind still can', canBuy(g, b, 'stadium'), true);
+  }
+
+  {
+    // A round rolling over draws the next event and pays the anti-monopoly aid.
+    const g = createGame(seats(2), EVENTS, 414);
+    g.eventDeck = ['anti_monopoly'];
+    g.currentEvent = 'lucky_seven';
+    const [a, b] = g.players;
+    a.landmarks.train_station = true;
+    passTurn(g);
+    passTurn(g);
+    expect('the round turned the event over', g.currentEvent, 'anti_monopoly');
+    expect('the trailing city is handed aid', b.stats.byKey.anti_monopoly?.earned, 2);
+    expect('the leader is not', a.stats.byKey.anti_monopoly?.earned, undefined);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// mayors
+// ---------------------------------------------------------------------------
+
+/** Hand the mayors out by name, so no random pick can colour a test. */
+function withMayors(state: GameState, ...mayors: (MayorId | null)[]): GameState {
+  state.players.forEach((p, i) => {
+    p.mayor = mayors[i] ?? null;
+  });
+  return state;
+}
+
+function mayorRuleTests(): void {
+  // Every game below seats two, so these are the two-player dials: the numbers
+  // are deliberately literal, because a test that recomputes them from
+  // `mayorTuning` would pass whatever the tuning happened to say.
+  const two = mayorTuning(2);
+  expect('the two-player Agronomist wants six fields', two.agronomistBlue, 6);
+  expect('the two-player Restaurateur keeps two back', two.restaurateurShield, 2);
+  expect('the two-player Banker pays two', two.bankerDividend, 2);
+  expect('the two-player Urbanist rebates two', two.urbanistCashback, 2);
+  expect('the two-player Navigator reaches a six', two.adventurerHarbor, 6);
+
+  {
+    // The Industrialist's coin rides on the factory firing, not on owning it.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 301), 'industrialist', null);
+    const a = g.players[0];
+    give(g, a, 'cheese_factory');
+    applyForcedRoll(g, [7]);
+    expect('a cowless Cheese Factory pays nothing', a.coins, 3);
+  }
+
+  {
+    // The extra coin rides on every icon the factory counts, not on the payout.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 302), 'industrialist', null);
+    const a = g.players[0];
+    give(g, a, 'ranch', 2);
+    give(g, a, 'cheese_factory');
+    applyForcedRoll(g, [7]);
+    expect('a factory that does fire pays a coin more per cow', a.coins, 11);
+  }
+
+  {
+    // Every green card wearing the factory icon is a factory, as the text says.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 315), 'industrialist', null);
+    const a = g.players[0];
+    give(g, a, 'cafe', 2);
+    give(g, a, 'food_warehouse');
+    applyForcedRoll(g, [6, 6]);
+    expect('the Food Warehouse counts as one too', a.coins, 3 + 3 * 2);
+  }
+
+  {
+    // Building a landmark hands the Urbanist a rebate and a reroll for later.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 303), 'urbanist', null);
+    const a = g.players[0];
+    a.coins = 40;
+    applyForcedRoll(g, [4]);
+    const err = applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' });
+    check('the landmark went up', err === null, String(err));
+    expect('the Urbanist banks a rebate', a.stats.byKey.urbanist?.earned, 2);
+    expect('the City Hall is not credited for it', a.stats.byKey.city_hall?.earned, undefined);
+    expect('and holds a free reroll', a.mayorRerollAvailable, true);
+  }
+
+  {
+    // The Radio Tower pays for its own reroll; the Urbanist's charge is not spent.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 304), 'urbanist', null);
+    const a = g.players[0];
+    a.landmarks.radio_tower = true;
+    a.mayorRerollAvailable = true;
+    applyAction(g, a.id, { t: 'roll', dice: 1 });
+    expect('the reroll prompt is up', g.phase, 'reroll');
+    applyAction(g, a.id, { t: 'reroll', again: true });
+    expect('the Radio Tower is credited', a.stats.byKey.radio_tower?.hits, 1);
+    expect('and the Urbanist keeps their charge', a.mayorRerollAvailable, true);
+  }
+
+  {
+    // With no tower it is the mayor's charge that pays, and the mayor's row.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 305), 'urbanist', null);
+    const a = g.players[0];
+    a.mayorRerollAvailable = true;
+    applyAction(g, a.id, { t: 'roll', dice: 1 });
+    expect('the charge opens the reroll prompt', g.phase, 'reroll');
+    applyAction(g, a.id, { t: 'reroll', again: true });
+    expect('the charge is spent', a.mayorRerollAvailable, false);
+    expect('the Radio Tower is not credited for a reroll it never gave', a.stats.byKey.radio_tower?.hits, undefined);
+    expect('the mayor is', a.stats.byKey.urbanist?.hits, 1);
+  }
+
+  {
+    // Nobody else gets a second look at the dice.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 313), null, null);
+    const a = g.players[0];
+    applyAction(g, a.id, { t: 'roll', dice: 1 });
+    check('a plain city rolls once', g.phase !== 'reroll', g.phase);
+  }
+
+  {
+    // Opponents cannot take the Restaurateur's last two coins.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 306), 'restaurateur', null);
+    const [a, b] = g.players;
+    give(g, b, 'family_restaurant');
+    a.coins = 3;
+    expect('the preview owes only what can be taken', incomeAt(g, a, 9).onYourTurn, -1);
+    applyForcedRoll(g, [4, 5]);
+    expect('the Restaurateur keeps two back', a.coins, 2);
+    expect('the restaurant collects only what it could take', b.coins, 4);
+  }
+
+  {
+    // Restaurants come a coin cheaper for the Restaurateur.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 307), 'restaurateur', null);
+    const a = g.players[0];
+    a.coins = 1;
+    applyForcedRoll(g, [4]);
+    const err = applyAction(g, a.id, { t: 'buy', cardId: 'cafe' });
+    check('the Café is affordable at the discount', err === null, String(err));
+    expect('and charged at it', a.coins, 0);
+    expect('booked at what was actually paid', a.stats.byKey.cafe?.spent, 1);
+  }
+
+  {
+    // Six fields open the Agronomist's turn a coin up.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 308), 'agronomist', null);
+    const a = g.players[0];
+    give(g, a, 'ranch', 5);
+    passTurn(g);
+    passTurn(g);
+    expect('the Agronomist draws a subsidy', a.stats.byKey.agronomist?.earned, 1);
+    expect('the Wheat Field is not credited for it', a.stats.byKey.wheat_field?.earned, undefined);
+  }
+
+  {
+    // Five fields are not yet a farm.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 314), 'agronomist', null);
+    const a = g.players[0];
+    give(g, a, 'ranch', 4);
+    passTurn(g);
+    passTurn(g);
+    expect('five fields draw nothing', a.stats.byKey.agronomist?.earned, undefined);
+  }
+
+  {
+    // The Banker takes a dividend on a turn ended with six coins.
+    const g = withMayors(createGame(seats(2), MAYORS_ON, 309), 'banker', null);
+    const a = g.players[0];
+    a.coins = 6;
+    applyForcedRoll(g, [4]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('the dividend lands', a.coins, 8);
+    expect('booked to the mayor', a.stats.byKey.banker?.earned, 2);
+    expect('and not to the Wheat Field', a.stats.byKey.wheat_field?.earned, undefined);
+  }
+
+  {
+    // The Navigator's Harbor reaches down to a six at this table size.
+    const g = rollingTotal(6, (seed) => {
+      const s = withMayors(createGame(seats(2), MAYORS_ON, seed), 'adventurer', null);
+      s.players[0].landmarks.harbor = true;
+      s.players[0].landmarks.train_station = true;
+      return s;
+    });
+    expect('the Harbor is offered on a six', g.phase, 'harbor');
+  }
+
+  {
+    const g = rollingTotal(6, (seed) => {
+      const s = withMayors(createGame(seats(2), MAYORS_ON, seed), null, null);
+      s.players[0].landmarks.harbor = true;
+      s.players[0].landmarks.train_station = true;
+      return s;
+    });
+    check('without the Navigator a six is just a six', g.phase !== 'harbor', g.phase);
+  }
+
+  {
+    // The same ability is worth a different number at a bigger table, and the
+    // engine reads the table it is actually playing rather than a fixed dial.
+    const g = rollingTotal(6, (seed) => {
+      const s = withMayors(createGame(seats(5), MAYORS_ON, seed), 'adventurer', null, null, null, null);
+      s.players[0].landmarks.harbor = true;
+      s.players[0].landmarks.train_station = true;
+      return s;
+    });
+    check('a six is out of the Navigator’s reach on five', g.phase !== 'harbor', g.phase);
+    expect('because a bigger table pushes the bar up', mayorTuning(5).adventurerHarbor, 7);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// the bot's prices
+// ---------------------------------------------------------------------------
+
+function botPricingTests(): void {
+  // Weights that put the whole decision on the saving rule: every card is worth
+  // buying, and any landmark within `saveMargin` is worth holding out for. What
+  // is left to judge is how far away the bot thinks that landmark is.
+  const SAVER: BotWeights = { ...BASELINE, saveMargin: 2, saveScore: 100, buyThreshold: -100 };
+
+  /** A city one landmark short of the Shopping Mall, with seven coins in hand. */
+  function almostAMall(event: CityEventId | null): GameState {
+    const g = createGame(seats(2), EVENTS, 501);
+    g.currentEvent = event;
+    const a = g.players[0];
+    a.landmarks.harbor = true;
+    a.landmarks.train_station = true;
+    applyForcedRoll(g, [4]);
+    a.coins = 7;
+    return g;
+  }
+
+  {
+    // The grant leaves the Mall one coin away rather than three — near enough
+    // that the bot should be sitting on its coins instead of spending them.
+    const g = almostAMall('urban_grant');
+    const a = g.players[0];
+    expect('the grant marks the Mall down to eight', landmarkCost(g, a, LANDMARK_BY_ID.shopping_mall), 8);
+    expect('which is still one coin out of reach', canBuild(g, a, 'shopping_mall'), false);
+    expect('so the bot waits for it', botAction(g, SAVER)?.t, 'pass');
+  }
+
+  {
+    // At full price the same city is three coins short, which is too far to wait.
+    const g = almostAMall(null);
+    const a = g.players[0];
+    expect('the Mall is back to ten', landmarkCost(g, a, LANDMARK_BY_ID.shopping_mall), 10);
+    expect('so the bot spends instead', botAction(g, SAVER)?.t, 'buy');
+  }
+
+  {
+    // A discount the bot acts on has to be the discount it is charged.
+    const g = createGame(seats(2), EVENTS, 503);
+    g.currentEvent = 'subsidized_market';
+    const a = g.players[0];
+    applyForcedRoll(g, [4]);
+    a.coins = 1;
+    const action = botAction(g);
+    if (action?.t === 'buy') {
+      applyAction(g, a.id, action);
+      expect('the subsidised card cost the one coin it had', a.coins, 0);
+    } else {
+      check('the bot found the subsidised card', false, String(action?.t));
+    }
+  }
+
+  {
+    // Whatever the discounts are doing, the bot must never propose a move the
+    // engine will refuse.
+    for (const event of ['urban_grant', 'subsidized_market', 'anti_monopoly'] as CityEventId[]) {
+      const g = createGame(seats(3), EVERYTHING, 502);
+      for (let i = 0; i < 60 && g.phase !== 'over'; i++) {
+        g.currentEvent = event;
+        const me = activePlayer(g);
+        const action = botAction(g);
+        if (!action) break;
+        const err = applyAction(g, me.id, action);
+        check(`${event}: the bot\u2019s ${action.t} is legal`, err === null, String(err));
+        if (err) break;
+      }
+    }
+  }
+}
+/** Which dials each mayor's rules text quotes, so a stale number cannot hide. */
+const MAYOR_DIALS: Record<MayorId, (keyof MayorTuning)[]> = {
+  agronomist: ['agronomistBlue'],
+  restaurateur: ['restaurateurShield'],
+  industrialist: [],
+  banker: ['bankerFloor', 'bankerDividend'],
+  urbanist: ['urbanistCashback'],
+  adventurer: ['adventurerHarbor'],
+};
+
+// ---------------------------------------------------------------------------
 // full games
 // ---------------------------------------------------------------------------
 
@@ -967,6 +1455,33 @@ function translationTests(): void {
   for (const lang of LANGS) {
     for (const key of seenKeys) {
       check(`${lang}: log key ${key} is translated`, hasTranslation(lang, key));
+    }
+  }
+
+  // Mayors and events head rows of their own in the post-game table now, so
+  // every one of them has to come back with a name rather than its own id.
+  for (const lang of LANGS) {
+    for (const m of MAYORS) {
+      check(`${lang}: the ${m.id} mayor names its stats row`, statName(lang, m.id) !== m.id);
+    }
+    // The mayors' numbers move with the table size, so their rules text quotes
+    // dials rather than digits. A translation that dropped a placeholder would
+    // render a sentence with a hole in it, or — worse — keep printing whatever
+    // number was true when it was written.
+    for (const m of MAYORS) {
+      const small = mayorText(lang, m.id, MIN_TABLE);
+      const large = mayorText(lang, m.id, MAX_TABLE);
+      check(`${lang}: the ${m.id} mayor has rules text`, small.length > 0);
+      check(`${lang}: the ${m.id} mayor leaves no placeholder unfilled`, !/[{}]/.test(small + large), small);
+      const moves = MAYOR_DIALS[m.id].some((dial) => mayorTuning(MIN_TABLE)[dial] !== mayorTuning(MAX_TABLE)[dial]);
+      check(
+        `${lang}: the ${m.id} mayor reprints its dial for the table`,
+        moves === (small !== large),
+        moves ? `same text at ${MIN_TABLE} and ${MAX_TABLE} players: "${small}"` : `text moved without a dial moving`
+      );
+    }
+    for (const e of CITY_EVENTS) {
+      check(`${lang}: the ${e.id} event names its stats row`, statName(lang, e.id) !== e.id);
     }
   }
 
@@ -1048,14 +1563,29 @@ console.log('City Events rules');
 eventsRuleTests();
 console.log(failures === afterRow ? '  passed\n' : `  ${failures - afterRow} failed\n`);
 
-const afterEvents = failures;
+const afterFactions = failures;
 console.log('Mayors & Factions rules');
 mayorsRuleTests();
+console.log(failures === afterFactions ? '  passed\n' : `  ${failures - afterFactions} failed\n`);
+
+const afterMayorFactions = failures;
+console.log('Post-game stats');
+statsTests();
+console.log(failures === afterMayorFactions ? '  passed\n' : `  ${failures - afterMayorFactions} failed\n`);
+
+const afterStats = failures;
+console.log('City events');
+eventRuleTests();
+console.log(failures === afterStats ? '  passed\n' : `  ${failures - afterStats} failed\n`);
+
+const afterEvents = failures;
+console.log('Mayors');
+mayorRuleTests();
 console.log(failures === afterEvents ? '  passed\n' : `  ${failures - afterEvents} failed\n`);
 
 const afterMayors = failures;
-console.log('Post-game stats');
-statsTests();
+console.log('Bot prices');
+botPricingTests();
 console.log(failures === afterMayors ? '  passed\n' : `  ${failures - afterMayors} failed\n`);
 
 console.log('Bot games');
@@ -1064,11 +1594,15 @@ simulate(count, BASE, 4);
 simulate(count, ROW, 4);
 simulate(count, BRIGHT, 4);
 simulate(count, BRIGHT_VAR, 4);
+simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 5);
+simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 2);
+simulate(count, EVENTS, 4);
+simulate(count, MAYORS_ON, 4);
 simulate(count, EVENTS_RULES, 4);
 simulate(count, MAYORS_RULES, 4);
-simulate(count, FULL_RULES, 4);
-simulate(Math.max(10, Math.floor(count / 2)), FULL_RULES, 5);
-simulate(Math.max(10, Math.floor(count / 2)), FULL_RULES, 2);
+simulate(count, EVERYTHING, 4);
+simulate(Math.max(10, Math.floor(count / 2)), EVERYTHING, 5);
+simulate(Math.max(10, Math.floor(count / 2)), EVERYTHING, 2);
 
 translationTests();
 

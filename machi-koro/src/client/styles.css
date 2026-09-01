@@ -1610,6 +1610,12 @@ input:focus {
 .stat-swatch.landmark {
   background: var(--gold);
 }
+.stat-swatch.mayor {
+  background: var(--accent);
+}
+.stat-swatch.event {
+  background: var(--muted);
+}
 .stats-tabs {
   display: flex;
   flex-wrap: wrap;

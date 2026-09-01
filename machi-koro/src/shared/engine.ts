@@ -11,7 +11,7 @@ import {
   type RuleSet,
 } from './cards';
 import { createEventDeck } from './events';
-import { MAYORS, type MayorId } from './mayors';
+import { MAYORS, mayorTuning, type MayorId } from './mayors';
 import { rulesCode, type Params } from './i18n';
 import { LOG_LIMIT } from './types';
 import type {
@@ -258,14 +258,24 @@ function otherPlayers(state: GameState): PlayerState[] {
   return state.players.filter((_, i) => i !== state.turn);
 }
 
+/**
+ * Whether this city's boats can put to sea. The Harbor is normally what lets
+ * them out; the storm keeps every boat in port regardless, and the big catch
+ * sends them all out, Harbor or no Harbor.
+ */
+function boatsRunning(state: GameState, p: PlayerState): boolean {
+  if (state.currentEvent === 'harbor_storm') return false;
+  return state.currentEvent === 'big_catch' || Boolean(p.landmarks.harbor);
+}
+
 /** Cards of `color` owned by `p` that trigger on `total`, honouring Harbor requirements. */
-function triggered(p: PlayerState, total: number, color: CardDef['color'], rules: RuleSet, state?: GameState): CardDef[] {
-  return cardsFor(rules).filter(
+function triggered(state: GameState, p: PlayerState, total: number, color: CardDef['color']): CardDef[] {
+  return cardsFor(state.rules).filter(
     (c) =>
       c.color === color &&
       c.activates.includes(total) &&
       copies(p, c.id) > 0 &&
-      (!c.needsHarbor || (state?.currentEvent !== 'harbor_storm' && (state?.currentEvent === 'big_catch' || p.landmarks.harbor)))
+      (!c.needsHarbor || boatsRunning(state, p))
   );
 }
 
@@ -326,13 +336,18 @@ function drain(p: PlayerState, key: StatKey, want: number, toBank: boolean): num
   return paid;
 }
 
-function pay(from: PlayerState, to: PlayerState, want: number, key: StatKey): number {
-  // Mayor: Restaurateur protection - opponents cannot steal their last 2 coins
-  if (from.mayor === 'restaurateur') {
-    const available = Math.max(0, from.coins - 2);
-    want = Math.min(want, available);
-  }
-  const paid = drain(from, key, want, false);
+/**
+ * Coins an opponent can actually take off this player. The Restaurateur keeps
+ * two back, which the income previews have to know about as much as the
+ * payment itself does — a bill nobody can collect is not a bill you owe.
+ */
+export function payable(state: GameState, p: PlayerState): number {
+  if (p.mayor !== 'restaurateur') return p.coins;
+  return Math.max(0, p.coins - mayorTuning(state.players.length).restaurateurShield);
+}
+
+function pay(state: GameState, from: PlayerState, to: PlayerState, want: number, key: StatKey): number {
+  const paid = drain(from, key, Math.min(want, payable(state, from)), false);
   gain(to, key, paid, false);
   from.stats.paidToOthers += paid;
   to.stats.stolenFromOthers += paid;
@@ -362,6 +377,10 @@ function transferCard(from: PlayerState, to: PlayerState, id: CardId): void {
   from.cards[id] = copies(from, id) - 1;
   to.cards[id] = copies(to, id) + 1;
   if (wasClosed) {
+    // Count the tokens, not the clamped view: the card counts have already moved,
+    // so reading back through `closedCopies` here would drop a token on the giver
+    // (two closed copies, one given away, leaves one closed) and, once the giver
+    // is down to none, leave a negative behind that reads as an extra open copy.
     from.closed[id] = Math.max(0, (from.closed[id] ?? 0) - 1);
     to.closed[id] = Math.min(copies(to, id), (to.closed[id] ?? 0) + 1);
   }
@@ -424,15 +443,29 @@ export function blueAmount(state: GameState, card: CardDef, owner: PlayerState):
 }
 
 /**
+ * A factory pays per icon standing on its owner’s table, so with nothing to
+ * count it pays nothing at all. The strike shaves a coin off the rate and the
+ * Industrialist puts one back, both per icon, and both ride on the factory
+ * firing — neither settles up for merely owning it.
+ *
+ * Every green card carrying the factory icon comes through here, which is what
+ * the mayor's and the strike's rules text both promise: a Food Warehouse is as
+ * much a factory as a Cheese Factory, and the icon on the card says so.
+ */
+function factoryAmount(state: GameState, owner: PlayerState, rate: number, units: number): number {
+  if (units <= 0) return 0;
+  const strike = state.currentEvent === 'factory_strike' ? -1 : 0;
+  const industry = owner.mayor === 'industrialist' ? mayorTuning(state.players.length).industrialistRate : 0;
+  return Math.max(1, rate + strike + industry) * units;
+}
+
+/**
  * Coins a green establishment takes from the bank, per copy.
  * Negative means the owner pays the bank. Cards that need a decision return 0
  * here and queue a choice instead.
  */
 export function greenAmount(state: GameState, card: CardDef, owner: PlayerState): number {
   const mall = owner.landmarks.shopping_mall && card.icon === 'bread' ? 1 : 0;
-  const strike = state.currentEvent === 'factory_strike' ? -1 : 0;
-  const indBonus = owner.mayor === 'industrialist' ? 1 : 0;
-
   switch (card.id) {
     case 'bakery':
       return 1 + mall;
@@ -443,17 +476,17 @@ export function greenAmount(state: GameState, card: CardDef, owner: PlayerState)
     case 'flower_shop':
       return copies(owner, 'flower_orchard') + mall;
     case 'cheese_factory':
-      return Math.max(1, 3 + strike) * countIcon(owner, 'cow') + indBonus;
+      return factoryAmount(state, owner, 3, countIcon(owner, 'cow'));
     case 'furniture_factory':
-      return Math.max(1, 3 + strike) * countIcon(owner, 'gear') + indBonus;
+      return factoryAmount(state, owner, 3, countIcon(owner, 'gear'));
     case 'farmers_market':
       return 2 * countIcon(owner, 'wheat');
     case 'food_warehouse':
-      return 2 * countIcon(owner, 'cup');
+      return factoryAmount(state, owner, 2, countIcon(owner, 'cup'));
     case 'winery':
-      return Math.max(1, 6 + strike) * copies(owner, 'vineyard') + indBonus;
+      return factoryAmount(state, owner, 6, copies(owner, 'vineyard'));
     case 'soda_bottling_plant':
-      return state.players.reduce((sum, p) => sum + countIcon(p, 'cup'), 0);
+      return factoryAmount(state, owner, 1, state.players.reduce((sum, p) => sum + countIcon(p, 'cup'), 0));
     case 'loan_office':
       return -2;
     default:
@@ -471,7 +504,7 @@ function resolveIncome(state: GameState): void {
 
   // 1. Restaurants (red) — opponents take from the active player.
   for (const p of counterClockwiseOpponents(state)) {
-    for (const card of triggered(p, total, 'red', state.rules, state)) {
+    for (const card of triggered(state, p, total, 'red')) {
       const n = wakeUp(state, p, card);
       if (n <= 0) continue;
       noteHits(p, card.id, n);
@@ -480,7 +513,7 @@ function resolveIncome(state: GameState): void {
       for (let i = 0; i < n; i++) {
         const want = redAmount(state, card, p, active);
         wanted += want;
-        paid += pay(active, p, want, card.id);
+        paid += pay(state, active, p, want, card.id);
       }
       if (wanted > 0) {
         const logKey =
@@ -503,7 +536,7 @@ function resolveIncome(state: GameState): void {
   let tunaRoll = 0;
   for (let i = 0; i < state.players.length; i++) {
     const p = state.players[(state.turn + i) % state.players.length];
-    for (const card of triggered(p, total, 'blue', state.rules, state)) {
+    for (const card of triggered(state, p, total, 'blue')) {
       const n = wakeUp(state, p, card);
       if (n <= 0) continue;
       noteHits(p, card.id, n);
@@ -525,7 +558,7 @@ function resolveIncome(state: GameState): void {
   }
 
   // 3. Secondary industry (green) — active player only.
-  for (const card of triggered(active, total, 'green', state.rules, state)) {
+  for (const card of triggered(state, active, total, 'green')) {
     const n = wakeUp(state, active, card);
     if (n <= 0) continue;
     noteHits(active, card.id, n);
@@ -591,7 +624,7 @@ function resolvePurple(state: GameState): void {
     switch (id) {
       case 'stadium': {
         let got = 0;
-        for (const p of otherPlayers(state)) got += pay(p, active, 2, id);
+        for (const p of otherPlayers(state)) got += pay(state, p, active, 2, id);
         log(state, 'log.stadium', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
       }
@@ -608,7 +641,7 @@ function resolvePurple(state: GameState): void {
       case 'publisher': {
         let got = 0;
         for (const p of otherPlayers(state)) {
-          got += pay(p, active, countIcon(p, 'bread') + countIcon(p, 'cup'), id);
+          got += pay(state, p, active, countIcon(p, 'bread') + countIcon(p, 'cup'), id);
         }
         log(state, 'log.publisher', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
@@ -620,7 +653,7 @@ function resolvePurple(state: GameState): void {
       case 'tax_office': {
         let got = 0;
         for (const p of otherPlayers(state)) {
-          if (p.coins >= 10) got += pay(p, active, Math.floor(p.coins / 2), id);
+          if (p.coins >= 10) got += pay(state, p, active, Math.floor(p.coins / 2), id);
         }
         log(state, 'log.taxOffice', { player: active.name, amount: got }, { who: active.id, kind: 'income' });
         break;
@@ -631,7 +664,7 @@ function resolvePurple(state: GameState): void {
           break;
         }
         let got = 0;
-        for (const p of otherPlayers(state)) got += pay(p, active, active.investment, id);
+        for (const p of otherPlayers(state)) got += pay(state, p, active, active.investment, id);
         log(
           state,
           'log.techStartup',
@@ -772,15 +805,19 @@ function announceTurn(state: GameState): void {
     const blueCount = cardsFor(state.rules)
       .filter((c) => c.color === 'blue')
       .reduce((sum, c) => sum + copies(active, c.id), 0);
-    if (blueCount >= 3) {
-      gain(active, 'wheat_field', 1, true);
-      log(state, 'log.mayorAgronomist', { player: active.name, amount: 1 }, { who: active.id, kind: 'income' });
+    const dials = mayorTuning(state.players.length);
+    if (blueCount >= dials.agronomistBlue) {
+      const amount = dials.agronomistSubsidy;
+      noteHits(active, 'agronomist');
+      gain(active, 'agronomist', amount, true);
+      log(state, 'log.mayorAgronomist', { player: active.name, amount }, { who: active.id, kind: 'income' });
     }
   }
 
   // Event: Social Aid
   if (state.currentEvent === 'social_aid' && active.coins === 0) {
-    gain(active, 'city_hall', 2, true);
+    noteHits(active, 'social_aid');
+    gain(active, 'social_aid', 2, true);
     log(state, 'log.eventSocialAid', { player: active.name }, { who: active.id, kind: 'income' });
   }
 }
@@ -802,7 +839,8 @@ function startTurn(state: GameState, samePlayer: boolean): void {
             const minLandmarks = Math.min(...state.players.map((p) => landmarkCount(state, p)));
             for (const p of state.players) {
               if (landmarkCount(state, p) === minLandmarks) {
-                gain(p, 'city_hall', 2, true);
+                noteHits(p, 'anti_monopoly');
+                gain(p, 'anti_monopoly', 2, true);
                 log(state, 'log.eventAntiMonopolyAid', { player: p.name, amount: 2 }, { who: p.id, kind: 'income' });
               }
             }
@@ -871,6 +909,10 @@ function afterRoll(state: GameState): void {
   afterFinalRoll(state);
 }
 
+/**
+ * The Space Port goes before the Harbor: nudging a 9 up to 10 is what puts the
+ * Harbor's +2 within reach, and both only ever move the total, never the dice.
+ */
 function afterFinalRoll(state: GameState): void {
   if (activePlayer(state).landmarks.space_port && !state.spacePortUsed) {
     state.phase = 'spaceport';
@@ -881,7 +923,7 @@ function afterFinalRoll(state: GameState): void {
 
 function afterAdjustedRoll(state: GameState): void {
   const active = activePlayer(state);
-  const minHarborRoll = active.mayor === 'adventurer' ? 8 : 10;
+  const minHarborRoll = active.mayor === 'adventurer' ? mayorTuning(state.players.length).adventurerHarbor : 10;
   if (state.currentEvent !== 'harbor_storm' && active.landmarks.harbor && state.diceTotal >= minHarborRoll && !state.harborBonusUsed) {
     state.phase = 'harbor';
     return;
@@ -897,13 +939,18 @@ function beginIncome(state: GameState): void {
     log(state, 'log.doubles', { player: active.name }, { who: active.id, kind: 'roll' });
   }
   if (state.currentEvent === 'lucky_seven' && state.diceTotal === 7) {
-    gain(active, 'wheat_field', 3, true);
+    noteHits(active, 'lucky_seven');
+    gain(active, 'lucky_seven', 3, true);
     log(state, 'log.eventLuckySeven', { player: active.name, amount: 3 }, { who: active.id, kind: 'income' });
   }
   resolveIncome(state);
   continueAfterIncome(state);
 }
 
+/**
+ * A queued choice can go stale — demolishing your only landmark leaves a second
+ * Demolition Company with nothing to knock down. Drop those rather than wedging.
+ */
 function choiceIsPossible(state: GameState, choice: PendingChoice): boolean {
   const me = activePlayer(state);
   switch (choice) {
@@ -961,14 +1008,18 @@ function endOfTurn(state: GameState): void {
   }
 
   // Mayor: Banker dividend
-  if (active.mayor === 'banker' && active.coins >= 8) {
-    gain(active, 'wheat_field', 2, true);
-    log(state, 'log.mayorBanker', { player: active.name, amount: 2 }, { who: active.id, kind: 'income' });
+  const bank = mayorTuning(state.players.length);
+  if (active.mayor === 'banker' && active.coins >= bank.bankerFloor) {
+    const amount = bank.bankerDividend;
+    noteHits(active, 'banker');
+    gain(active, 'banker', amount, true);
+    log(state, 'log.mayorBanker', { player: active.name, amount }, { who: active.id, kind: 'income' });
   }
 
   // Event: Tax Hike
   if (state.currentEvent === 'tax_hike' && active.coins >= 10) {
-    drain(active, 'tax_office', 1, true);
+    noteHits(active, 'tax_hike');
+    drain(active, 'tax_hike', 1, true);
     log(state, 'log.eventTaxHike', { player: active.name, amount: 1 }, { who: active.id, kind: 'income' });
   }
 
@@ -1000,7 +1051,7 @@ export function cardCost(state: GameState, p: PlayerState, card: CardDef): numbe
   let cost = card.cost;
   if (card.cost < 0) return cost;
   if (card.color === 'red' && p.mayor === 'restaurateur') {
-    cost = Math.max(0, cost - 1);
+    cost = Math.max(0, cost - mayorTuning(state.players.length).restaurateurDiscount);
   }
   if (state.currentEvent === 'subsidized_market') {
     cost = Math.max(1, cost - 1);
@@ -1008,11 +1059,12 @@ export function cardCost(state: GameState, p: PlayerState, card: CardDef): numbe
   return cost;
 }
 
-export function landmarkCost(state: GameState, p: PlayerState, l: { id: LandmarkId; cost: number }): number {
+/**
+ * Landmark prices are quoted per player — no one discounts them today, but the
+ * callers all price a specific city's next build, so `_p` stays in the shape.
+ */
+export function landmarkCost(state: GameState, _p: PlayerState, l: { id: LandmarkId; cost: number }): number {
   let cost = l.cost;
-  if (l.id === 'train_station' && p.mayor === 'industrialist') {
-    cost = 2;
-  }
   if (state.currentEvent === 'urban_grant') {
     cost = Math.max(1, cost - 2);
   }
@@ -1045,12 +1097,14 @@ export function canBuild(state: GameState, p: PlayerState, id: LandmarkId): bool
   return p.coins >= cost;
 }
 
+/** Landmarks the Demolition Company could knock down. */
 export function demolishable(state: GameState, p: PlayerState): LandmarkId[] {
   return winLandmarks(state.rules)
     .filter((l) => p.landmarks[l.id])
     .map((l) => l.id);
 }
 
+/** Whose input the game is waiting on, or null when the game is over. */
 export function waitingOn(state: GameState): string | null {
   return state.phase === 'over' ? null : activePlayer(state).id;
 }
@@ -1084,12 +1138,16 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
 
     case 'reroll': {
       if (state.phase !== 'reroll') return 'err.nothingToReroll';
+      // The Radio Tower goes first, and only the reroll actually taken is paid
+      // for: the Urbanist's one-off keeps for a turn the tower already covered.
+      const fromTower = Boolean(active.landmarks.radio_tower);
       state.rerollUsed = true;
-      if (active.mayor === 'urbanist') {
-        active.mayorRerollAvailable = false;
-      }
       if (action.again) {
-        noteHits(active, 'radio_tower');
+        if (fromTower) noteHits(active, 'radio_tower');
+        else {
+          active.mayorRerollAvailable = false;
+          noteHits(active, 'urbanist');
+        }
         log(state, 'log.reroll', { player: active.name }, { who: active.id, kind: 'roll' });
         rollDice(state, state.dice.length);
       }
@@ -1129,7 +1187,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       const target = findPlayer(state, action.targetId);
       if (!target) return 'err.unknownPlayer';
       if (target.id === active.id) return 'err.pickAnother';
-      const took = pay(target, active, 5, 'tv_station');
+      const took = pay(state, target, active, 5, 'tv_station');
       log(state, 'log.tvTake', { player: active.name, amount: took, target: target.name }, { who: active.id, kind: 'income' });
       advancePending(state);
       return null;
@@ -1198,7 +1256,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
         if (newly <= 0) continue;
         p.closed[action.cardId] = copies(p, action.cardId);
         shut += newly;
-        if (p.id !== active.id) collected += pay(p, active, newly, 'renovation_company');
+        if (p.id !== active.id) collected += pay(state, p, active, newly, 'renovation_company');
       }
       log(
         state,
@@ -1244,6 +1302,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (!canBuy(state, active, action.cardId)) return 'err.cannotBuy';
       const card = CARD_BY_ID[action.cardId];
       const cost = cardCost(state, active, card);
+      // The Loan Office has a negative price: taking it on pays you.
       if (cost < 0) gain(active, card.id, -cost, true);
       else {
         active.coins -= cost;
@@ -1272,9 +1331,11 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       active.landmarks[l.id] = true;
       log(state, 'log.buildLandmark', { player: active.name, landmark: l.id, cost }, { who: active.id, kind: 'build' });
       if (active.mayor === 'urbanist') {
-        gain(active, 'city_hall', 2, true);
+        const amount = mayorTuning(state.players.length).urbanistCashback;
+        noteHits(active, 'urbanist');
+        gain(active, 'urbanist', amount, true);
         active.mayorRerollAvailable = true;
-        log(state, 'log.mayorUrbanist', { player: active.name, amount: 2 }, { who: active.id, kind: 'build' });
+        log(state, 'log.mayorUrbanist', { player: active.name, amount }, { who: active.id, kind: 'build' });
       }
       endOfTurn(state);
       return null;
@@ -1305,7 +1366,7 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
 /** Coins the blue cards pay out, which they do on anybody's roll. */
 function blueIncomeAt(state: GameState, p: PlayerState, total: number): number {
   let sum = 0;
-  for (const card of triggered(p, total, 'blue', state.rules, state)) {
+  for (const card of triggered(state, p, total, 'blue')) {
     const n = openCopies(p, card.id);
     sum += (card.id === 'tuna_boat' ? 7 : blueAmount(state, card, p)) * n;
   }
@@ -1315,7 +1376,7 @@ function blueIncomeAt(state: GameState, p: PlayerState, total: number): number {
 /** Coins the green cards pay out, which they only do on their owner's turn. */
 function greenIncomeAt(state: GameState, p: PlayerState, total: number): number {
   let sum = 0;
-  for (const card of triggered(p, total, 'green', state.rules, state)) {
+  for (const card of triggered(state, p, total, 'green')) {
     const n = openCopies(p, card.id);
     if (card.id === 'demolition_company') sum += (landmarkCount(state, p) > 0 ? 8 : 0) * n;
     else if (card.id === 'moving_company') sum += (tradeableCards(p).length > 0 ? 4 : 0) * n;
@@ -1334,7 +1395,7 @@ function purpleIncomeAt(state: GameState, p: PlayerState, total: number): number
   const others = state.players.filter((o) => o.id !== p.id);
   let sum = 0;
 
-  for (const card of triggered(p, total, 'purple', state.rules, state)) {
+  for (const card of triggered(state, p, total, 'purple')) {
     if (openCopies(p, card.id) <= 0) continue;
     switch (card.id) {
       case 'stadium':
@@ -1376,10 +1437,12 @@ function redOwedAt(state: GameState, p: PlayerState, total: number): number {
   let owed = 0;
   for (const other of state.players) {
     if (other.id === p.id) continue;
-    for (const card of triggered(other, total, 'red', state.rules, state)) {
+    for (const card of triggered(state, other, total, 'red')) {
       owed += redAmount(state, card, other, p) * openCopies(other, card.id);
     }
   }
+  // What the Restaurateur is shielding can never be billed, so it is not owed.
+  if (p.mayor === 'restaurateur') return Math.min(owed, payable(state, p));
   // Nobody can be billed for more than they are holding.
   return Math.min(owed, p.coins);
 }
@@ -1407,11 +1470,11 @@ export function incomeAt(state: GameState, p: PlayerState, total: number): Incom
   const others = state.players.filter((o) => o.id !== p.id);
   let take = 0;
   if (others.length > 0) {
-    for (const card of triggered(p, total, 'red', state.rules, state)) {
+    for (const card of triggered(state, p, total, 'red')) {
       const n = openCopies(p, card.id);
       if (n <= 0) continue;
       const average =
-        others.reduce((a, roller) => a + Math.min(redAmount(state, card, p, roller), roller.coins), 0) / others.length;
+        others.reduce((a, roller) => a + Math.min(redAmount(state, card, p, roller), payable(state, roller)), 0) / others.length;
       take += average * n;
     }
   }

@@ -4,7 +4,7 @@
  */
 import { CARD_BY_ID, LANDMARK_BY_ID, type CardId, type LandmarkId, type RuleSet } from './cards';
 import { CITY_EVENT_BY_ID, type CityEventId } from './events';
-import { MAYOR_BY_ID, type MayorId } from './mayors';
+import { MAYOR_BY_ID, mayorTuning, type MayorId } from './mayors';
 
 export type Lang = 'en' | 'ru' | 'kk';
 export const LANGS: Lang[] = ['en', 'ru', 'kk'];
@@ -297,9 +297,12 @@ export function landmarkText(lang: Lang, id: LandmarkId): string {
   return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id].text;
 }
 
-/** Name of whatever a post-game row is about — an establishment or a landmark. */
+/** Name of whatever a post-game row is about — a building, a mayor or an event. */
 export function statName(lang: Lang, key: string): string {
-  return key in LANDMARK_BY_ID ? landmarkName(lang, key as LandmarkId) : cardName(lang, key as CardId);
+  if (key in LANDMARK_BY_ID) return landmarkName(lang, key as LandmarkId);
+  if (key in MAYOR_BY_ID) return mayorName(lang, key as MayorId);
+  if (key in CITY_EVENT_BY_ID) return eventName(lang, key as CityEventId);
+  return cardName(lang, key as CardId);
 }
 
 /** Short label for the landmark chips, where space is tight. */
@@ -390,30 +393,30 @@ const EVENTS_KK: Record<CityEventId, { name: string; text: string }> = {
 };
 
 const MAYORS_EN: Record<MayorId, { name: string; text: string }> = {
-  agronomist: { name: 'Agronomist', text: 'Start of turn: if you own 3 or more Blue cards, gain 1 coin from the bank.' },
-  restaurateur: { name: 'Restaurateur', text: 'Red cards cost 1 coin less (min 0). Opponents cannot steal your last 2 coins.' },
-  industrialist: { name: 'Industrialist', text: 'Train Station costs 2 coins. Green factories get +1 coin total per payout.' },
-  banker: { name: 'Banker', text: 'End of turn: if you hold 8 or more coins, gain 2 dividend coins from the bank.' },
-  urbanist: { name: 'Urbanist', text: 'When you build a Landmark, receive 2 coins cashback and a free re-roll on your next turn.' },
-  adventurer: { name: 'Navigator', text: 'If you own Harbor, you can use the +2 dice modifier on rolls of 8+ (instead of 10+).' },
+  agronomist: { name: 'Agronomist', text: 'Start of turn: if you own {blue} or more Blue cards, gain 1 coin from the bank.' },
+  restaurateur: { name: 'Restaurateur', text: 'Red cards cost 1 coin less (min 0). Opponents always leave you {shield} {shieldWord}.' },
+  industrialist: { name: 'Industrialist', text: 'Your green factories pay 1 coin more for each source establishment they count.' },
+  banker: { name: 'Banker', text: 'End of turn: if you hold {floor} or more coins, gain {dividend} dividend {dividendWord} from the bank.' },
+  urbanist: { name: 'Urbanist', text: 'When you build a Landmark, receive {cashback} {cashbackWord} cashback and a free re-roll on your next turn.' },
+  adventurer: { name: 'Navigator', text: 'If you own Harbor, you can use the +2 dice modifier on rolls of {roll}+ (instead of 10+).' },
 };
 
 const MAYORS_RU: Record<MayorId, { name: string; text: string }> = {
-  agronomist: { name: 'Мэр-Аграрий', text: 'В начале хода: если у вас 3 или более синих карт, получите 1 монету из банка.' },
-  restaurateur: { name: 'Мэр-Ресторатор', text: 'Скидка 1 монета на красные карты. Соперники не могут украсть ваши последние 2 монеты.' },
-  industrialist: { name: 'Мэр-Индустриалист', text: 'Вокзал стоит 2 монеты. Зеленые фабрики приносят +1 монету суммарно к выплате.' },
-  banker: { name: 'Мэр-Банкир', text: 'В конце хода: если у вас 8 или более монет, банк выплачивает дивиденды +2 монеты.' },
-  urbanist: { name: 'Мэр-Урбанист', text: 'При постройке достопримечательности: кэшбэк 2 монеты и право на переброс кубиков.' },
-  adventurer: { name: 'Мэр-Мореплаватель', text: 'С Гаванью бонус +2 к броску доступен уже при сумме от 8 (вместо 10).' },
+  agronomist: { name: 'Мэр-Аграрий', text: 'В начале хода: если у вас {blue} или более синих карт, получите 1 монету из банка.' },
+  restaurateur: { name: 'Мэр-Ресторатор', text: 'Скидка 1 монета на красные карты. Неприкосновенный запас: {shield} {shieldWord}.' },
+  industrialist: { name: 'Мэр-Индустриалист', text: 'Ваши зеленые фабрики приносят на 1 монету больше за каждое исходное здание.' },
+  banker: { name: 'Мэр-Банкир', text: 'В конце хода: если у вас {floor} или более монет, банк выплачивает дивиденды: {dividend} {dividendWord}.' },
+  urbanist: { name: 'Мэр-Урбанист', text: 'При постройке достопримечательности: кэшбэк {cashback} {cashbackWord} и право на переброс кубиков.' },
+  adventurer: { name: 'Мэр-Мореплаватель', text: 'С Гаванью бонус +2 к броску доступен уже при сумме от {roll} (вместо 10).' },
 };
 
 const MAYORS_KK: Record<MayorId, { name: string; text: string }> = {
-  agronomist: { name: 'Агроном Әкім', text: 'Жүрістің басында: 3 немесе одан көп көк картаңыз болса, банктен 1 монета алыңыз.' },
-  restaurateur: { name: 'Мейрамханашы Әкім', text: 'Қызыл карталар 1 монетаға арзан. Қарсыластар соңғы 2 монетаңызды ала алмайды.' },
-  industrialist: { name: 'Өнеркәсіпші Әкім', text: 'Вокзал 2 монета тұрады. Жасыл зауыттар жалпы табысқа +1 монета қосады.' },
-  banker: { name: 'Банкир Әкім', text: 'Жүрістің соңында: 8 немесе одан көп монетаңыз болса, банк +2 монета дивиденд береді.' },
-  urbanist: { name: 'Урбанист Әкім', text: 'Көрнекті нысан салғанда 2 монета кэшбэк және қайта тастау құқығы беріледі.' },
-  adventurer: { name: 'Теңізші Әкім', text: 'Айлақпен кубиктерде 8 немесе одан көп түскенде +2 қоса аласыз (10-ның орнына).' },
+  agronomist: { name: 'Агроном Әкім', text: 'Жүрістің басында: {blue} немесе одан көп көк картаңыз болса, банктен 1 монета алыңыз.' },
+  restaurateur: { name: 'Мейрамханашы Әкім', text: 'Қызыл карталар 1 монетаға арзан. Қолсұғылмайтын қор: {shield} {shieldWord}.' },
+  industrialist: { name: 'Өнеркәсіпші Әкім', text: 'Жасыл зауыттарыңыз санайтын әр шикізат кәсіпорны үшін 1 монета көп төлейді.' },
+  banker: { name: 'Банкир Әкім', text: 'Жүрістің соңында: {floor} немесе одан көп монетаңыз болса, банк {dividend} {dividendWord} дивиденд береді.' },
+  urbanist: { name: 'Урбанист Әкім', text: 'Көрнекті нысан салғанда {cashback} {cashbackWord} кэшбэк және қайта тастау құқығы беріледі.' },
+  adventurer: { name: 'Теңізші Әкім', text: 'Айлақпен кубиктерде {roll} немесе одан көп түскенде +2 қоса аласыз (10-ның орнына).' },
 };
 
 const EVENT_TABLES: Record<Lang, Record<CityEventId, { name: string; text: string }>> = {
@@ -444,8 +447,20 @@ export function mayorName(lang: Lang, id: MayorId): string {
   return MAYOR_TABLES[lang]?.[id]?.name ?? id;
 }
 
-export function mayorText(lang: Lang, id: MayorId): string {
-  return MAYOR_TABLES[lang]?.[id]?.text ?? '';
+/**
+ * The mayors' numbers move with the table size, so the card has to be told how
+ * many are playing before it can say what the ability is worth.
+ */
+export function mayorText(lang: Lang, id: MayorId, players: number): string {
+  const d = mayorTuning(players);
+  return fill(lang, MAYOR_TABLES[lang]?.[id]?.text ?? '', {
+    blue: d.agronomistBlue,
+    shield: d.restaurateurShield,
+    floor: d.bankerFloor,
+    dividend: d.bankerDividend,
+    cashback: d.urbanistCashback,
+    roll: d.adventurerHarbor,
+  });
 }
 
 export function mayorIcon(id: MayorId): string {
@@ -1627,12 +1642,16 @@ function coinsWord(lang: Lang, n: number): string {
 /** Params holding a card id, so the log can name cards in the reader's language. */
 const CARD_PARAMS = new Set(['card', 'card2']);
 
-export function t(lang: Lang, key: string, params?: Params): string {
-  const template = TABLES[lang]?.[key] ?? EN[key] ?? key;
+/**
+ * Substitute `{placeholders}`. A name ending in `Word` is the coin word for the
+ * number in the parameter it is named after, so `{shieldWord}` declines against
+ * `{shield}` — which is what lets one sentence carry two different coin counts.
+ */
+function fill(lang: Lang, template: string, params?: Params): string {
   if (!params) return template;
 
   return template.replace(/\{(\w+)\}/g, (_match, name: string) => {
-    if (name === 'coinsWord') return coinsWord(lang, Number(params.coins ?? 0));
+    if (name.endsWith('Word')) return coinsWord(lang, Number(params[name.slice(0, -4)] ?? 0));
     const value = params[name];
     if (value === undefined) return '';
     if (CARD_PARAMS.has(name)) return cardName(lang, value as CardId);
@@ -1648,6 +1667,10 @@ export function t(lang: Lang, key: string, params?: Params): string {
     }
     return String(value);
   });
+}
+
+export function t(lang: Lang, key: string, params?: Params): string {
+  return fill(lang, TABLES[lang]?.[key] ?? EN[key] ?? key, params);
 }
 
 /** Compact rules code stored in the log, expanded per language at render time. */
