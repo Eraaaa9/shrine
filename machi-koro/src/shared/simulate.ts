@@ -35,6 +35,9 @@ const HARBOR: RuleSet = { harbor: true, millionaires: false, variableSupply: fal
 const ROW: RuleSet = { harbor: false, millionaires: true, variableSupply: false };
 const BRIGHT: RuleSet = { harbor: true, millionaires: true, variableSupply: false };
 const BRIGHT_VAR: RuleSet = { harbor: true, millionaires: true, variableSupply: true };
+const EVENTS_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events: true };
+const MAYORS_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, mayors: true };
+const FULL_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true, events: true, mayors: true };
 
 let failures = 0;
 
@@ -720,6 +723,92 @@ function millionairesRuleTests(): void {
   }
 }
 
+function eventsRuleTests(): void {
+  {
+    // Economic Boom adds +1 to blue cards
+    const g = createGame(seats(2), EVENTS_RULES, 1);
+    g.currentEvent = 'economic_boom';
+    const [a] = g.players;
+    give(g, a, 'wheat_field', 2);
+    applyForcedRoll(g, [1]);
+    expect('Economic boom adds +1 per blue card', a.coins, 3 + (1 + 1) * 3); // 3 copies of wheat_field * (1+1)
+  }
+
+  {
+    // Subsidized market reduces cost by 1 (min 1)
+    const g = createGame(seats(2), EVENTS_RULES, 2);
+    g.currentEvent = 'subsidized_market';
+    const a = g.players[0];
+    a.coins = 10;
+    applyForcedRoll(g, [1]);
+    expect('phase is build', g.phase, 'build');
+    check('buying ranch costs 1', applyAction(g, a.id, { t: 'buy', cardId: 'ranch' }) === null);
+    expect('coins deducted with discount', a.coins, 10 + 1 - 1);
+  }
+
+  {
+    // Lucky seven awards 3 coins bonus on roll of 7
+    const g = createGame(seats(2), EVENTS_RULES, 3);
+    g.currentEvent = 'lucky_seven';
+    const a = g.players[0];
+    applyForcedRoll(g, [3, 4]);
+    expect('Lucky Seven awards +3 coins to roller', a.coins, 3 + 3);
+  }
+}
+
+function mayorsRuleTests(): void {
+  {
+    // Agronomist gets 1 coin if owning >= 3 blue cards
+    const g = createGame(seats(2), MAYORS_RULES, 1);
+    const a = g.players[0];
+    a.mayor = 'agronomist';
+    give(g, a, 'wheat_field', 2);
+    give(g, a, 'forest', 1);
+    // next turn
+    g.turn = 0;
+    applyForcedRoll(g, [2]);
+    applyAction(g, g.players[0].id, { t: 'pass' });
+    applyForcedRoll(g, [2]);
+    applyAction(g, g.players[1].id, { t: 'pass' });
+    expect('Agronomist gets passive coin at start of turn', a.coins >= 4, true);
+  }
+
+  {
+    // Restaurateur protection: opponents cannot steal below 2 coins
+    const g = createGame(seats(2), MAYORS_RULES, 2);
+    const [a, b] = g.players;
+    a.mayor = 'restaurateur';
+    a.coins = 2;
+    give(g, b, 'cafe', 2);
+    applyForcedRoll(g, [3]);
+    expect('Restaurateur protects last 2 coins from cafe', a.coins, 3); // 2 protected + 1 bakery
+    expect('Cafe owner collects 0 from protected player', b.coins, 3);
+  }
+
+  {
+    // Industrialist gets Train Station for 2 coins
+    const g = createGame(seats(2), MAYORS_RULES, 3);
+    const a = g.players[0];
+    a.mayor = 'industrialist';
+    a.coins = 2;
+    applyForcedRoll(g, [1]);
+    check('Industrialist builds Train Station for 2 coins', applyAction(g, a.id, { t: 'landmark', landmarkId: 'train_station' }) === null);
+    expect('Train station built', a.landmarks.train_station, true);
+    expect('Only 2 coins paid', a.coins, 1); // 2 start + 1 wheat - 2 cost = 1
+  }
+
+  {
+    // Banker gets 2 coins dividend at end of turn if holding >= 8 coins
+    const g = createGame(seats(2), MAYORS_RULES, 4);
+    const a = g.players[0];
+    a.mayor = 'banker';
+    a.coins = 8;
+    applyForcedRoll(g, [1]);
+    applyAction(g, a.id, { t: 'pass' });
+    expect('Banker receives +2 coins dividend', a.coins, 8 + 1 + 2);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // the post-game ledger
 // ---------------------------------------------------------------------------
@@ -941,7 +1030,9 @@ function translationTests(): void {
   console.log(failures === beforeTranslations ? '  passed' : `  ${failures - beforeTranslations} failed`);
 }
 
-const count = Number(process.argv[2] ?? 100);
+const countArg = process.argv.slice(2).find((a) => !a.startsWith('-') && !isNaN(Number(a)));
+const gamesFlagIndex = process.argv.indexOf('--games');
+const count = Number(countArg ?? (gamesFlagIndex >= 0 ? process.argv[gamesFlagIndex + 1] : 50)) || 50;
 
 console.log('Base + Harbor rules');
 baseRuleTests();
@@ -953,9 +1044,19 @@ millionairesRuleTests();
 console.log(failures === afterBase ? '  passed\n' : `  ${failures - afterBase} failed\n`);
 
 const afterRow = failures;
+console.log('City Events rules');
+eventsRuleTests();
+console.log(failures === afterRow ? '  passed\n' : `  ${failures - afterRow} failed\n`);
+
+const afterEvents = failures;
+console.log('Mayors & Factions rules');
+mayorsRuleTests();
+console.log(failures === afterEvents ? '  passed\n' : `  ${failures - afterEvents} failed\n`);
+
+const afterMayors = failures;
 console.log('Post-game stats');
 statsTests();
-console.log(failures === afterRow ? '  passed\n' : `  ${failures - afterRow} failed\n`);
+console.log(failures === afterMayors ? '  passed\n' : `  ${failures - afterMayors} failed\n`);
 
 console.log('Bot games');
 simulate(count, HARBOR, 4);
@@ -963,8 +1064,11 @@ simulate(count, BASE, 4);
 simulate(count, ROW, 4);
 simulate(count, BRIGHT, 4);
 simulate(count, BRIGHT_VAR, 4);
-simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 5);
-simulate(Math.max(10, Math.floor(count / 2)), BRIGHT_VAR, 2);
+simulate(count, EVENTS_RULES, 4);
+simulate(count, MAYORS_RULES, 4);
+simulate(count, FULL_RULES, 4);
+simulate(Math.max(10, Math.floor(count / 2)), FULL_RULES, 5);
+simulate(Math.max(10, Math.floor(count / 2)), FULL_RULES, 2);
 
 translationTests();
 
