@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { maxPlayers } from '../../shared/cards';
-import { rulesCode } from '../../shared/i18n';
+import { mayorIcon, mayorName, mayorText, rulesCode } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import { MIN_PLAYERS } from '../../shared/protocol';
 import { LangSwitch, useLang } from '../lang';
 import { SoundSwitch, ThemeSwitch } from '../prefs';
 import BotLevelPicker from './BotLevelPicker';
 import Chat from './Chat';
+import MayorPicker from './MayorPicker';
 import RulesPicker from './RulesPicker';
 
 interface Props {
@@ -16,11 +17,12 @@ interface Props {
 }
 
 export default function Lobby({ room, youId, send }: Props) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const [copied, setCopied] = useState(false);
   const isHost = room.hostId === youId;
   const max = maxPlayers(room.rules);
   const inviteUrl = `${location.origin}${location.pathname}?room=${room.code}`;
+  const youSeat = room.seats.find((s) => s.id === youId);
 
   const copy = async () => {
     try {
@@ -69,6 +71,14 @@ export default function Lobby({ room, youId, send }: Props) {
               {seat.isHost && <span className="tag">{t('ui.host')}</span>}
               {seat.isBot && <span className="tag bot">{t('ui.bot')}</span>}
               {seat.id === youId && <span className="tag you-tag">{t('ui.you')}</span>}
+              {seat.mayor && (
+                <span
+                  className="tag mayor-badge"
+                  title={`${mayorName(lang, seat.mayor)}: ${mayorText(lang, seat.mayor)}`}
+                >
+                  {mayorIcon(seat.mayor)} {mayorName(lang, seat.mayor)}
+                </span>
+              )}
               {isHost && !seat.isHost && (
                 <button type="button" className="ghost small" onClick={() => send({ t: 'kick', playerId: seat.id })}>
                   {t('ui.remove')}
@@ -77,6 +87,12 @@ export default function Lobby({ room, youId, send }: Props) {
             </li>
           ))}
         </ul>
+
+        {/* Mayor Selection for Current Player */}
+        <MayorPicker
+          selected={youSeat?.mayor ?? 'agronomist'}
+          onChange={(mayor) => send({ t: 'setMayor', mayor })}
+        />
 
         {isHost ? (
           <>

@@ -3,6 +3,8 @@
  * log reads in each player's own language even though the server writes it once.
  */
 import { CARD_BY_ID, LANDMARK_BY_ID, type CardId, type LandmarkId, type RuleSet } from './cards';
+import { CITY_EVENT_BY_ID, type CityEventId } from './events';
+import { MAYOR_BY_ID, type MayorId } from './mayors';
 
 export type Lang = 'en' | 'ru' | 'kk';
 export const LANGS: Lang[] = ['en', 'ru', 'kk'];
@@ -338,10 +340,124 @@ export function landmarkShort(lang: Lang, id: LandmarkId): string {
   return LANDMARK_SHORT[lang]?.[id] ?? landmarkName(lang, id).split(' ')[0];
 }
 
+// ---------------------------------------------------------------------------
+// city events & mayors translations
+// ---------------------------------------------------------------------------
+
+const EVENTS_EN: Record<CityEventId, { name: string; text: string }> = {
+  economic_boom: { name: 'Economic Boom', text: 'All Blue primary industry establishments earn +1 coin upon activation.' },
+  food_festival: { name: 'Food Festival', text: 'All Red restaurants take +1 coin from the player who rolled.' },
+  urban_grant: { name: 'Urban Grant', text: 'All Landmarks cost 2 coins less to build (minimum 1).' },
+  big_catch: { name: 'Lucky Catch', text: 'All Boat establishments activate on their numbers even if you have not built the Harbor.' },
+  harbor_storm: { name: 'Harbor Storm', text: 'Harbor +2 bonus and Boat establishments are disabled during this round.' },
+  factory_strike: { name: 'Factory Strike', text: 'Green factories earn 1 coin less per source establishment (minimum 1).' },
+  health_inspection: { name: 'Health Inspection', text: 'Each player’s most expensive Red restaurant is temporarily closed during this round.' },
+  tax_hike: { name: 'Tax Hike', text: 'At the end of your turn, pay 1 coin to the bank if you hold 10 or more coins.' },
+  anti_monopoly: { name: 'Anti-Monopoly Act', text: 'Leader in landmarks cannot buy Major cards. Player with fewest landmarks gets 2 coins subsidy.' },
+  social_aid: { name: 'Social Aid', text: 'If you start your turn with 0 coins, receive 2 coins from the bank instead of 1.' },
+  lucky_seven: { name: 'Lucky Seven', text: 'Rolling a total of 7 immediately awards the roller 3 bonus coins from the bank.' },
+  subsidized_market: { name: 'Market Discount', text: 'All establishments in the supply cost 1 coin less (minimum 1) during this round.' },
+};
+
+const EVENTS_RU: Record<CityEventId, { name: string; text: string }> = {
+  economic_boom: { name: 'Экономический бум', text: 'Все синие предприятия приносят +1 дополнительную монету при срабатывании.' },
+  food_festival: { name: 'Гастрономический фестиваль', text: 'Все красные заведения берут +1 дополнительную монету с бросившего кубики.' },
+  urban_grant: { name: 'Городские субсидии', text: 'Строительство любой достопримечательности стоит на 2 монеты дешевле (минимум 1).' },
+  big_catch: { name: 'Удачный улов', text: 'Все лодки и траулеры срабатывают даже если у вас не построена Гавань.' },
+  harbor_storm: { name: 'Шторм в гавани', text: 'Свойство Гавани (+2) и лодки не действуют в этот раунд.' },
+  factory_strike: { name: 'Забастовка фабрик', text: 'Зеленые фабрики приносят на 1 монету меньше за каждое исходное здание (минимум 1).' },
+  health_inspection: { name: 'Санитарная инспекция', text: 'Самое дорогое красное заведение каждого игрока закрыто на проверку в этот раунд.' },
+  tax_hike: { name: 'Инфляция и налоги', text: 'В конце своего хода заплатите 1 монету в банк, если у вас 10 или больше монет.' },
+  anti_monopoly: { name: 'Антимонопольный указ', text: 'Лидер по достопримечательностям не может покупать фиолетовые карты; отстающий получает 2 монеты.' },
+  social_aid: { name: 'Социальный пакет', text: 'Если в начале своего хода у вас 0 монет, банк выдает вам 2 монеты вместо 1.' },
+  lucky_seven: { name: 'Счастливая семёрка', text: 'Если сумма кубиков равна 7, бросивший игрок получает 3 монеты из банка бонусом.' },
+  subsidized_market: { name: 'Сезон скидок', text: 'Все предприятия на рынке стоят на 1 монету дешевле (минимум 1) в этот раунд.' },
+};
+
+const EVENTS_KK: Record<CityEventId, { name: string; text: string }> = {
+  economic_boom: { name: 'Экономикалық өсім', text: 'Барлық көк кәсіпорындар іске қосылғанда +1 қосымша монета әкеледі.' },
+  food_festival: { name: 'Асхана фестивалі', text: 'Барлық қызыл мейрамханалар кубик тастаған ойыншыдан +1 қосымша монета алады.' },
+  urban_grant: { name: 'Қалалық субсидия', text: 'Кез келген көрнекті нысанды салу 2 монетаға арзан (кемінде 1).' },
+  big_catch: { name: 'Сәтті аулау', text: 'Барлық қайықтар мен траулерлер Айлақ салынбаса да іске қосылады.' },
+  harbor_storm: { name: 'Айлақтағы дауыл', text: 'Айлақтың +2 қасиеті мен қайықтар бұл раундта жұмыс істемейді.' },
+  factory_strike: { name: 'Зауыттар ереуілі', text: 'Жасыл зауыттар әр шикізат кәсіпорны үшін 1 монетаға аз әкеледі (кемінде 1).' },
+  health_inspection: { name: 'Санитарлық тексеру', text: 'Әр ойыншының ең қымбат қызыл мейрамханасы бұл раундта жұмыс істемейді.' },
+  tax_hike: { name: 'Салықтың өсуі', text: 'Жүрісіңіздің соңында 10 немесе одан көп монетаңыз болса, банкке 1 монета төлеңіз.' },
+  anti_monopoly: { name: 'Монополияға қарсы заң', text: 'Көрнекті нысандар бойынша көшбасшы күлгін карталарды ала алмайды; соңғы ойыншы 2 монета алады.' },
+  social_aid: { name: 'Әлеуметтік көмек', text: 'Жүрісіңіздің басында 0 монетаңыз болса, банк 1 монетаның орнына 2 монета береді.' },
+  lucky_seven: { name: 'Сәтті жетілік', text: 'Кубиктер жиынтығы 7 болса, тастаған ойыншы банкке 3 монета бонус алады.' },
+  subsidized_market: { name: 'Жеңілдіктер маусымы', text: 'Қордағы барлық кәсіпорындар бұл раундта 1 монетаға арзан (кемінде 1).' },
+};
+
+const MAYORS_EN: Record<MayorId, { name: string; text: string }> = {
+  agronomist: { name: 'Agronomist', text: 'Start of turn: if you own 3 or more Blue cards, gain 1 coin from the bank.' },
+  restaurateur: { name: 'Restaurateur', text: 'Red cards cost 1 coin less (min 0). Opponents cannot steal your last 2 coins.' },
+  industrialist: { name: 'Industrialist', text: 'Train Station costs 2 coins. Green factories get +1 coin total per payout.' },
+  banker: { name: 'Banker', text: 'End of turn: if you hold 8 or more coins, gain 2 dividend coins from the bank.' },
+  urbanist: { name: 'Urbanist', text: 'When you build a Landmark, receive 2 coins cashback and a free re-roll on your next turn.' },
+  adventurer: { name: 'Navigator', text: 'If you own Harbor, you can use the +2 dice modifier on rolls of 8+ (instead of 10+).' },
+};
+
+const MAYORS_RU: Record<MayorId, { name: string; text: string }> = {
+  agronomist: { name: 'Мэр-Аграрий', text: 'В начале хода: если у вас 3 или более синих карт, получите 1 монету из банка.' },
+  restaurateur: { name: 'Мэр-Ресторатор', text: 'Скидка 1 монета на красные карты. Соперники не могут украсть ваши последние 2 монеты.' },
+  industrialist: { name: 'Мэр-Индустриалист', text: 'Вокзал стоит 2 монеты. Зеленые фабрики приносят +1 монету суммарно к выплате.' },
+  banker: { name: 'Мэр-Банкир', text: 'В конце хода: если у вас 8 или более монет, банк выплачивает дивиденды +2 монеты.' },
+  urbanist: { name: 'Мэр-Урбанист', text: 'При постройке достопримечательности: кэшбэк 2 монеты и право на переброс кубиков.' },
+  adventurer: { name: 'Мэр-Мореплаватель', text: 'С Гаванью бонус +2 к броску доступен уже при сумме от 8 (вместо 10).' },
+};
+
+const MAYORS_KK: Record<MayorId, { name: string; text: string }> = {
+  agronomist: { name: 'Агроном Әкім', text: 'Жүрістің басында: 3 немесе одан көп көк картаңыз болса, банктен 1 монета алыңыз.' },
+  restaurateur: { name: 'Мейрамханашы Әкім', text: 'Қызыл карталар 1 монетаға арзан. Қарсыластар соңғы 2 монетаңызды ала алмайды.' },
+  industrialist: { name: 'Өнеркәсіпші Әкім', text: 'Вокзал 2 монета тұрады. Жасыл зауыттар жалпы табысқа +1 монета қосады.' },
+  banker: { name: 'Банкир Әкім', text: 'Жүрістің соңында: 8 немесе одан көп монетаңыз болса, банк +2 монета дивиденд береді.' },
+  urbanist: { name: 'Урбанист Әкім', text: 'Көрнекті нысан салғанда 2 монета кэшбэк және қайта тастау құқығы беріледі.' },
+  adventurer: { name: 'Теңізші Әкім', text: 'Айлақпен кубиктерде 8 немесе одан көп түскенде +2 қоса аласыз (10-ның орнына).' },
+};
+
+const EVENT_TABLES: Record<Lang, Record<CityEventId, { name: string; text: string }>> = {
+  en: EVENTS_EN,
+  ru: EVENTS_RU,
+  kk: EVENTS_KK,
+};
+
+const MAYOR_TABLES: Record<Lang, Record<MayorId, { name: string; text: string }>> = {
+  en: MAYORS_EN,
+  ru: MAYORS_RU,
+  kk: MAYORS_KK,
+};
+
+export function eventName(lang: Lang, id: CityEventId): string {
+  return EVENT_TABLES[lang]?.[id]?.name ?? id;
+}
+
+export function eventText(lang: Lang, id: CityEventId): string {
+  return EVENT_TABLES[lang]?.[id]?.text ?? '';
+}
+
+export function eventIcon(id: CityEventId): string {
+  return CITY_EVENT_BY_ID[id]?.icon ?? '🏙️';
+}
+
+export function mayorName(lang: Lang, id: MayorId): string {
+  return MAYOR_TABLES[lang]?.[id]?.name ?? id;
+}
+
+export function mayorText(lang: Lang, id: MayorId): string {
+  return MAYOR_TABLES[lang]?.[id]?.text ?? '';
+}
+
+export function mayorIcon(id: MayorId): string {
+  return MAYOR_BY_ID[id]?.icon ?? '👤';
+}
+
 export function describeRulesIn(lang: Lang, rules: RuleSet): string {
   const parts = [t(lang, 'rules.base')];
   if (rules.harbor) parts.push(t(lang, 'rules.harbor'));
   if (rules.millionaires) parts.push(t(lang, 'rules.millionaires'));
+  if (rules.events) parts.push(t(lang, 'rules.events'));
+  if (rules.mayors) parts.push(t(lang, 'rules.mayors'));
   return parts.join(' + ');
 }
 
@@ -353,11 +469,22 @@ const EN: Record<string, string> = {
   'rules.base': 'base game',
   'rules.harbor': 'Harbor',
   'rules.millionaires': "Millionaire's Row",
+  'rules.events': 'Events',
+  'rules.mayors': 'Mayors',
 
   // log
   'log.gameOn': 'Game on — {rules}.',
   'log.turnOrder': 'Turn order: {order}.',
   'log.variableSupply': 'Variable supply: {n} stacks are available at a time.',
+  'log.eventStart': 'City Event: {event} — {text}',
+  'log.mayorAssigned': '{player} was appointed {mayor}.',
+  'log.mayorAgronomist': '{player} gets {amount} from the bank — Agronomist Mayor',
+  'log.mayorBanker': '{player} receives {amount} dividend — Banker Mayor',
+  'log.mayorUrbanist': '{player} receives {amount} cashback and free reroll — Urbanist Mayor',
+  'log.eventLuckySeven': 'Lucky Seven: {player} gets {amount} bonus from the bank!',
+  'log.eventSocialAid': 'Social Aid: {player} receives emergency funds from the bank.',
+  'log.eventTaxHike': 'Tax Hike: {player} pays {amount} to the bank.',
+  'log.eventAntiMonopolyAid': 'Anti-Monopoly Act: {player} receives {amount} subsidy.',
   'log.turn': '— Turn {n}: {player} ({coins} {coinsWord}) —',
   'log.roll': '{player} rolls {dice} = {total}',
   'log.tunaRoll': 'Tuna Boat roll: {total}.',
@@ -671,17 +798,71 @@ const EN: Record<string, string> = {
   'ui.botTrained': 'Trained',
   'ui.botTrainedBlurb': 'Tuned by self-play. It will punish a slow start.',
   'ui.statsTitleLive': 'How the city is going',
+
+  // expansions & rules
+  'ui.eventsName': 'City Events',
+  'ui.eventsBlurb': 'New global event each round changing city rules.',
+  'ui.mayorsName': 'Mayors & Factions',
+  'ui.mayorsBlurb': 'Asymmetrical abilities for each player.',
+
+  // post-game stats tabs & charts
+  'ui.statsTabTable': 'Building Ledger',
+  'ui.statsTabCharts': 'Charts & Analytics',
+  'ui.statsTabAwards': 'MVP & Highlights',
+  'ui.chartCapitalTitle': 'Wealth Over Time (Coins)',
+  'ui.chartDiceTitle': 'Dice Distribution vs Expected (2d6)',
+  'ui.chartRoll': 'Roll',
+  'ui.chartCount': 'Actual',
+  'ui.chartExpected': 'Expected',
+
+  // awards
+  'ui.awardMvp': '🌟 MVP Establishment',
+  'ui.awardMvpDesc': 'Earned {amount} net coins',
+  'ui.awardThief': '🦹 Master Extortionist',
+  'ui.awardThiefDesc': 'Extorted {amount} coins from opponents',
+  'ui.awardPatron': '💸 Generous Patron',
+  'ui.awardPatronDesc': 'Paid {amount} coins to opponents',
+  'ui.awardLucky': '🎲 Fortune’s Favorite',
+  'ui.awardLuckyDesc': 'Rolled {amount} doubles and high values',
+  'ui.awardArchitect': '🏛️ Master Builder',
+  'ui.awardArchitectDesc': 'Constructed {amount} landmarks with speed',
+
+  // reactions
+  'ui.reactionsTitle': 'Quick Reactions',
+  'ui.reactLuck': 'Good luck! 🎲',
+  'ui.reactOhNo': 'Oh no! 😱',
+  'ui.reactThanks': 'Thanks for the coins! 😈',
+  'ui.reactRobbed': 'I got robbed! 💸',
+  'ui.reactWinning': 'Almost won! 👑',
+  'ui.reactGg': 'Well played! 🤝',
+  'ui.reactYourTurn': 'Your turn! ⏱️',
+  'ui.reactFire': 'On fire! 🔥',
+  'ui.roundEvent': 'Round {round} Event: {event}',
+  'ui.mayorPower': 'Mayor Ability',
+  'ui.chooseMayorTitle': 'Choose Your Mayor',
+  'ui.chooseMayorBlurb': 'Each player gains a unique passive ability for the whole game.',
 };
 
 const RU: Record<string, string> = {
   'rules.base': 'базовая игра',
   'rules.harbor': 'Гавань',
   'rules.millionaires': 'Улица миллионеров',
+  'rules.events': 'События',
+  'rules.mayors': 'Мэры',
 
   // log
   'log.gameOn': 'Игра началась — {rules}.',
   'log.turnOrder': 'Порядок хода: {order}.',
   'log.variableSupply': 'Переменный запас: одновременно доступно {n} стопок.',
+  'log.eventStart': 'Городское событие: {event} — {text}',
+  'log.mayorAssigned': '{player} назначен на роль {mayor}.',
+  'log.mayorAgronomist': '{player} получает {amount} из банка — Мэр-Аграрий',
+  'log.mayorBanker': '{player} получает {amount} дивидендов — Мэр-Банкир',
+  'log.mayorUrbanist': '{player} получает {amount} кэшбэка и право на переброс — Мэр-Урбанист',
+  'log.eventLuckySeven': 'Счастливая семёрка: {player} получает {amount} бонуса из банка!',
+  'log.eventSocialAid': 'Социальный пакет: {player} получает поддержку из банка.',
+  'log.eventTaxHike': 'Инфляция: {player} платит {amount} в банк.',
+  'log.eventAntiMonopolyAid': 'Антимонопольный указ: {player} получает субсидию {amount}.',
   'log.turn': '— Ход {n}: {player} ({coins} {coinsWord}) —',
   'log.roll': '{player} бросает {dice} = {total}',
   'log.tunaRoll': 'Бросок Траулера: {total}.',
@@ -989,17 +1170,71 @@ const RU: Record<string, string> = {
   'ui.botTrained': 'Обученный',
   'ui.botTrainedBlurb': 'Настроен самообучением. Медленный старт не простит.',
   'ui.statsTitleLive': 'Как идёт стройка',
+
+  // expansions & rules
+  'ui.eventsName': 'События города',
+  'ui.eventsBlurb': 'Новое глобальное событие каждый круг.',
+  'ui.mayorsName': 'Мэры и Фракции',
+  'ui.mayorsBlurb': 'Уникальные пассивные способности каждого игрока.',
+
+  // post-game stats tabs & charts
+  'ui.statsTabTable': 'Ведомость зданий',
+  'ui.statsTabCharts': 'Графики и Аналитика',
+  'ui.statsTabAwards': 'Награды и MVP',
+  'ui.chartCapitalTitle': 'Динамика капитала (Монеты)',
+  'ui.chartDiceTitle': 'Распределение бросков vs Теория',
+  'ui.chartRoll': 'Сумма',
+  'ui.chartCount': 'Выпало',
+  'ui.chartExpected': 'Теория',
+
+  // awards
+  'ui.awardMvp': '🌟 MVP Предприятие',
+  'ui.awardMvpDesc': 'Принесло чистыми {amount} монет',
+  'ui.awardThief': '🦹 Главный рэкетир',
+  'ui.awardThiefDesc': 'Собрал {amount} монет с соперников',
+  'ui.awardPatron': '💸 Щедрый меценат',
+  'ui.awardPatronDesc': 'Выплатил соперникам {amount} монет',
+  'ui.awardLucky': '🎲 Любимчик фортуны',
+  'ui.awardLuckyDesc': 'Выбросил {amount} дублей',
+  'ui.awardArchitect': '🏛️ Главный архитектор',
+  'ui.awardArchitectDesc': 'Построил {amount} достопримечательностей',
+
+  // reactions
+  'ui.reactionsTitle': 'Быстрые реакции',
+  'ui.reactLuck': 'Удачи! 🎲',
+  'ui.reactOhNo': 'О нет! 😱',
+  'ui.reactThanks': 'Спасибо за монетки! 😈',
+  'ui.reactRobbed': 'Ограбили! 💸',
+  'ui.reactWinning': 'Почти победа! 👑',
+  'ui.reactGg': 'Отличная игра! 🤝',
+  'ui.reactYourTurn': 'Твой ход! ⏱️',
+  'ui.reactFire': 'Огонь! 🔥',
+  'ui.roundEvent': 'Событие {round}-го круга: {event}',
+  'ui.mayorPower': 'Способность Мэра',
+  'ui.chooseMayorTitle': 'Выберите своего мэра',
+  'ui.chooseMayorBlurb': 'Уникальная пассивная способность на весь матч.',
 };
 
 const KK: Record<string, string> = {
   'rules.base': 'негізгі ойын',
   'rules.harbor': 'Айлақ',
   'rules.millionaires': 'Миллионерлер көшесі',
+  'rules.events': 'Оқиғалар',
+  'rules.mayors': 'Әкімдер',
 
   // log
   'log.gameOn': 'Ойын басталды — {rules}.',
   'log.turnOrder': 'Жүріс кезегі: {order}.',
   'log.variableSupply': 'Ауыспалы қор: бір мезгілде {n} үйінді қолжетімді.',
+  'log.eventStart': 'Қалалық оқиға: {event} — {text}',
+  'log.mayorAssigned': '{player} рөліне тағайындалды: {mayor}.',
+  'log.mayorAgronomist': '{player} банктен {amount} алады — Агроном Әкім',
+  'log.mayorBanker': '{player} {amount} дивиденд алады — Банкир Әкім',
+  'log.mayorUrbanist': '{player} {amount} кэшбэк және қайта тастау құқығын алады — Урбанист Әкім',
+  'log.eventLuckySeven': 'Сәтті жетілік: {player} банктен {amount} бонус алады!',
+  'log.eventSocialAid': 'Әлеуметтік көмек: {player} банктен көмек алады.',
+  'log.eventTaxHike': 'Салықтың өсуі: {player} банкке {amount} төлейді.',
+  'log.eventAntiMonopolyAid': 'Монополияға қарсы заң: {player} {amount} субсидия алады.',
   'log.turn': '— {n}-жүріс: {player} ({coins} {coinsWord}) —',
   'log.roll': '{player} кубик тастады: {dice} = {total}',
   'log.tunaRoll': 'Тунец қайығының тастауы: {total}.',
@@ -1307,6 +1542,49 @@ const KK: Record<string, string> = {
   'ui.botTrained': 'Жаттыққан',
   'ui.botTrainedBlurb': 'Өзімен ойнап бапталған. Баяу бастағанды кешірмейді.',
   'ui.statsTitleLive': 'Қала қалай салынып жатыр',
+
+  // expansions & rules
+  'ui.eventsName': 'Қалалық оқиғалар',
+  'ui.eventsBlurb': 'Әр раундта қала ережелерін өзгертетін жаңа оқиға.',
+  'ui.mayorsName': 'Әкімдер мен Фракциялар',
+  'ui.mayorsBlurb': 'Әр ойыншының бірегей пассивті қабілеттері.',
+
+  // post-game stats tabs & charts
+  'ui.statsTabTable': 'Ғимараттар есебі',
+  'ui.statsTabCharts': 'Графиктер мен Талдау',
+  'ui.statsTabAwards': 'Марапаттар мен MVP',
+  'ui.chartCapitalTitle': 'Капитал динамикасы (Монеталар)',
+  'ui.chartDiceTitle': 'Кубиктердің түсуі vs Теория',
+  'ui.chartRoll': 'Қосынды',
+  'ui.chartCount': 'Түсті',
+  'ui.chartExpected': 'Теория',
+
+  // awards
+  'ui.awardMvp': '🌟 MVP Кәсіпорын',
+  'ui.awardMvpDesc': 'Таза {amount} монета әкелді',
+  'ui.awardThief': '🦹 Бас бопсалаушы',
+  'ui.awardThiefDesc': 'Қарсыластардан {amount} монета жинады',
+  'ui.awardPatron': '💸 Жомарт меценат',
+  'ui.awardPatronDesc': 'Қарсыластарға {amount} монета төледі',
+  'ui.awardLucky': '🎲 Сәттілік еркесі',
+  'ui.awardLuckyDesc': 'Выбросил {amount} дублей',
+  'ui.awardArchitect': '🏛️ Бас сәулетші',
+  'ui.awardArchitectDesc': '{amount} көрнекті нысан тұрғызды',
+
+  // reactions
+  'ui.reactionsTitle': 'Жылдам реакциялар',
+  'ui.reactLuck': 'Сәттілік! 🎲',
+  'ui.reactOhNo': 'Қап, әттеген-ай! 😱',
+  'ui.reactThanks': 'Монеталар үшін рақмет! 😈',
+  'ui.reactRobbed': 'Тонап кетті! 💸',
+  'ui.reactWinning': 'Жеңіске аз қалды! 👑',
+  'ui.reactGg': 'Керемет ойын! 🤝',
+  'ui.reactYourTurn': 'Кезегіңіз! ⏱️',
+  'ui.reactFire': 'От! 🔥',
+  'ui.roundEvent': '{round}-раунд оқиғасы: {event}',
+  'ui.mayorPower': 'Әкімнің қабілеті',
+  'ui.chooseMayorTitle': 'Өз әкіміңізді таңдаңыз',
+  'ui.chooseMayorBlurb': 'Бүкіл ойынға арналған бірегей пассивті қабілет.',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };
@@ -1353,6 +1631,9 @@ export function t(lang: Lang, key: string, params?: Params): string {
     if (value === undefined) return '';
     if (CARD_PARAMS.has(name)) return cardName(lang, value as CardId);
     if (name === 'landmark') return landmarkName(lang, value as LandmarkId);
+    if (name === 'event') return eventName(lang, value as CityEventId);
+    if (name === 'mayor') return mayorName(lang, value as MayorId);
+    if (name === 'text' && params.event) return eventText(lang, params.event as CityEventId);
     if (name === 'rules') {
       return String(value)
         .split('+')
@@ -1365,5 +1646,13 @@ export function t(lang: Lang, key: string, params?: Params): string {
 
 /** Compact rules code stored in the log, expanded per language at render time. */
 export function rulesCode(rules: RuleSet): string {
-  return ['base', rules.harbor ? 'harbor' : '', rules.millionaires ? 'millionaires' : ''].filter(Boolean).join('+');
+  return [
+    'base',
+    rules.harbor ? 'harbor' : '',
+    rules.millionaires ? 'millionaires' : '',
+    rules.events ? 'events' : '',
+    rules.mayors ? 'mayors' : '',
+  ]
+    .filter(Boolean)
+    .join('+');
 }

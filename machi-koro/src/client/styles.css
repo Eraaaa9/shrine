@@ -530,6 +530,8 @@ input:focus {
   gap: 6px;
   max-height: 42vh;
   overflow-y: auto;
+  overflow-x: visible;
+  padding: 4px;
 }
 
 .controls-bar {
@@ -979,21 +981,42 @@ input:focus {
 .player.you {
   background: var(--player-you-bg);
 }
+.player {
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+}
+.player:hover {
+  z-index: 12;
+}
 .player-head {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  min-width: 0;
 }
 .player-name {
   font-weight: 600;
   margin-right: auto;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+.player-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 110px;
 }
 .coins {
   color: var(--gold);
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto;
 }
 .coins::after {
   content: ' ¤';
@@ -1827,3 +1850,446 @@ input:focus {
     font-size: 32px;
   }
 }
+
+/* ==========================================================================
+   Expansions: Events, Mayors, Reactions, & Advanced Analytics
+   ========================================================================== */
+
+/* ---------- Event Banner ---------- */
+.event-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.12), rgba(59, 130, 246, 0.12));
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.event-banner-badge {
+  display: flex;
+  align-items: center;
+}
+
+.event-banner-round {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+}
+
+.event-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-banner-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.event-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-banner-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.event-banner-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* ---------- Mayor Badge & Tooltip ---------- */
+.tag.mayor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  font-weight: 600;
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  position: relative;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 125px;
+  flex-shrink: 1;
+}
+.tag.mayor-badge .mayor-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mayor-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 2500;
+  min-width: 200px;
+  max-width: 260px;
+  background: var(--panel);
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: normal;
+  text-align: left;
+}
+.mayor-tooltip strong {
+  display: block;
+  font-size: 12px;
+  color: #f59e0b;
+  margin-bottom: 3px;
+}
+.mayor-tooltip p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.35;
+}
+.tag.mayor-badge:hover .mayor-tooltip,
+.tag.mayor-badge:focus .mayor-tooltip {
+  display: block;
+}
+
+/* ---------- Reactions Bar ---------- */
+.reactions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.reactions-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.reactions-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.reaction-btn {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reaction-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+  transform: scale(1.15);
+}
+
+.reaction-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reaction-btn.cooldown {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+.reaction-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ---------- Floating Player Reactions ---------- */
+.player-reactions {
+  position: absolute;
+  top: -24px;
+  right: 12px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.reaction-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  animation: reactionFloat 3.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.reaction-bubble-emoji {
+  font-size: 16px;
+}
+
+.reaction-bubble-text {
+  font-size: 11.5px;
+  color: var(--accent);
+}
+
+/* ---------- Mayor Picker in Lobby ---------- */
+.mayor-picker {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.mayor-picker-head h3 {
+  margin: 0 0 2px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.mayor-picker-head .small-note {
+  margin: 0 0 10px 0;
+  padding: 0;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.mayor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.mayor-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mayor-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--btn-hover);
+  transform: translateY(-1px);
+}
+.mayor-card.selected {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  box-shadow: 0 0 0 1px #f59e0b;
+}
+.mayor-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.mayor-card-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.mayor-card-name {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.mayor-card.selected .mayor-card-name {
+  color: #f59e0b;
+}
+.mayor-card-check {
+  margin-left: auto;
+  font-weight: 900;
+  color: #f59e0b;
+}
+.mayor-card-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+@keyframes reactionFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.05);
+  }
+  25% {
+    transform: translateY(-2px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.9);
+  }
+}
+
+/* ---------- Analytics & Tabs in Stats Modal ---------- */
+.stats-main-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  background: var(--chip-on-bg);
+  border-color: rgba(94, 234, 212, 0.4);
+}
+
+.stats-charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chart-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.chart-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.analytics-svg {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  overflow: visible;
+}
+
+/* ---------- Awards Grid ---------- */
+.stats-awards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.award-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.award-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.award-card.mvp {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(234, 179, 8, 0.05));
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.award-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.award-body h4 {
+  margin: 0 0 3px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.award-highlight {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+
+.award-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+

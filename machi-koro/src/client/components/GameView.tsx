@@ -13,9 +13,11 @@ import CardTile from './CardTile';
 import Chat from './Chat';
 import ChoiceModal from './ChoiceModal';
 import Controls, { phaseHint } from './Controls';
+import EventBanner from './EventBanner';
 import IncomePanel from './IncomePanel';
 import LogPanel from './LogPanel';
 import PlayerPanel from './PlayerPanel';
+import ReactionsBar from './ReactionsBar';
 import StatsPanel from './StatsPanel';
 
 const MODAL_PHASES = ['trade', 'moving', 'renovation', 'exhibit'];
@@ -79,30 +81,56 @@ export default function GameView({ room, youId, send }: Props) {
   };
 
   // ---- sound --------------------------------------------------------------
-  // Every cue is keyed off something that only moves forward, so a re-render or
-  // a reconnect cannot replay the turn that has already happened.
   const heardRoll = useRef(game.rollId);
   const heardLog = useRef(game.log.length > 0 ? game.log[game.log.length - 1].id : 0);
   const heardCoins = useRef(you?.coins ?? 0);
   const heardWin = useRef(over);
+  const heardReactions = useRef(room.reactions?.length ?? 0);
 
   useEffect(() => {
-    if (game.rollId > heardRoll.current) cue('dice');
+    if (game.rollId > heardRoll.current) {
+      if (game.dice.length === 2 && game.dice[0] === game.dice[1]) {
+        cue('doubles');
+      } else if (game.dice.length === 2) {
+        cue('dice2');
+      } else {
+        cue('dice');
+      }
+    }
     heardRoll.current = game.rollId;
-  }, [game.rollId, cue]);
+  }, [game.rollId, game.dice, cue]);
 
   useEffect(() => {
     const newest = game.log.length > 0 ? game.log[game.log.length - 1] : null;
-    if (newest && newest.id > heardLog.current && newest.kind === 'build') cue('build');
+    if (newest && newest.id > heardLog.current) {
+      if (newest.key === 'log.buildLandmark') cue('landmark');
+      else if (newest.kind === 'build') cue('build');
+      else if (newest.kind === 'event') cue('event');
+    }
     if (newest) heardLog.current = newest.id;
   }, [game.log, cue]);
 
   useEffect(() => {
     const coins = you?.coins ?? heardCoins.current;
     if (coins > heardCoins.current) cue('coin');
-    else if (coins < heardCoins.current) cue('lose');
+    else if (coins < heardCoins.current) {
+      const newest = game.log.length > 0 ? game.log[game.log.length - 1] : null;
+      if (newest && (newest.key.includes('redTake') || newest.key.includes('stadium') || newest.key.includes('tvTake'))) {
+        cue('steal');
+      } else {
+        cue('lose');
+      }
+    }
     heardCoins.current = coins;
-  }, [you?.coins, cue]);
+  }, [you?.coins, game.log, cue]);
+
+  useEffect(() => {
+    const rCount = room.reactions?.length ?? 0;
+    if (rCount > heardReactions.current) {
+      cue('reaction');
+    }
+    heardReactions.current = rCount;
+  }, [room.reactions, cue]);
 
   useEffect(() => {
     if (over && !heardWin.current) cue('win');
@@ -190,6 +218,9 @@ export default function GameView({ room, youId, send }: Props) {
       </header>
 
       <main className="board">
+        {game.rules.events && game.currentEvent && (
+          <EventBanner eventId={game.currentEvent} round={game.eventRound} />
+        )}
         <BoardControls
           filter={filter}
           sort={sort}
@@ -228,6 +259,7 @@ export default function GameView({ room, youId, send }: Props) {
             diceTotal={game.diceTotal}
             deltas={deltas.get(p.id) ?? []}
             awaySeconds={awaySecondsFor(seats.get(p.id))}
+            recentReactions={room.reactions}
           />
         ))}
       </div>
@@ -251,6 +283,10 @@ export default function GameView({ room, youId, send }: Props) {
       </aside>
 
       <footer className="controls-bar">
+        <ReactionsBar
+          onSendReaction={(emoji, text) => send({ t: 'reaction', emoji, text })}
+          disabled={game.phase === 'over'}
+        />
         <Controls
           game={game}
           you={you}

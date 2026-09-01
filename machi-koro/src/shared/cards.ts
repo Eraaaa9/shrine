@@ -29,26 +29,40 @@ export interface RuleSet {
   millionaires: boolean;
   /** Rulebook-recommended setup for expansion games: 10 face-up stacks drawn from a deck. */
   variableSupply: boolean;
+  /** City events that change each round */
+  events?: boolean;
+  /** Asymmetrical Mayor roles */
+  mayors?: boolean;
 }
 
-export const DEFAULT_RULES: RuleSet = { harbor: true, millionaires: true, variableSupply: true };
+export const DEFAULT_RULES: RuleSet = {
+  harbor: true,
+  millionaires: true,
+  variableSupply: true,
+  events: true,
+  mayors: true,
+};
 
 export function normaliseRules(input: Partial<RuleSet> | undefined): RuleSet {
   return {
     harbor: Boolean(input?.harbor),
     millionaires: Boolean(input?.millionaires),
     variableSupply: Boolean(input?.variableSupply),
+    events: Boolean(input?.events),
+    mayors: Boolean(input?.mayors),
   };
 }
 
 export function rulesKey(rules: RuleSet): string {
-  return `${rules.harbor ? 'h' : ''}${rules.millionaires ? 'm' : ''}` || 'base';
+  return `${rules.harbor ? 'h' : ''}${rules.millionaires ? 'm' : ''}${rules.events ? 'e' : ''}${rules.mayors ? 'y' : ''}` || 'base';
 }
 
 export function describeRules(rules: RuleSet): string {
   const parts = ['base game'];
   if (rules.harbor) parts.push('Harbor');
   if (rules.millionaires) parts.push("Millionaire's Row");
+  if (rules.events) parts.push('Events');
+  if (rules.mayors) parts.push('Mayors');
   return parts.join(' + ');
 }
 

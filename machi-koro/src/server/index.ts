@@ -175,6 +175,19 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
       break;
     }
 
+    case 'setMayor': {
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
+      room.setSeatMayor(seat.id, msg.mayor);
+      break;
+    }
+
+    case 'setBotMayor': {
+      if (!requireHost(ws, entry)) return;
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
+      room.setSeatMayor(msg.playerId, msg.mayor);
+      break;
+    }
+
     case 'addBot': {
       if (!requireHost(ws, entry)) return;
       if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
@@ -223,6 +236,12 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'chat': {
       room.addChat(seat.name, msg.text ?? '');
+      break;
+    }
+
+    case 'reaction': {
+      const ok = room.addReaction(seat.id, seat.name, msg.emoji, msg.text);
+      if (!ok) return;
       break;
     }
 

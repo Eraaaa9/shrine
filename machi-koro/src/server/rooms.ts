@@ -4,6 +4,7 @@ import { DEFAULT_RULES, maxPlayers, type RuleSet } from '../shared/cards';
 import { BOT_NAMES, botAction } from '../shared/bot';
 import { BASELINE, weightsFor, type BotWeights } from '../shared/bot-weights';
 import { activePlayer, applyAction, createGame, demolishable, tradeableCards } from '../shared/engine';
+import { MAYORS, type MayorId } from '../shared/mayors';
 import type { BotLevel, ChatLine, RoomView, ServerMessage } from '../shared/protocol';
 import { DEFAULT_BOT_LEVEL, MIN_PLAYERS, normaliseBotLevel } from '../shared/protocol';
 import type { GameAction, GameState, LogEntry } from '../shared/types';
@@ -39,6 +40,7 @@ export interface Seat {
   token: string;
   socket: WebSocket | null;
   disconnectedAt: number | null;
+  mayor?: MayorId;
   /**
    * Id of the newest log line this seat's current socket has been sent, so the
    * next view can carry the handful written since instead of all 300 again.
@@ -90,7 +92,7 @@ export class Room {
       hostId: this.hostId,
       rules: this.rules,
       botLevel: this.botLevel,
-      seats: this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot, token: s.token })),
+      seats: this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot, token: s.token, mayor: s.mayor })),
       game: this.game,
       chat: this.chat,
       nextChatId: this.nextChatId,
@@ -130,6 +132,7 @@ export class Room {
       socket,
       disconnectedAt: socket ? null : Date.now(),
       logSentTo: 0,
+      mayor: MAYORS[this.seats.length % MAYORS.length].id,
     };
     this.seats.push(seat);
     if (!this.hostId) this.hostId = seat.id;
@@ -170,6 +173,14 @@ export class Room {
     }
   }
 
+  setSeatMayor(id: string, mayor: MayorId): boolean {
+    const seat = this.seat(id);
+    if (!seat) return false;
+    seat.mayor = mayor;
+    this.touch();
+    return true;
+  }
+
   get connectedCount(): number {
     return this.seats.filter((s) => s.socket).length;
   }
@@ -185,7 +196,7 @@ export class Room {
     if (this.seats.length < MIN_PLAYERS) return 'err.needPlayers';
     if (this.seats.length > this.maxPlayers) return 'err.tooManyForRules';
     this.game = createGame(
-      this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot })),
+      this.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot, mayor: s.mayor })),
       this.rules
     );
     // The new game numbers its log from one again, so every cursor into the old
@@ -282,7 +293,7 @@ export class Room {
     this.broadcast();
   }
 
-  // -- chat / views --------------------------------------------------------
+  // -- chat / reactions / views --------------------------------------------
 
   addChat(from: string, text: string): void {
     const clean = text.trim().slice(0, 200);
@@ -290,6 +301,31 @@ export class Room {
     this.chat.push({ id: this.nextChatId++, from, text: clean });
     if (this.chat.length > 60) this.chat.shift();
     this.touch();
+  }
+
+  reactions: { id: number; from: string; fromId: string; emoji: string; text?: string; at: number }[] = [];
+  private nextReactionId = 1;
+  private lastReactionAt = new Map<string, number>();
+
+  addReaction(fromId: string, from: string, emoji: string, text?: string): boolean {
+    const now = Date.now();
+    const last = this.lastReactionAt.get(fromId) ?? 0;
+    if (now - last < 1200) return false; // 1.2s cooldown
+    this.lastReactionAt.set(fromId, now);
+
+    const cleanEmoji = emoji.trim().slice(0, 8);
+    const cleanText = text ? text.trim().slice(0, 50) : undefined;
+    this.reactions.push({
+      id: this.nextReactionId++,
+      from,
+      fromId,
+      emoji: cleanEmoji,
+      text: cleanText,
+      at: now,
+    });
+    if (this.reactions.length > 15) this.reactions.shift();
+    this.touch();
+    return true;
   }
 
   /**
@@ -311,11 +347,13 @@ export class Room {
         isBot: s.isBot,
         connected: s.socket !== null,
         isHost: s.id === this.hostId,
+        mayor: s.mayor,
         awaySince: s.disconnectedAt,
       })),
       game,
       logAppend,
       chat: this.chat,
+      reactions: this.reactions,
       // Sent alongside the timestamps above rather than left to the browser:
       // a client whose clock is minutes out would otherwise show a countdown
       // that is already finished, or one that never starts.

@@ -21,6 +21,8 @@ export default function RulesPicker({ rules, onChange, disabled }: Props) {
     { key: 'harbor', name: t('ui.harborName'), blurb: t('ui.harborBlurb') },
     { key: 'millionaires', name: t('ui.rowName'), blurb: t('ui.rowBlurb') },
     { key: 'variableSupply', name: t('ui.supplyName'), blurb: t('ui.supplyBlurb') },
+    { key: 'events', name: t('ui.eventsName'), blurb: t('ui.eventsBlurb') },
+    { key: 'mayors', name: t('ui.mayorsName'), blurb: t('ui.mayorsBlurb') },
   ];
 
   return (

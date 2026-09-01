@@ -1,5 +1,6 @@
 import type { RuleSet } from './cards';
 import type { Params } from './i18n';
+import type { MayorId } from './mayors';
 import { LOG_LIMIT, type GameAction, type GameState, type LogEntry } from './types';
 
 /**
@@ -21,11 +22,27 @@ export interface SeatView {
   isBot: boolean;
   connected: boolean;
   isHost: boolean;
+  mayor?: MayorId;
   /**
    * When this seat dropped, on the server's clock, or null while it is here.
    * The client counts the seat's grace period down from it.
    */
   awaySince: number | null;
+}
+
+export interface ChatLine {
+  id: number;
+  from: string;
+  text: string;
+}
+
+export interface ReactionLine {
+  id: number;
+  from: string;
+  fromId: string;
+  emoji: string;
+  text?: string;
+  at: number;
 }
 
 export interface RoomView {
@@ -45,16 +62,11 @@ export interface RoomView {
    */
   logAppend: boolean;
   chat: ChatLine[];
+  reactions?: ReactionLine[];
   /** The server's clock as this view was built, so countdowns survive a skewed one. */
   now: number;
   /** How long a dropped player's turn waits before the server plays it for them. */
   autoplayAfterMs: number;
-}
-
-export interface ChatLine {
-  id: number;
-  from: string;
-  text: string;
 }
 
 export type ClientMessage =
@@ -63,12 +75,15 @@ export type ClientMessage =
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'setRules'; rules: RuleSet }
   | { t: 'setBotLevel'; level: BotLevel }
+  | { t: 'setMayor'; mayor: MayorId }
+  | { t: 'setBotMayor'; playerId: string; mayor: MayorId }
   | { t: 'addBot' }
   | { t: 'kick'; playerId: string }
   | { t: 'start' }
   | { t: 'action'; action: GameAction }
   | { t: 'rematch' }
   | { t: 'chat'; text: string }
+  | { t: 'reaction'; emoji: string; text?: string }
   | { t: 'leave' };
 
 export type ServerMessage =

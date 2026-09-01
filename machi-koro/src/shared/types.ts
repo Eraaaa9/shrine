@@ -1,4 +1,6 @@
 import type { CardId, LandmarkId, RuleSet } from './cards';
+import type { CityEventId } from './events';
+import type { MayorId } from './mayors';
 import type { Params } from './i18n';
 
 /** Anything that can move a coin, and so can head a row in the post-game table. */
@@ -37,6 +39,10 @@ export interface PlayerStats {
   cardsBought: number;
   /** Most coins held at once. */
   peakCoins: number;
+  /** Total stolen from opponents */
+  stolenFromOthers: number;
+  /** Total paid to opponents */
+  paidToOthers: number;
   /** Per-building breakdown, keyed by card or landmark id. */
   byKey: Partial<Record<StatKey, BuildingStat>>;
 }
@@ -46,6 +52,10 @@ export interface PlayerState {
   name: string;
   isBot: boolean;
   coins: number;
+  /** Asymmetrical Mayor role */
+  mayor: MayorId | null;
+  /** Free reroll granted on next turn by Urbanist mayor */
+  mayorRerollAvailable?: boolean;
   /** Owned establishments -> number of copies. */
   cards: Partial<Record<CardId, number>>;
   /** Copies currently closed for renovation; they skip their next activation. */
@@ -96,12 +106,24 @@ export interface LogEntry {
   params?: Params;
   /** Player the line is about, for colouring. */
   who?: string;
-  kind?: 'turn' | 'roll' | 'income' | 'build' | 'win';
+  kind?: 'turn' | 'roll' | 'income' | 'build' | 'win' | 'event';
+}
+
+export interface CapitalSnapshot {
+  turn: number;
+  round: number;
+  coins: Record<string, number>;
 }
 
 export interface GameState {
   rules: RuleSet;
   players: PlayerState[];
+  /** Active city event */
+  currentEvent: CityEventId | null;
+  /** Event draw pile */
+  eventDeck: CityEventId[];
+  /** Round number for event cycling */
+  eventRound: number;
   /** Face-up supply: card id -> copies available to buy. */
   supply: Partial<Record<CardId, number>>;
   /** Face-down draw pile, only used by the variable supply setup. */
@@ -126,6 +148,12 @@ export interface GameState {
   log: LogEntry[];
   rng: number;
   nextLogId: number;
+  /** Timeline of players coins over time for analytics */
+  capitalTimeline: CapitalSnapshot[];
+  /** Distribution of dice roll sums for analytics */
+  diceHistogram: Record<number, number>;
+  /** Total doubles rolled across all players */
+  doublesCount: number;
 }
 
 export type GameAction =
@@ -143,3 +171,4 @@ export type GameAction =
   | { t: 'buy'; cardId: CardId }
   | { t: 'landmark'; landmarkId: LandmarkId }
   | { t: 'pass' };
+

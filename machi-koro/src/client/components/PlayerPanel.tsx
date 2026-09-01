@@ -1,7 +1,8 @@
 import { ICON_GLYPH, cardsFor, landmarksFor, type RuleSet } from '../../shared/cards';
 import { closedCopies } from '../../shared/engine';
-import { cardName, cardText, landmarkName, landmarkShort, landmarkText } from '../../shared/i18n';
+import { cardName, cardText, landmarkName, landmarkShort, landmarkText, mayorIcon, mayorName, mayorText } from '../../shared/i18n';
 import type { PlayerState } from '../../shared/types';
+import type { ReactionLine } from '../../shared/protocol';
 import type { CoinDelta } from '../coinMotion';
 import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
@@ -17,6 +18,8 @@ interface Props {
   deltas: CoinDelta[];
   /** Seconds until the server plays this seat's turn for them, if it is counting. */
   awaySeconds: number | null;
+  /** Recent reactions in room */
+  recentReactions?: ReactionLine[];
 }
 
 export default function PlayerPanel({
@@ -28,6 +31,7 @@ export default function PlayerPanel({
   diceTotal,
   deltas,
   awaySeconds,
+  recentReactions,
 }: Props) {
   const { lang, t } = useLang();
   const owned = cardsFor(rules).filter((c) => (player.cards[c.id] ?? 0) > 0);
@@ -52,12 +56,40 @@ export default function PlayerPanel({
         </span>
       )}
 
+      {recentReactions && (
+        <span className="player-reactions" aria-hidden="true">
+          {recentReactions
+            .filter((r) => r.fromId === player.id && Date.now() - r.at < 3500)
+            .map((r) => (
+              <span key={r.id} className="reaction-bubble" title={r.text}>
+                <span className="reaction-bubble-emoji">{r.emoji}</span>
+                {r.text && <span className="reaction-bubble-text">{r.text}</span>}
+              </span>
+            ))}
+        </span>
+      )}
+
       <div className="player-head">
         <span className="dot" data-on={connected || player.isBot} />
         <span className="player-name">
-          {player.name}
+          <span className="player-name-text">{player.name}</span>
           {isYou && <span className="tag you-tag">{t('ui.you')}</span>}
           {player.isBot && <span className="tag bot">{t('ui.bot')}</span>}
+          {player.mayor && (
+            <span
+              className="tag mayor-badge"
+              tabIndex={0}
+              role="button"
+              aria-label={`${mayorName(lang, player.mayor)}: ${mayorText(lang, player.mayor)}`}
+            >
+              {mayorIcon(player.mayor)}
+              <span className="mayor-title-text">{mayorName(lang, player.mayor)}</span>
+              <span className="mayor-tooltip">
+                <strong>{mayorIcon(player.mayor)} {mayorName(lang, player.mayor)}</strong>
+                <p>{mayorText(lang, player.mayor)}</p>
+              </span>
+            </span>
+          )}
         </span>
         {player.investment > 0 && (
           <span className="investment" title={t('ui.investedTitle', { n: player.investment })}>
