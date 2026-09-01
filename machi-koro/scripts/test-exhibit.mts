@@ -79,11 +79,13 @@ function activate(state: GameState, p: PlayerState, cardId: CardId): void {
   const [state, me] = atExhibit((p, s) => {
     p.cards.ranch = 1;
     p.coins = 50;
-    // take the Exhibit Hall off the market, and top the offer back up to 10 so
-    // that its return pushes the market to 11
+    // Take the Exhibit Hall off the market and top the offer back up to 10
+    // without it, so that its return is what pushes the market to 11. Which
+    // stacks the shuffle dealt is not this test’s business — the mayor deck
+    // draws before the market does, so it is not even the same shuffle.
     s.supply.exhibit_hall = 0;
-    const spare = (Object.keys(s.supply) as CardId[]).find((id) => (s.supply[id] ?? 0) === 0 && id !== 'exhibit_hall')!;
-    s.supply[spare] = 1;
+    const spares = (Object.keys(s.supply) as CardId[]).filter((id) => id !== 'exhibit_hall');
+    while (onOffer(s) < 10) s.supply[spares.find((id) => (s.supply[id] ?? 0) === 0)!] = 1;
   });
   check('the market starts at 10 stacks', onOffer(state), 10);
 
