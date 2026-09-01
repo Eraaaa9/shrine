@@ -1,13 +1,14 @@
 import { ICON_GLYPH, cardsFor, landmarksFor, type RuleSet } from '../../shared/cards';
-import { closedCopies } from '../../shared/engine';
+import { closedCopies, landmarkCost } from '../../shared/engine';
 import { cardName, cardText, landmarkName, landmarkShort, landmarkText, mayorIcon, mayorName, mayorText } from '../../shared/i18n';
-import type { PlayerState } from '../../shared/types';
+import type { GameState, PlayerState } from '../../shared/types';
 import type { ReactionLine } from '../../shared/protocol';
 import type { CoinDelta } from '../coinMotion';
 import { useLang } from '../lang';
 import { formatActivates } from './CardTile';
 
 interface Props {
+  game: GameState;
   player: PlayerState;
   rules: RuleSet;
   isActive: boolean;
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function PlayerPanel({
+  game,
   player,
   rules,
   isActive,
@@ -99,17 +101,31 @@ export default function PlayerPanel({
         <span className="coins">{player.coins}</span>
       </div>
 
+      {player.mayor && isYou && (
+        <div className="player-mayor-summary" title={mayorText(lang, player.mayor)}>
+          <span className="mayor-summary-icon">{mayorIcon(player.mayor)}</span>
+          <span className="mayor-summary-text">{mayorText(lang, player.mayor)}</span>
+        </div>
+      )}
+
       <div className="landmarks">
-        {landmarks.map((l) => (
-          <span
-            key={l.id}
-            className={player.landmarks[l.id] ? 'lm built' : 'lm'}
-            title={`${landmarkName(lang, l.id)} (${l.cost}) — ${landmarkText(lang, l.id)}`}
-          >
-            {landmarkShort(lang, l.id)}
-            <em>{l.cost}</em>
-          </span>
-        ))}
+        {landmarks.map((l) => {
+          const cost = landmarkCost(game, player, l);
+          const isDiscounted = cost < l.cost;
+          return (
+            <span
+              key={l.id}
+              className={player.landmarks[l.id] ? 'lm built' : isDiscounted ? 'lm discounted' : 'lm'}
+              title={`${landmarkName(lang, l.id)} (${cost}) — ${landmarkText(lang, l.id)}`}
+            >
+              {landmarkShort(lang, l.id)}
+              <em>
+                {isDiscounted && <s className="lm-old-cost">{l.cost}</s>}
+                {cost}
+              </em>
+            </span>
+          );
+        })}
       </div>
 
       {/* A bare "3/7" made you do the arithmetic to see who was about to win. */}

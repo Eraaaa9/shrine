@@ -619,6 +619,20 @@ input:focus {
   content: ' ¤';
   font-size: 11px;
 }
+.cost.discounted {
+  color: var(--green);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.cost.discounted .cost-old {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: normal;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
 .card-name {
   font-weight: 600;
   font-size: 13.5px;
@@ -1049,6 +1063,46 @@ input:focus {
   background: var(--gold);
   border-color: var(--gold);
   font-weight: 700;
+}
+.lm.discounted {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--green);
+}
+.lm.discounted .lm-old-cost,
+.landmark-buy.discounted .lm-old-cost {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: normal;
+  text-decoration: line-through;
+  margin-right: 2px;
+  opacity: 0.75;
+}
+.landmark-buy.discounted em {
+  color: var(--green);
+}
+
+.player-mayor-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.09);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin: 4px 0 2px 0;
+  font-size: 10.5px;
+  color: #f59e0b;
+  line-height: 1.25;
+}
+.player-mayor-summary .mayor-summary-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.player-mayor-summary .mayor-summary-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
 }
 
 /* ---------- landmark progress ----------

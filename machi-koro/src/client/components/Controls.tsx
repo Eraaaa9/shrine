@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { landmarksFor, type LandmarkId } from '../../shared/cards';
-import { canBuild, demolishable } from '../../shared/engine';
+import { canBuild, demolishable, landmarkCost } from '../../shared/engine';
 import { landmarkName, landmarkText, type Lang } from '../../shared/i18n';
 import type { ClientMessage } from '../../shared/protocol';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
@@ -172,18 +172,26 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
                 <span className="prompt">{t('ui.buildPrompt')}</span>
                 {landmarks
                   .filter((l) => !l.free && !you.landmarks[l.id])
-                  .map((l) => (
-                    <button
-                      type="button"
-                      key={l.id}
-                      className="landmark-buy"
-                      disabled={!canBuild(game, you, l.id)}
-                      title={landmarkText(lang, l.id)}
-                      onClick={() => act({ t: 'landmark', landmarkId: l.id })}
-                    >
-                      {landmarkName(lang, l.id)} <em>{l.cost}</em>
-                    </button>
-                  ))}
+                  .map((l) => {
+                    const cost = landmarkCost(game, you, l);
+                    const isDiscounted = cost < l.cost;
+                    return (
+                      <button
+                        type="button"
+                        key={l.id}
+                        className={`landmark-buy ${isDiscounted ? 'discounted' : ''}`}
+                        disabled={!canBuild(game, you, l.id)}
+                        title={landmarkText(lang, l.id)}
+                        onClick={() => act({ t: 'landmark', landmarkId: l.id })}
+                      >
+                        {landmarkName(lang, l.id)}{' '}
+                        <em>
+                          {isDiscounted && <s className="lm-old-cost">{l.cost}</s>}
+                          {cost}
+                        </em>
+                      </button>
+                    );
+                  })}
                 <button type="button" className="ghost" onClick={() => act({ t: 'pass' })}>
                   {you.landmarks.airport ? t('ui.endTurnAirport') : t('ui.endTurn')}
                 </button>

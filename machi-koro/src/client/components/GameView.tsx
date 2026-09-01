@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cardsFor, type CardId } from '../../shared/cards';
-import { canBuy } from '../../shared/engine';
+import { canBuy, cardCost } from '../../shared/engine';
 import { describeRulesIn } from '../../shared/i18n';
 import type { ClientMessage, RoomView, SeatView } from '../../shared/protocol';
 import type { GameAction } from '../../shared/types';
@@ -234,6 +234,7 @@ export default function GameView({ room, youId, send }: Props) {
             <CardTile
               key={card.id}
               card={card}
+              effectiveCost={you ? cardCost(game, you, card) : card.cost}
               supply={game.supply[card.id] ?? 0}
               owned={you?.cards[card.id] ?? 0}
               others={othersOwn(card.id)}
@@ -251,6 +252,7 @@ export default function GameView({ room, youId, send }: Props) {
         {game.players.map((p) => (
           <PlayerPanel
             key={p.id}
+            game={game}
             player={p}
             rules={game.rules}
             isActive={p.id === active.id && game.phase !== 'over'}

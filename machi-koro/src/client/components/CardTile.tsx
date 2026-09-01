@@ -13,6 +13,7 @@ export function formatActivates(activates: number[]): string {
 
 interface Props {
   card: CardDef;
+  effectiveCost?: number;
   supply: number;
   owned: number;
   /**
@@ -27,10 +28,13 @@ interface Props {
   onBuy?: () => void;
 }
 
-export default function CardTile({ card, supply, owned, others, hot, buyable, mark, onBuy }: Props) {
+export default function CardTile({ card, effectiveCost, supply, owned, others, hot, buyable, mark, onBuy }: Props) {
   const { lang, t } = useLang();
   const { cardView } = usePrefs();
   const [flipped, setFlipped] = useState(false);
+
+  const finalCost = effectiveCost !== undefined ? effectiveCost : card.cost;
+  const isDiscounted = finalCost < card.cost && card.cost >= 0;
 
   const classes = ['card', card.color];
   if (hot) classes.push('hot');
@@ -45,6 +49,24 @@ export default function CardTile({ card, supply, owned, others, hot, buyable, ma
   const emoji = getCardEmoji(card.id);
   const formattedAct = formatActivates(card.activates);
 
+  const renderCost = () => {
+    if (card.cost < 0) {
+      return (
+        <span className="cost paid" title={t('ui.paidToBuild')}>
+          +{-card.cost}
+        </span>
+      );
+    }
+    if (isDiscounted) {
+      return (
+        <span className="cost discounted" title={`${card.cost} ➔ ${finalCost}`}>
+          <s className="cost-old">{card.cost}</s> {finalCost}
+        </span>
+      );
+    }
+    return <span className="cost">{finalCost}</span>;
+  };
+
   // --- CLASSIC MODE (Plain Flat View) ---
   if (cardView === 'classic') {
     return (
@@ -55,20 +77,14 @@ export default function CardTile({ card, supply, owned, others, hot, buyable, ma
         onClick={onBuy}
         title={text}
         aria-hidden={mark === 'gone' || undefined}
-        aria-label={t('ui.cardAria', { name, activates: formattedAct, cost: card.cost })}
+        aria-label={t('ui.cardAria', { name, activates: formattedAct, cost: finalCost })}
       >
         {mark === 'gone' && <span className="card-flag">{t('ui.soldOut')}</span>}
         {mark === 'fresh' && <span className="card-flag">{t('ui.newStack')}</span>}
         <span className="card-head">
           <span className="activates">{formattedAct}</span>
           <span className="icon">{ICON_GLYPH[card.icon]}</span>
-          {card.cost < 0 ? (
-            <span className="cost paid" title={t('ui.paidToBuild')}>
-              +{-card.cost}
-            </span>
-          ) : (
-            <span className="cost">{card.cost}</span>
-          )}
+          {renderCost()}
         </span>
         <span className="card-name">{name}</span>
         <span className="card-text">{text}</span>
@@ -90,7 +106,7 @@ export default function CardTile({ card, supply, owned, others, hot, buyable, ma
     <div
       className={classes.join(' ')}
       aria-hidden={mark === 'gone' || undefined}
-      aria-label={t('ui.cardAria', { name, activates: formattedAct, cost: card.cost })}
+      aria-label={t('ui.cardAria', { name, activates: formattedAct, cost: finalCost })}
       onClick={handleCardClick}
       title={t('ui.flipToRead')}
     >
@@ -103,13 +119,7 @@ export default function CardTile({ card, supply, owned, others, hot, buyable, ma
           <div className="card-head">
             <span className="activates">{formattedAct}</span>
             <span className="icon" title={card.icon}>{ICON_GLYPH[card.icon]}</span>
-            {card.cost < 0 ? (
-              <span className="cost paid" title={t('ui.paidToBuild')}>
-                +{-card.cost}
-              </span>
-            ) : (
-              <span className="cost">{card.cost}</span>
-            )}
+            {renderCost()}
           </div>
 
           <div className="card-visual-center">
