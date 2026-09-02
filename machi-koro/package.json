@@ -19,7 +19,8 @@
     "test:exhibit": "tsx scripts/test-exhibit.mts",
     "test:traffic": "tsx scripts/test-traffic.mts",
     "typecheck": "tsc --noEmit",
-    "balance:mayors": "tsx scripts/mayor-balance.mts"
+    "balance:mayors": "tsx scripts/mayor-balance.mts",
+    "diagnose:seats": "tsx scripts/seat-diagnostic.mts"
   },
   "dependencies": {
     "express": "^5.2.1",

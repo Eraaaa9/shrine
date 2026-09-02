@@ -8,9 +8,19 @@ measures how far each one is from its fair share of the wins.
 
 Every block plays the same six-mayor ring six times, shifting it one chair each
 game. Over a block each mayor sits in every seat exactly once and sits out
-exactly `6 - players` games, so turn-order advantage — which is worth far more
-than any mayor (seat 0 wins 32% of four-player games, seat 3 only 20%) — is
-identical for all six by construction and cannot colour the result.
+exactly `6 - players` games, so turn-order advantage is identical for all six by
+construction and cannot colour the result.
+
+That design mattered more when it was written than it does now: going first used
+to be worth far more than any mayor — seat 0 won 33.9% of four-player games and
+seat 3 only 19.2% — and a mayor dealt at random collected a random slice of it.
+The growing market has since flattened that to about a point (see *Turn-order
+balance* below), but the ring costs nothing and keeps the measurement honest.
+
+The mayor numbers below were measured before the growing market landed. The ring
+neutralises seating either way, so they are still comparable with each other, but
+the market changes the opening and the absolute rates may have drifted — re-run
+`balance:mayors` after the next training run.
 
 ```bash
 npm run balance:mayors -- 4000 4
@@ -104,3 +114,87 @@ about a point above its share everywhere, the Restaurateur about a point below.
 Both are already on their best integer dial — one step either way overshoots by
 3pp or more — so closing the last point would mean inventing a finer mechanic,
 which costs more in rules to read than it buys in fairness.
+
+# Turn-order balance
+
+Going first was the largest unfairness in the game — bigger than any mayor, and
+in a game people play in a fixed seating it is the one nobody can do anything
+about. `npm run diagnose:seats` measures it and, more usefully, says where it
+comes from.
+
+```bash
+npm run diagnose:seats -- 10000 4
+```
+
+## What it was
+
+Win rate by seat, default rules, bots on both sides of every chair.
+
+|players|before|after|
+|-|-|-|
+|2|55.2 / 44.8|50.2 / 49.8|
+|3|40.6 / 31.5 / 27.9|33.9 / 33.6 / 32.5|
+|4|33.9 / 25.5 / 21.5 / 19.2|25.5 / 26.8 / 24.2 / 23.6|
+|5|26.9 / 21.3 / 18.9 / 17.1 / 15.9|19.1 / 20.1 / 20.7 / 20.9 / 19.3|
+
+The worst chair at the table went from 8.9 points below its share to 1.8, and at
+three and five players to under a point. 6 000 games a row, 10 000 for the
+four-player after — about ±1pp on each number.
+
+## Where it came from, and where it did not
+
+Three things could have explained it, and the diagnostic separates them.
+
+- **The game stops mid-round.** The seats after the winner never get that round's
+  turn. True, but small: seat 0 plays 27.6 turns to seat 3's 26.6 at four
+  players — 4% more turns for 77% more wins.
+- **A last round would fix it.** It would not. Of the seats robbed of a turn,
+  2.2% could have finished with the coins in hand and 3.2% with an average roll;
+  the ones a single landmark short were **30 coins short of it**, because the
+  landmark still missing at the end is the Airport or the Space Port. A final
+  round changes 3–5% of games at the outside. It was the expensive fix and it
+  was the wrong one.
+- **First pick of the market, twenty-seven rounds running.** This was it. The
+  same measurement under the fixed supply — no ten-stack market to pick from —
+  halves the spread, 14.7pp to 6.3pp, even though those games are shorter and a
+  shorter game should flatter the first seat, not the last.
+
+## The fix
+
+The market opens with **one stack and gains one each turn**, up to the usual ten
+by turn ten. `supplySlots` in `engine.ts`.
+
+The point is not that a narrow market is fairer in itself. It is that the second
+seat sits down to a wider board than the first, the third wider still, and the
+compensation therefore sizes itself to the table — one rule, no dial per player
+count, unlike the five the mayors need. Nobody has to be told they are being
+compensated, and the city opening up over the first few turns reads as theme
+rather than as an apology to the last player.
+
+It costs nothing anywhere else: game length is unchanged at every table size
+(108.7 turns at four players against 108.1 before), and the market is back to its
+normal ten stacks by turn ten, so all but the opening of the game plays exactly
+as it did.
+
+## The dial
+
+`supplySlotsStart` and `supplySlotsEvery` on the rule set override the ramp. Only
+`diagnose:seats` sets them — `normaliseRules` drops both, so a lobby cannot — and
+they exist to re-sweep the dial rather than to be played with.
+
+Opening wider is worse, and clearly so: at four players a two-stack opening puts
+seat 0 back to +3.1pp and a three-stack opening to +3.6pp. Opening more than one
+stack per turn is worse in the other direction — it overshoots onto the *second*
+seat, which ends up the strongest chair. One stack, one a turn, is the floor and
+the ceiling of what was tried.
+
+## Known residual
+
+At four players seat 1 runs about 1.8pp above its share — roughly two standard
+errors on 10 000 games, so probably real and certainly small. Every other seat at
+every table size is inside a point.
+
+One caveat on all of the above: the bots learned to play a ten-stack opening
+market, and this changes what the right opening buy is. These numbers are what
+the mechanic is worth against strategies that have not adapted to it. Re-run both
+this and `balance:mayors` after the next training run.
