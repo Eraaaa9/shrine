@@ -1,11 +1,92 @@
 # Trained bot strategies
 
-Produced by `npm run train` — 142 544 games in 43.0 minutes.
+Produced by `npm run train` — 142 544 games in 40.8 minutes.
 
-This run trained variable supply at a 5-player table; anything else is left as it stands.
-Search: started from `tuned`, 18 generations of 22 candidates over 264 games each, sampled at 0.2 of each weight's range, promoted on the better of two 800-game duels at 21.0%, settled on 3000 games a side.
+This run trained variable supply at a 4-player table; anything else is left as it stands.
+Search: started from `tuned`, 18 generations of 22 candidates over 264 games each, sampled at 0.2 of each weight's range, promoted on the better of two 800-game duels at 26.0%, settled on 3000 games a side.
 
 This run shipped nothing: no candidate beat the strategy it would have replaced, so `src/shared/bot-weights.ts` is the last strategy that did win one, not the numbers below.
+
+## variable supply (4 players)
+
+Rules: base game + Harbor + Millionaire's Row + Events + Mayors.
+
+**Not shipped.** The candidate below did not beat the strategy it would replace, so
+`TUNED_VARIABLE` is unchanged. Everything that follows describes the rejected candidate.
+
+Trained over 133 344 self-play games.
+Against the strategy it would replace: **26.4%** of 3000 games (95% CI 24.8–28.0%), and the old strategy takes **26.2%** against a table of the new one (95% CI 24.6–27.8%). Fair share is 25.0%.
+Against the hand-written baseline: **55.4%** of 3000 games (95% CI 53.6–57.1%).
+
+```
+winner's city, average copies over 200 games (game length 106.8 turns):
+    Wheat Field                1.38
+    Bakery                     1.11
+    Vineyard                   0.81
+    Tax Office                 0.78
+    Tuna Boat                  0.76
+    Mine                       0.72
+    Forest                     0.68
+    Pizza Joint                0.65
+    Mackerel Boat              0.63
+    French Restaurant          0.63
+    Family Restaurant          0.61
+    Apple Orchard              0.58
+  landmark order:
+    Train Station              average position 1.61   on turn 38   first 49% of the time
+    Harbor                     average position 1.91   on turn 36   first 39% of the time
+    Shopping Mall              average position 2.99   on turn 58   first 11% of the time
+    Amusement Park             average position 4.63   on turn 76   first 0% of the time
+    Radio Tower                average position 4.92   on turn 83   first 1% of the time
+    Airport                    average position 5.45   on turn 90   first 0% of the time
+    Space Port                 average position 6.49   on turn 104   first 1% of the time
+```
+
+```json
+{
+  "cardValue": 2.3481456205669886,
+  "costEfficiency": 1.0413160998770095,
+  "buyThreshold": 0.35834948735022315,
+  "duplicatePenalty": 0.5590292366426556,
+  "scarcityBonus": 0.4135086835360035,
+  "denialWeight": -0.08219893229686148,
+  "futureDice": 0.294881163712487,
+  "tableDice": 0.6149949735861762,
+  "blueWeight": 1.9166206059963937,
+  "greenWeight": 0.8467830823447676,
+  "redWeight": 0.8677380120968443,
+  "purpleWeight": 2.8719219088457533,
+  "purpleRealism": 0.7961377111322271,
+  "purpleHorizon": 0.8555474370153677,
+  "purpleVolatile": 0.4849207077188846,
+  "landmarkValue": 1.02145165815845,
+  "landmarkUnlock": 0.12200865182524942,
+  "landmarkProgress": 0.13846418433773974,
+  "landmarkRush": 2.695769920003173,
+  "landmarkOrder": 0.7087943937600382,
+  "saveMargin": 0.8915803420162174,
+  "saveScore": 0.5717877841843947,
+  "twoDiceBias": 0.42632291550387474,
+  "rerollMargin": 0.7338952083996503,
+  "harborMargin": 2.1471399956812767,
+  "spacePortMargin": -0.20762537229525851,
+  "threatWeight": 0.515009562785066,
+  "exhibitThreshold": 4.607970069392038,
+  "investFloor": 3.512419202144301,
+  "investCap": 7.211079106965626,
+  "renovationSelfHarm": 0.8883459015846196,
+  "eventTrust": 0.013265016626586112,
+  "bankerHold": 0.3127111181182766,
+  "mayorRerollMargin": 0.5837938426801438,
+  "jitter": 0.015090626834398808
+}
+```
+
+---
+
+The sections below come from earlier runs, at a different table size or a
+different supply mode. This run did not re-measure them, and the strategies
+they describe are still the ones in `bot-weights.ts`.
 
 ## variable supply (5 players)
 
@@ -87,80 +168,6 @@ winner's city, average copies over 200 games (game length 120.9 turns):
 The sections below come from earlier runs, at a different table size or a
 different supply mode. This run did not re-measure them, and the strategies
 they describe are still the ones in `bot-weights.ts`.
-
-## variable supply (4 players)
-
-Rules: base game + Harbor + Millionaire's Row + Events + Mayors.
-
-**Not shipped.** The candidate below did not beat the strategy it would replace, so
-`TUNED_VARIABLE` is unchanged. Everything that follows describes the rejected candidate.
-
-Trained over 133 344 self-play games.
-Against the strategy it would replace: **23.5%** of 3000 games (95% CI 22.0–25.1%), and the old strategy takes **26.8%** against a table of the new one (95% CI 25.3–28.4%). Fair share is 25.0%.
-Against the hand-written baseline: **56.8%** of 3000 games (95% CI 55.0–58.5%).
-
-```
-winner's city, average copies over 200 games (game length 106.7 turns):
-    Wheat Field                1.43
-    Bakery                     1.31
-    Vineyard                   0.91
-    Tuna Boat                  0.85
-    Mine                       0.81
-    Mackerel Boat              0.73
-    Forest                     0.70
-    Tax Office                 0.68
-    Apple Orchard              0.67
-    Family Restaurant          0.65
-    Flower Orchard             0.64
-    French Restaurant          0.63
-  landmark order:
-    Train Station              average position 1.75   on turn 47   first 48% of the time
-    Harbor                     average position 2.27   on turn 48   first 25% of the time
-    Shopping Mall              average position 2.79   on turn 58   first 24% of the time
-    Amusement Park             average position 4.46   on turn 75   first 1% of the time
-    Radio Tower                average position 4.69   on turn 81   first 1% of the time
-    Airport                    average position 5.55   on turn 91   first 1% of the time
-    Space Port                 average position 6.48   on turn 104   first 1% of the time
-```
-
-```json
-{
-  "cardValue": 2.303704927582472,
-  "costEfficiency": 1.7663325962971719,
-  "buyThreshold": 0.5087682462732326,
-  "duplicatePenalty": -0.00047908008889177567,
-  "scarcityBonus": 1.075051252495689,
-  "denialWeight": -0.6030029448711606,
-  "futureDice": 0.26810944152960425,
-  "tableDice": 0.537767238472185,
-  "blueWeight": 1.8628691146870424,
-  "greenWeight": 0.6639787031432993,
-  "redWeight": 1.0078401648338868,
-  "purpleWeight": 2.6341301466787677,
-  "purpleRealism": 0.745305925403323,
-  "purpleHorizon": 0.6096989420079729,
-  "purpleVolatile": 0.43923116755791397,
-  "landmarkValue": 0.8545389650380852,
-  "landmarkUnlock": 0,
-  "landmarkProgress": 0.12444866993787274,
-  "landmarkRush": 3.6995121607536365,
-  "landmarkOrder": 0.9990793302361076,
-  "saveMargin": 0.9583658522910281,
-  "saveScore": 0.12278363125417457,
-  "twoDiceBias": 0.7787723236250328,
-  "rerollMargin": 0.2439634891716812,
-  "harborMargin": 1.8572548213748894,
-  "spacePortMargin": 0.6736785781061397,
-  "threatWeight": 0.3372119860379958,
-  "exhibitThreshold": 2.2641739017824025,
-  "investFloor": 1.2027100443829577,
-  "investCap": 13.554323614607242,
-  "renovationSelfHarm": 0.6443401213829586,
-  "bankerHold": 0,
-  "mayorRerollMargin": -1.7605694679296235,
-  "jitter": 0.0017759345429497926
-}
-```
 ## fixed supply (4 players)
 
 Trained over 133 344 self-play games.
