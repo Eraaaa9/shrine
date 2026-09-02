@@ -137,9 +137,10 @@ Win rate by seat, default rules, bots on both sides of every chair.
 |4|33.9 / 25.5 / 21.5 / 19.2|25.5 / 26.8 / 24.2 / 23.6|
 |5|26.9 / 21.3 / 18.9 / 17.1 / 15.9|19.1 / 20.1 / 20.7 / 20.9 / 19.3|
 
-The worst chair at the table went from 8.9 points below its share to 1.8, and at
-three and five players to under a point. 6 000 games a row, 10 000 for the
-four-player after — about ±1pp on each number.
+At four players the best chair went from 8.9 points above its share to 1.8 and
+the worst from 5.8 below to 1.4; at three and five players the worst chair is
+under a point out. 6 000 games a row, 10 000 for the four-player after — about
+±1pp on each number.
 
 ## Where it came from, and where it did not
 

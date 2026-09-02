@@ -305,7 +305,8 @@ export const TUNED_FIXED: BotWeights = {
 };
 
 /**
- * Variable supply: ten stacks at a time, drawn from a shuffled deck.
+ * Variable supply: a market drawn from a shuffled deck, opening with one stack
+ * and widening a stack a turn to ten.
  *
  * These games run to about 118 turns against fixed supply's 78, and a purple
  * card bought on turn 30 has eighty turns left to earn, so this mode is far

@@ -58,7 +58,7 @@ picker:
 |-|-|
 |**Harbor**|10 establishments, the Harbor / City Hall / Airport landmarks, boats, and a 5th seat|
 |**Millionaire's Row**|14 establishments: wineries, demolition, renovation, the Tech Startup and the Park, plus the Space Port landmark|
-|**Variable supply**|Only 10 different cards are on offer at a time, drawn from a shuffled deck and refilled when a stack runs out|
+|**Variable supply**|A market drawn from a shuffled deck: it opens with one card and gains one each turn, up to 10 on offer at a time, refilled when a stack runs out|
 |**City events**|A new global event every round, drawn from a deck of 12|
 |**Mayors & Factions**|One asymmetric ability per player, chosen in the lobby|
 
@@ -382,7 +382,7 @@ npm run icons            # redraw public/og.png and the app icons
 (`--no-events` / `--no-mayors` drop them). It checks coin and card conservation (deck + supply +
 every city), that no player can go negative, that each player's per-building earnings and losses add
 up to their totals, that nobody closes more copies of a card than they own, that majors stay unique,
-that the variable supply keeps its ten stacks, that every event and every mayor does what its rules
+that the variable supply keeps its market as wide as the turn allows, that every event and every mayor does what its rules
 text says, and that every game reaches a winner.
 
 ## Layout

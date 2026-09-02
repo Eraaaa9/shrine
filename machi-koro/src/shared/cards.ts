@@ -27,7 +27,11 @@ export type Expansion = 'base' | 'harbor' | 'millionaires';
 export interface RuleSet {
   harbor: boolean;
   millionaires: boolean;
-  /** Rulebook-recommended setup for expansion games: 10 face-up stacks drawn from a deck. */
+  /**
+   * Rulebook-recommended setup for expansion games: face-up stacks drawn from a
+   * deck. The market opens with one stack and widens by one a turn to the usual
+   * ten, which is what evens out turn order — see `supplySlots` and BALANCE.md.
+   */
   variableSupply: boolean;
   /** City events that change each round */
   events?: boolean;
