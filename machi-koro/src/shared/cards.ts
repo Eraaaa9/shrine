@@ -33,6 +33,14 @@ export interface RuleSet {
   events?: boolean;
   /** Asymmetrical Mayor roles */
   mayors?: boolean;
+  /**
+   * Measurement only: override how the variable supply's market opens — it
+   * normally starts at one stack and widens by one a turn, which is what evens
+   * out turn order (see BALANCE.md). `normaliseRules` drops both, so a lobby
+   * can never set them; only `diagnose:seats` does, to re-sweep the dial.
+   */
+  supplySlotsStart?: number;
+  supplySlotsEvery?: number;
 }
 
 export const DEFAULT_RULES: RuleSet = {

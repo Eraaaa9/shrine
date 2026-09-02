@@ -27,8 +27,10 @@ import type {
 
 const START_COINS = 3;
 const SUPPLY_PER_CARD = 6;
-/** Face-up stacks kept available under the variable supply setup. */
+/** Face-up stacks the variable supply settles at, once the market has opened. */
 const SUPPLY_SLOTS = 10;
+/** Stacks on the opening turn — see `supplySlots`, this is the turn-order fix. */
+const SUPPLY_SLOTS_START = 1;
 
 // ---------------------------------------------------------------------------
 // rng (kept in state so a game is reproducible from its seed)
@@ -183,9 +185,33 @@ function recordCapitalSnapshot(state: GameState): void {
 }
 
 /** Draw face-up stacks until 10 different cards are on offer. */
+/**
+ * How many stacks the market shows right now: one on the opening turn, one more
+ * with every turn after it, up to the usual ten by turn nine. It never shrinks —
+ * a stack already on offer stays until it is bought out.
+ *
+ * This is what evens out turn order. Going first was worth +8.9pp at a four
+ * player table, most of it first pick of a ten-stack market twenty-seven rounds
+ * running; opening the market one stack at a time means the second seat sits
+ * down to a wider board than the first, the third wider still, and the
+ * compensation sizes itself to the table with no dial to set per player count.
+ * The worst chair is now 2.6pp off its share instead of 8.9pp. See BALANCE.md.
+ */
+export function supplySlots(state: GameState): number {
+  const start = state.rules.supplySlotsStart ?? SUPPLY_SLOTS_START;
+  // Below 1 this opens more than one stack a turn. Only the measurement
+  // harness sets it; a lobby cannot, and the sweep says a steeper ramp
+  // overshoots onto the second seat.
+  const every = state.rules.supplySlotsEvery || 1;
+  // Turns already begun, so the opening turn sees exactly `start` — count the
+  // current turn and the first player would be a step behind the second.
+  const elapsed = Math.max(0, state.turnCount - 1);
+  return Math.min(SUPPLY_SLOTS, start + Math.floor(elapsed / every));
+}
+
 function refillSupply(state: GameState): void {
   if (!state.rules.variableSupply) return;
-  while (state.deck.length > 0 && uniqueOnOffer(state) < SUPPLY_SLOTS) {
+  while (state.deck.length > 0 && uniqueOnOffer(state) < supplySlots(state)) {
     const id = state.deck.pop()!;
     state.supply[id] = (state.supply[id] ?? 0) + 1;
   }
@@ -858,6 +884,8 @@ function startTurn(state: GameState, samePlayer: boolean): void {
   state.pending = [];
   state.phase = 'roll';
   announceTurn(state);
+  // The market may have widened with the turn just announced.
+  refillSupply(state);
 }
 
 function rollDice(state: GameState, count: number): void {

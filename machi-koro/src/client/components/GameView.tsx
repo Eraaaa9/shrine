@@ -276,7 +276,10 @@ export default function GameView({ room, youId, send }: Props) {
         </span>
         <span className="rules-note" title={describeRulesIn(lang, game.rules)}>
           {game.rules.variableSupply
-            ? t('ui.stacksAndDeck', { stacks: onOffer.length, deck: game.deck.length })
+            ? t(onOffer.length === 1 ? 'ui.stackAndDeck' : 'ui.stacksAndDeck', {
+                stacks: onOffer.length,
+                deck: game.deck.length,
+              })
             : describeRulesIn(lang, game.rules)}
         </span>
         <CardViewSwitch />

@@ -35,6 +35,7 @@ import {
   hasWon,
   incomeAt,
   landmarkCost,
+  supplySlots,
   type Seat,
 } from './engine';
 import type { GameAction, GameState, PlayerState } from './types';
@@ -157,11 +158,18 @@ function checkInvariants(state: GameState, where: string): void {
     }
   }
 
-  // The variable supply keeps ten stacks up (an Exhibit Hall coming back can make eleven).
+  // The variable supply keeps its market full — which is one stack on the
+  // opening turn and one more each turn after, up to ten (an Exhibit Hall
+  // coming back can make one more than that).
   if (state.rules.variableSupply) {
     const stacks = stacksOnOffer(state);
-    check(`${where}: sensible number of stacks`, stacks <= 11, `${stacks} stacks`);
-    check(`${where}: stacks refilled while the deck lasts`, stacks >= 10 || state.deck.length === 0, `${stacks} stacks, ${state.deck.length} in deck`);
+    const want = supplySlots(state);
+    check(`${where}: sensible number of stacks`, stacks <= want + 1, `${stacks} stacks, market opens ${want}`);
+    check(
+      `${where}: stacks refilled while the deck lasts`,
+      stacks >= want || state.deck.length === 0,
+      `${stacks} stacks, market opens ${want}, ${state.deck.length} in deck`
+    );
   }
 }
 
@@ -745,7 +753,7 @@ function millionairesRuleTests(): void {
   {
     // Variable supply setup.
     const g = createGame(seats(3), BRIGHT_VAR, 118);
-    expect('ten stacks on offer', stacksOnOffer(g), 10);
+    expect('the market opens with one stack', stacksOnOffer(g), 1);
     check('the rest waits in the deck', g.deck.length > 0);
     checkInvariants(g, 'variable supply setup');
 
@@ -757,7 +765,21 @@ function millionairesRuleTests(): void {
     applyForcedRoll(g, [5]);
     const err = applyAction(g, a.id, { t: 'buy', cardId: target });
     check('bought the last copy of a stack', err === null, String(err));
-    expect('a fresh stack replaced it', stacksOnOffer(g), 10);
+    check('the bought-out stack is gone', (g.supply[target] ?? 0) === 0);
+    expect('a fresh stack replaced it', stacksOnOffer(g), supplySlots(g));
+  }
+
+  {
+    // The market widens by one a turn — this is what evens out turn order, so
+    // it is worth a test of its own. Passing keeps the game moving cheaply.
+    const g = createGame(seats(3), BRIGHT_VAR, 119);
+    for (let turn = 1; turn <= 12; turn++) {
+      expect(`turn ${turn} opens on ${Math.min(10, turn)} stacks`, stacksOnOffer(g), Math.min(10, turn));
+      applyForcedRoll(g, [1]);
+      const err = applyAction(g, activePlayer(g).id, { t: 'pass' });
+      check(`turn ${turn} passes`, err === null, String(err));
+    }
+    expect('and stops at ten', stacksOnOffer(g), 10);
   }
 }
 
@@ -778,6 +800,9 @@ function eventsRuleTests(): void {
     g.currentEvent = 'subsidized_market';
     const a = g.players[0];
     a.coins = 10;
+    // The market opens on one stack, so put the Ranch on it by hand — this is
+    // a test about the discount, not about what happens to be on offer.
+    g.supply.ranch = (g.supply.ranch ?? 0) + 1;
     applyForcedRoll(g, [1]);
     expect('phase is build', g.phase, 'build');
     check('buying ranch costs 1', applyAction(g, a.id, { t: 'buy', cardId: 'ranch' }) === null);
