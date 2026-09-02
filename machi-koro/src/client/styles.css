@@ -2005,6 +2005,14 @@ input:focus {
 }
 
 /* ---------- Mayor Badge & Tooltip ---------- */
+/* The shield on a steal target's button: a badge that says what it says and
+   does not offer to be clicked, unlike the ones that open a mayor's rules. */
+.tag.mayor-badge.shield-tag {
+  margin-left: 4px;
+  font-size: 10px;
+  cursor: inherit;
+}
+
 .tag.mayor-badge {
   display: inline-flex;
   align-items: center;

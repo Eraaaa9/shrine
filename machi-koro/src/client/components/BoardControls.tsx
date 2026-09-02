@@ -40,29 +40,31 @@ export default function BoardControls({ filter, sort, onFilter, onSort, shown, t
   const isVisual = cardView === 'visual';
 
   return (
-    <div className="board-controls-compact" aria-label="Фильтры рынка">
-      <div className="segmented-group" title={t('ui.viewModeLabel')}>
+    <div className="board-controls-compact" role="group" aria-label={t('ui.marketControls')}>
+      <div className="segmented-group" role="group" aria-label={t('ui.viewModeLabel')} title={t('ui.viewModeLabel')}>
         <button
           type="button"
           className={isVisual ? 'seg-btn on' : 'seg-btn'}
           onClick={() => setCardView('visual')}
           title={t('ui.viewVisual')}
+          aria-label={t('ui.viewVisual')}
           aria-pressed={isVisual}
         >
-          🃏
+          <span aria-hidden="true">🃏</span>
         </button>
         <button
           type="button"
           className={!isVisual ? 'seg-btn on' : 'seg-btn'}
           onClick={() => setCardView('classic')}
           title={t('ui.viewClassic')}
+          aria-label={t('ui.viewClassic')}
           aria-pressed={!isVisual}
         >
-          📋
+          <span aria-hidden="true">📋</span>
         </button>
       </div>
 
-      <div className="segmented-group" title={t('ui.filterLabel')}>
+      <div className="segmented-group" role="group" aria-label={t('ui.filterLabel')} title={t('ui.filterLabel')}>
         <button
           type="button"
           className={filter === 'all' ? 'seg-btn on' : 'seg-btn'}
@@ -81,15 +83,16 @@ export default function BoardControls({ filter, sort, onFilter, onSort, shown, t
         </button>
       </div>
 
-      <div className="segmented-group" title={t('ui.sortLabel')}>
+      <div className="segmented-group" role="group" aria-label={t('ui.sortLabel')} title={t('ui.sortLabel')}>
         <button
           type="button"
           className={sort === 'number' ? 'seg-btn on' : 'seg-btn'}
           onClick={() => onSort('number')}
           title={t('ui.sortByNumber')}
+          aria-label={t('ui.sortByNumber')}
           aria-pressed={sort === 'number'}
         >
-          🎲 №
+          <span aria-hidden="true">🎲 №</span>
         </button>
         <button
           type="button"

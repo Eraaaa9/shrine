@@ -208,11 +208,13 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                       </th>
                       {game.rules.mayors && (
                         <td className="stats-mayor-td">
+                          {/* The tooltip opens on hover and on focus, so the badge is
+                              reachable from the keyboard without pretending to be a
+                              button that does something. */}
                           {p.mayor ? (
                             <span
                               className="tag mayor-badge"
                               tabIndex={0}
-                              role="button"
                               aria-label={`${mayorName(lang, p.mayor)}: ${mayorText(lang, p.mayor, game.players.length)}`}
                             >
                               <span className="mayor-badge-icon">{mayorIcon(p.mayor)}</span>

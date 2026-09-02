@@ -58,7 +58,7 @@ export default function VictoryModal({ game, room, youId, isHost, onClose, onSta
           <h2 className="victory-title">{t('ui.victoryTitle')}</h2>
           <p className="victory-winner-announcement">
             <span className="winner-highlight-name">{winner.name}</span>{' '}
-            {isWinnerYou ? '— вы одержали блестящую победу!' : 'побеждает в этой партии!'}
+            {isWinnerYou ? t('ui.victoryYours') : t('ui.victoryTheirs')}
           </p>
         </div>
 
@@ -87,22 +87,22 @@ export default function VictoryModal({ game, room, youId, isHost, onClose, onSta
               <div className="winner-details-grid">
                 <div className="winner-stat-card">
                   <span className="stat-icon">🏛️</span>
-                  <span className="stat-label">Достопримечательности</span>
+                  <span className="stat-label">{t('ui.victoryLandmarks')}</span>
                   <span className="stat-value">{totalLandmarks} / {totalLandmarks}</span>
                 </div>
                 <div className="winner-stat-card">
                   <span className="stat-icon">🪙</span>
-                  <span className="stat-label">Казна победителя</span>
+                  <span className="stat-label">{t('ui.victoryTreasury')}</span>
                   <span className="stat-value">{winner.coins} ¤</span>
                 </div>
                 <div className="winner-stat-card">
                   <span className="stat-icon">⏱️</span>
-                  <span className="stat-label">Длительность</span>
-                  <span className="stat-value">{game.turnCount} ходов</span>
+                  <span className="stat-label">{t('ui.victoryLength')}</span>
+                  <span className="stat-value">{t('ui.victoryTurns', { n: game.turnCount })}</span>
                 </div>
                 <div className="winner-stat-card">
                   <span className="stat-icon">🎲</span>
-                  <span className="stat-label">Бросков кубиков</span>
+                  <span className="stat-label">{t('ui.victoryRolls')}</span>
                   <span className="stat-value">{winner.stats.rolls}</span>
                 </div>
               </div>
@@ -195,9 +195,11 @@ export default function VictoryModal({ game, room, youId, isHost, onClose, onSta
             {game.rules.mayors && (
               <div className="next-game-mayor-preview">
                 <div className="next-mayor-prompt">
-                  <span>🎭 Ваш выбор на следующий матч: <b>{mayorName(lang, currentMayor)}</b> {mayorIcon(currentMayor)}</span>
+                  <span>
+                    {t('ui.victoryNextPick')} <b>{mayorName(lang, currentMayor)}</b> {mayorIcon(currentMayor)}
+                  </span>
                   <button type="button" className="ghost small" onClick={() => setActiveTab('mayor')}>
-                    Сменить Мэра ➔
+                    {t('ui.victoryChangeMayor')} ➔
                   </button>
                 </div>
               </div>
