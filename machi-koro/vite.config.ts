@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/ws': { target: 'ws://localhost:8080', ws: true },
+      '/ws': { target: 'ws://localhost:3000', ws: true },
     },
   },
   build: { outDir: 'dist', emptyOutDir: true },

@@ -11,7 +11,7 @@ import type { ClientMessage, ServerMessage } from '../shared/protocol';
 import { MIN_PLAYERS, normaliseBotLevel } from '../shared/protocol';
 import { createRoom, getRoom, loadRooms, roomCount, saveRooms, sweepRooms, type Room, type Seat } from './rooms';
 
-const PORT = Number(process.env.PORT ?? 8080);
+const PORT = Number(process.env.PORT ?? 3000);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.resolve(here, '../../dist');
 
