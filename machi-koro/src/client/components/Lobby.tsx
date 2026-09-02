@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { maxPlayers } from '../../shared/cards';
+import { MAYORS, type MayorId } from '../../shared/mayors';
 import { mayorIcon, mayorName, mayorText, rulesCode } from '../../shared/i18n';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import { MIN_PLAYERS } from '../../shared/protocol';
 import { LangSwitch, useLang } from '../lang';
-import { SoundSwitch, ThemeSwitch } from '../prefs';
+import { FxSwitch, SoundSwitch, ThemeSwitch } from '../prefs';
 import BotLevelPicker from './BotLevelPicker';
 import Chat from './Chat';
 import MayorPicker from './MayorPicker';
@@ -38,6 +39,7 @@ export default function Lobby({ room, youId, send }: Props) {
     <div className="lobby">
       <header>
         <h1>{t('ui.room', { code: room.code })}</h1>
+        <FxSwitch />
         <SoundSwitch />
         <ThemeSwitch />
         <LangSwitch />
@@ -71,14 +73,29 @@ export default function Lobby({ room, youId, send }: Props) {
               {seat.isHost && <span className="tag">{t('ui.host')}</span>}
               {seat.isBot && <span className="tag bot">{t('ui.bot')}</span>}
               {seat.id === youId && <span className="tag you-tag">{t('ui.you')}</span>}
-              {seat.mayor && (
+              {seat.isBot && isHost ? (
+                <div className="bot-mayor-select-wrap">
+                  <select
+                    className="bot-mayor-select"
+                    value={seat.mayor ?? 'agronomist'}
+                    onChange={(e) => send({ t: 'setBotMayor', playerId: seat.id, mayor: e.target.value as MayorId })}
+                    title={t('ui.chooseMayorTitle')}
+                  >
+                    {MAYORS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.icon} {mayorName(lang, m.id)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : seat.mayor ? (
                 <span
                   className="tag mayor-badge"
                   title={`${mayorName(lang, seat.mayor)}: ${mayorText(lang, seat.mayor, room.seats.length)}`}
                 >
                   {mayorIcon(seat.mayor)} {mayorName(lang, seat.mayor)}
                 </span>
-              )}
+              ) : null}
               {isHost && !seat.isHost && (
                 <button type="button" className="ghost small" onClick={() => send({ t: 'kick', playerId: seat.id })}>
                   {t('ui.remove')}

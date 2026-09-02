@@ -3,6 +3,7 @@ import type { GameState } from '../../shared/types';
 import type { MayorId } from '../../shared/mayors';
 import type { ClientMessage, RoomView } from '../../shared/protocol';
 import { winLandmarks } from '../../shared/cards';
+import { landmarkCount } from '../../shared/engine';
 import { mayorIcon, mayorName, mayorText } from '../../shared/i18n';
 import { useLang } from '../lang';
 import MayorPicker from './MayorPicker';
@@ -28,6 +29,17 @@ export default function VictoryModal({ game, room, youId, isHost, onClose, onSta
 
   const totalLandmarks = winLandmarks(game.rules).length;
   const isWinnerYou = winner.id === youId;
+
+  // Rank players: winner is #1, then by landmarks built desc, then coins desc, then earned desc
+  const rankedPlayers = [...game.players].sort((a, b) => {
+    if (a.id === game.winnerId) return -1;
+    if (b.id === game.winnerId) return 1;
+    const aLm = landmarkCount(game, a);
+    const bLm = landmarkCount(game, b);
+    if (bLm !== aLm) return bLm - aLm;
+    if (b.coins !== a.coins) return b.coins - a.coins;
+    return b.stats.earned - a.stats.earned;
+  });
 
   return (
     <div className="modal-backdrop victory-backdrop" onClick={onClose}>
@@ -104,6 +116,80 @@ export default function VictoryModal({ game, room, youId, isHost, onClose, onSta
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Standings table for all players and their mayors */}
+            <div className="victory-standings">
+              <div className="victory-standings-head">
+                <span className="victory-standings-title">🏙️ {t('ui.matchStandings')}</span>
+              </div>
+              <div className="victory-standings-scroll">
+                <table className="victory-standings-table">
+                  <thead>
+                    <tr>
+                      <th className="th-rank">#</th>
+                      <th className="th-player">{t('ui.colPlayer')}</th>
+                      {game.rules.mayors && <th className="th-mayor">{t('ui.colMayor')}</th>}
+                      <th className="th-lm">🏛️</th>
+                      <th className="th-coins">🪙</th>
+                      <th className="th-earned">{t('ui.colEarned')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankedPlayers.map((p, idx) => {
+                      const isWinner = p.id === game.winnerId;
+                      const isYou = p.id === youId;
+                      const builtLm = landmarkCount(game, p);
+                      return (
+                        <tr key={p.id} className={`${isWinner ? 'winner-row' : ''} ${isYou ? 'you-row' : ''}`}>
+                          <td className="td-rank">
+                            <span className={`rank-badge ${isWinner ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-other'}`}>
+                              {isWinner ? '🏆 1' : `${idx + 1}`}
+                            </span>
+                          </td>
+                          <td className="td-player">
+                            <span className="player-cell-wrap">
+                              <span className="player-name-val">{p.name}</span>
+                              {isYou && <span className="tag you-tag">{t('ui.you')}</span>}
+                              {p.isBot && <span className="tag bot">{t('ui.bot')}</span>}
+                            </span>
+                          </td>
+                          {game.rules.mayors && (
+                            <td className="td-mayor">
+                              {p.mayor ? (
+                                <span
+                                  className="tag mayor-badge mayor-standings-badge"
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-label={`${mayorName(lang, p.mayor)}: ${mayorText(lang, p.mayor, game.players.length)}`}
+                                >
+                                  <span className="mayor-badge-icon">{mayorIcon(p.mayor)}</span>
+                                  <span className="mayor-title-text">{mayorName(lang, p.mayor)}</span>
+                                  <span className="mayor-tooltip">
+                                    <strong>{mayorIcon(p.mayor)} {mayorName(lang, p.mayor)}</strong>
+                                    <p>{mayorText(lang, p.mayor, game.players.length)}</p>
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="muted">—</span>
+                              )}
+                            </td>
+                          )}
+                          <td className="td-lm">
+                            <b>{builtLm}</b>/{totalLandmarks}
+                          </td>
+                          <td className="td-coins coins">
+                            {p.coins}
+                          </td>
+                          <td className="td-earned stat-pos">
+                            +{p.stats.earned}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {game.rules.mayors && (

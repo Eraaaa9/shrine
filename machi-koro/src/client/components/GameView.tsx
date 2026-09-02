@@ -6,12 +6,16 @@ import type { ClientMessage, RoomView, SeatView } from '../../shared/protocol';
 import type { GameAction } from '../../shared/types';
 import useCoinDeltas from '../coinMotion';
 import { LangSwitch, useLang } from '../lang';
-import { SoundSwitch, ThemeSwitch, usePrefs } from '../prefs';
+import { CardViewSwitch, ChainSwitch, FxSwitch, SoundSwitch, ThemeSwitch, usePrefs } from '../prefs';
 import useSupplyMotion from '../supplyMotion';
+import { flyingCoins } from '../flyingCoins';
+import { gameJuice } from '../gameJuice';
+import ActionChainHUD from './ActionChainHUD';
 import BoardControls, { sortCards, type BoardFilter, type BoardSort } from './BoardControls';
 import CardTile from './CardTile';
 import Chat from './Chat';
 import ChoiceModal from './ChoiceModal';
+import CoinFlightOverlay from './CoinFlightOverlay';
 import Controls, { phaseHint } from './Controls';
 import EventBanner from './EventBanner';
 import IncomePanel from './IncomePanel';
@@ -33,7 +37,7 @@ interface Props {
 
 export default function GameView({ room, youId, send }: Props) {
   const { lang, t } = useLang();
-  const { cue } = usePrefs();
+  const { cue, actionChain } = usePrefs();
   const game = room.game!;
   const [tab, setTab] = useState<Tab>('log');
   const [showStats, setShowStats] = useState(false);
@@ -55,6 +59,68 @@ export default function GameView({ room, youId, send }: Props) {
 
   const marks = useSupplyMotion(game.supply, game.rules.variableSupply);
   const deltas = useCoinDeltas(game.players, game.turnCount);
+
+  // ---- Game Juice & Screen Shake -------------------------------------------
+  const [shakeClass, setShakeClass] = useState('');
+  useEffect(() => {
+    return gameJuice.subscribe(() => {
+      setShakeClass(gameJuice.shakeClass);
+    });
+  }, []);
+
+  // ---- Flying Coins Launch from Log ----------------------------------------
+  const processedLogId = useRef(game.log.length > 0 ? game.log[game.log.length - 1].id : 0);
+  useEffect(() => {
+    if (game.log.length === 0) return;
+    const newLogs = game.log.filter((l) => l.id > processedLogId.current);
+    if (newLogs.length === 0) return;
+    processedLogId.current = game.log[game.log.length - 1].id;
+
+    for (const l of newLogs) {
+      if (l.kind === 'income') {
+        const coins = Number(l.params?.coins ?? l.params?.n ?? 2);
+        const payerName = l.params?.payer as string | undefined;
+        const receiverName = l.params?.receiver as string | undefined;
+        const targetPlayerName = (l.params?.name ?? l.params?.player) as string | undefined;
+
+        if (payerName && receiverName) {
+          const payerPlayer = game.players.find((p) => p.name === payerName);
+          const receiverPlayer = game.players.find((p) => p.name === receiverName);
+          if (payerPlayer && receiverPlayer) {
+            const payerEl = document.querySelector(`[data-player-purse="${payerPlayer.id}"]`);
+            const receiverEl = document.querySelector(`[data-player-purse="${receiverPlayer.id}"]`);
+            if (payerEl && receiverEl) {
+              flyingCoins.launch(payerEl.getBoundingClientRect(), receiverEl.getBoundingClientRect(), coins, receiverPlayer.id, true);
+              gameJuice.flashSteal(payerPlayer.id);
+            }
+          }
+        } else {
+          const player = game.players.find((p) => p.name === targetPlayerName) ?? active;
+          const diceEl = document.querySelector('[data-dice-tray="true"]');
+          const purseEl = document.querySelector(`[data-player-purse="${player.id}"]`);
+          if (purseEl) {
+            const bankRect = diceEl ? diceEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+            // If coins are gained from bank: Bank ➔ Player
+            flyingCoins.launch(bankRect, purseEl.getBoundingClientRect(), coins, player.id, false);
+          }
+        }
+      } else if (l.kind === 'build') {
+        const cost = Number(l.params?.cost ?? 2);
+        const buyerName = (l.params?.name ?? l.params?.player) as string | undefined;
+        const buyer = game.players.find((p) => p.name === buyerName) ?? active;
+        const purseEl = document.querySelector(`[data-player-purse="${buyer.id}"]`);
+        const diceEl = document.querySelector('[data-dice-tray="true"]');
+        if (purseEl) {
+          // When spending money, coins fly back to the central bank / dice tray (where distribution came from)
+          const bankRect = diceEl ? diceEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+          flyingCoins.launch(purseEl.getBoundingClientRect(), bankRect, cost, undefined, false);
+        }
+        if (l.params?.landmark) {
+          gameJuice.shake('medium');
+        }
+      }
+    }
+  }, [game.log, game.players, active]);
 
   // ---- the away countdown -------------------------------------------------
   // Timestamps come from the server's clock, so the offset between the two is
@@ -93,7 +159,9 @@ export default function GameView({ room, youId, send }: Props) {
 
   useEffect(() => {
     if (game.rollId > heardRoll.current) {
-      if (game.dice.length === 2 && game.dice[0] === game.dice[1]) {
+      const activeP = game.players[game.turn];
+      const hasPark = Boolean(activeP?.landmarks.amusement_park || game.extraTurn);
+      if (game.dice.length === 2 && game.dice[0] === game.dice[1] && hasPark) {
         cue('doubles');
       } else if (game.dice.length === 2) {
         cue('dice2');
@@ -102,7 +170,7 @@ export default function GameView({ room, youId, send }: Props) {
       }
     }
     heardRoll.current = game.rollId;
-  }, [game.rollId, game.dice, cue]);
+  }, [game.rollId, game.dice, game.players, game.turn, game.extraTurn, cue]);
 
   useEffect(() => {
     const newest = game.log.length > 0 ? game.log[game.log.length - 1] : null;
@@ -191,7 +259,8 @@ export default function GameView({ room, youId, send }: Props) {
     game.players.reduce((n, p) => (p.id === youId ? n : n + (p.cards[id] ?? 0)), 0);
 
   return (
-    <div className={yourTurn ? 'game my-turn' : 'game'}>
+    <div className={`${yourTurn ? 'game my-turn' : 'game'} ${shakeClass}`}>
+      <CoinFlightOverlay />
       <header className="topbar">
         <span className="room-code" title="room code">
           {room.code}
@@ -210,6 +279,9 @@ export default function GameView({ room, youId, send }: Props) {
             ? t('ui.stacksAndDeck', { stacks: onOffer.length, deck: game.deck.length })
             : describeRulesIn(lang, game.rules)}
         </span>
+        <CardViewSwitch />
+        <ChainSwitch />
+        <FxSwitch />
         <SoundSwitch />
         <ThemeSwitch />
         <LangSwitch />
@@ -225,6 +297,7 @@ export default function GameView({ room, youId, send }: Props) {
         {game.rules.events && game.currentEvent && (
           <EventBanner eventId={game.currentEvent} round={game.eventRound} />
         )}
+        {actionChain && <ActionChainHUD game={game} you={you} />}
         <BoardControls
           filter={filter}
           sort={sort}

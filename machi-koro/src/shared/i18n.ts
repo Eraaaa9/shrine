@@ -798,6 +798,10 @@ const EN: Record<string, string> = {
   'ui.soundLabel': 'Sound',
   'ui.soundOn': 'Sound on',
   'ui.soundOff': 'Sound off',
+  'ui.fxOn': 'Animations & effects on',
+  'ui.fxOff': 'Animations & effects off',
+  'ui.chainOn': 'Turn chain HUD visible',
+  'ui.chainOff': 'Turn chain HUD hidden',
 
   // confirmations + shortcuts
   'ui.confirmTitle': 'Are you sure?',
@@ -865,6 +869,11 @@ const EN: Record<string, string> = {
   'ui.showVictory': '🏆 Victory Summary',
   'ui.nextMayorTitle': 'Choose Mayor for next game:',
   'ui.winnerMayor': 'Winning Mayor',
+  'ui.colMayor': 'Mayor',
+  'ui.matchStandings': 'Match Standings & Mayors',
+  'ui.playerRank': 'Rank',
+  'ui.mayorBanner': 'Mayor Role',
+  'ui.noMayor': 'Standard Mayor',
 };
 
 const RU: Record<string, string> = {
@@ -1181,6 +1190,10 @@ const RU: Record<string, string> = {
   'ui.soundLabel': 'Звук',
   'ui.soundOn': 'Звук включён',
   'ui.soundOff': 'Звук выключен',
+  'ui.fxOn': 'Анимации и эффекты включены',
+  'ui.fxOff': 'Анимации и эффекты выключены',
+  'ui.chainOn': 'Цепочка хода отображается',
+  'ui.chainOff': 'Цепочка хода скрыта',
 
   'ui.confirmTitle': 'Вы уверены?',
   'ui.confirmDemolish': 'Снести {landmark}? Отстроить заново будет стоить {cost}.',
@@ -1246,6 +1259,11 @@ const RU: Record<string, string> = {
   'ui.showVictory': '🏆 Итоги победы',
   'ui.nextMayorTitle': 'Выберите Мэра на следующую партию:',
   'ui.winnerMayor': 'Мэр-победитель',
+  'ui.colMayor': 'Мэр',
+  'ui.matchStandings': 'Итоги матча по мэрам',
+  'ui.playerRank': 'Место',
+  'ui.mayorBanner': 'Роль Мэра',
+  'ui.noMayor': 'Обычный мэр',
 };
 
 const KK: Record<string, string> = {
@@ -1562,6 +1580,10 @@ const KK: Record<string, string> = {
   'ui.soundLabel': 'Дыбыс',
   'ui.soundOn': 'Дыбыс қосулы',
   'ui.soundOff': 'Дыбыс өшірулі',
+  'ui.fxOn': 'Анимациялар мен эффекттер қосулы',
+  'ui.fxOff': 'Анимациялар мен эффекттер өшірулі',
+  'ui.chainOn': 'Жүріс тізбегі көрінеді',
+  'ui.chainOff': 'Жүріс тізбегі жасырулы',
 
   'ui.confirmTitle': 'Сенімдісіз бе?',
   'ui.confirmDemolish': '{landmark} нысанын бұзасыз ба? Қайта салу {cost} тұрады.',
@@ -1627,6 +1649,11 @@ const KK: Record<string, string> = {
   'ui.showVictory': '🏆 Жеңіс нәтижесі',
   'ui.nextMayorTitle': 'Келесі ойынға Әкімді таңдаңыз:',
   'ui.winnerMayor': 'Жеңімпаз Әкім',
+  'ui.colMayor': 'Әкім',
+  'ui.matchStandings': 'Әкімдер бойынша матч нәтижесі',
+  'ui.playerRank': 'Орын',
+  'ui.mayorBanner': 'Әкім рөлі',
+  'ui.noMayor': 'Қарапайым әкім',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { en: EN, ru: RU, kk: KK };

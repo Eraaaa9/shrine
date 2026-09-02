@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { CARD_BY_ID, type CardId } from '../../shared/cards';
 import { CITY_EVENT_BY_ID } from '../../shared/events';
-import { MAYOR_BY_ID } from '../../shared/mayors';
+import { MAYOR_BY_ID, type MayorId } from '../../shared/mayors';
 import { landmarkCount } from '../../shared/engine';
-import { statName } from '../../shared/i18n';
+import { statName, mayorIcon, mayorName, mayorText } from '../../shared/i18n';
 import type { GameState, PlayerState, StatKey } from '../../shared/types';
 import { useLang } from '../lang';
 
@@ -70,13 +70,13 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
 
   // --- Awards Calculations ---
   // 1. MVP Building across all players
-  let mvpCard: { key: StatKey; net: number; ownerName: string } | null = null;
+  let mvpCard: { key: StatKey; net: number; ownerName: string; ownerMayor: MayorId | null } | null = null;
   for (const p of game.players) {
     for (const key of Object.keys(p.stats.byKey) as StatKey[]) {
       const s = p.stats.byKey[key]!;
       const net = s.earned - s.spent - s.lost;
       if (!mvpCard || net > mvpCard.net) {
-        mvpCard = { key, net, ownerName: p.name };
+        mvpCard = { key, net, ownerName: p.name, ownerMayor: p.mayor };
       }
     }
   }
@@ -189,6 +189,7 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                 <thead>
                   <tr>
                     <th>{t('ui.colPlayer')}</th>
+                    {game.rules.mayors && <th>{t('ui.colMayor')}</th>}
                     <th>{t('ui.colTurns')}</th>
                     <th>{t('ui.colEarned')}</th>
                     <th>{t('ui.colPaid')}</th>
@@ -205,6 +206,27 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                         {p.name}
                         <i className="muted"> {t('ui.statsLandmarks', { n: landmarkCount(game, p) })}</i>
                       </th>
+                      {game.rules.mayors && (
+                        <td className="stats-mayor-td">
+                          {p.mayor ? (
+                            <span
+                              className="tag mayor-badge"
+                              tabIndex={0}
+                              role="button"
+                              aria-label={`${mayorName(lang, p.mayor)}: ${mayorText(lang, p.mayor, game.players.length)}`}
+                            >
+                              <span className="mayor-badge-icon">{mayorIcon(p.mayor)}</span>
+                              <span className="mayor-title-text">{mayorName(lang, p.mayor)}</span>
+                              <span className="mayor-tooltip">
+                                <strong>{mayorIcon(p.mayor)} {mayorName(lang, p.mayor)}</strong>
+                                <p>{mayorText(lang, p.mayor, game.players.length)}</p>
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                      )}
                       <td>{p.stats.turns}</td>
                       <td className="stat-pos">{p.stats.earned}</td>
                       <td className="stat-neg">{p.stats.lost}</td>
@@ -225,10 +247,23 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                   className={p.id === shown.id ? 'chip on' : 'chip'}
                   onClick={() => setPick(p.id)}
                 >
+                  {p.mayor ? `${mayorIcon(p.mayor)} ` : ''}
                   {p.name}
                 </button>
               ))}
             </div>
+
+            {game.rules.mayors && shown.mayor && (
+              <div className="stats-mayor-banner">
+                <span className="stats-mayor-icon">{mayorIcon(shown.mayor)}</span>
+                <div className="stats-mayor-info">
+                  <div className="stats-mayor-head">
+                    <span className="stats-mayor-role">{t('ui.mayorBanner')}: <strong>{mayorName(lang, shown.mayor)}</strong></span>
+                  </div>
+                  <div className="stats-mayor-desc">{mayorText(lang, shown.mayor, game.players.length)}</div>
+                </div>
+              </div>
+            )}
 
             <p className="muted small-note">{t('ui.statsBlurb')}</p>
 
@@ -317,7 +352,7 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                       className="legend-color-dot"
                       style={{ backgroundColor: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}
                     />
-                    {p.name} ({p.coins})
+                    {p.mayor ? `${mayorIcon(p.mayor)} ` : ''}{p.name} ({p.coins})
                   </span>
                 ))}
               </div>
@@ -461,7 +496,7 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                   <h4>{t('ui.awardMvp')}</h4>
                   <div className="award-highlight">{statName(lang, mvpCard.key)}</div>
                   <p className="award-desc">
-                    {t('ui.awardMvpDesc', { amount: mvpCard.net })} ({mvpCard.ownerName})
+                    {t('ui.awardMvpDesc', { amount: mvpCard.net })} ({mvpCard.ownerMayor ? `${mayorIcon(mvpCard.ownerMayor)} ` : ''}{mvpCard.ownerName})
                   </p>
                 </div>
               </div>
@@ -473,7 +508,14 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                 <div className="award-icon">🦹</div>
                 <div className="award-body">
                   <h4>{t('ui.awardThief')}</h4>
-                  <div className="award-highlight">{topThief.name}</div>
+                  <div className="award-highlight">
+                    {topThief.name}
+                    {topThief.mayor && (
+                      <span className="tag mayor-badge award-mayor-badge">
+                        {mayorIcon(topThief.mayor)} {mayorName(lang, topThief.mayor)}
+                      </span>
+                    )}
+                  </div>
                   <p className="award-desc">
                     {t('ui.awardThiefDesc', { amount: topThief.stats.stolenFromOthers ?? 0 })}
                   </p>
@@ -487,7 +529,14 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                 <div className="award-icon">💸</div>
                 <div className="award-body">
                   <h4>{t('ui.awardPatron')}</h4>
-                  <div className="award-highlight">{topPatron.name}</div>
+                  <div className="award-highlight">
+                    {topPatron.name}
+                    {topPatron.mayor && (
+                      <span className="tag mayor-badge award-mayor-badge">
+                        {mayorIcon(topPatron.mayor)} {mayorName(lang, topPatron.mayor)}
+                      </span>
+                    )}
+                  </div>
                   <p className="award-desc">
                     {t('ui.awardPatronDesc', { amount: topPatron.stats.paidToOthers ?? 0 })}
                   </p>
@@ -501,7 +550,14 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                 <div className="award-icon">🎲</div>
                 <div className="award-body">
                   <h4>{t('ui.awardLucky')}</h4>
-                  <div className="award-highlight">{topLucky.name}</div>
+                  <div className="award-highlight">
+                    {topLucky.name}
+                    {topLucky.mayor && (
+                      <span className="tag mayor-badge award-mayor-badge">
+                        {mayorIcon(topLucky.mayor)} {mayorName(lang, topLucky.mayor)}
+                      </span>
+                    )}
+                  </div>
                   <p className="award-desc">
                     {t('ui.awardLuckyDesc', { amount: game.doublesCount ?? 0 })} (Avg {averageRoll(topLucky)})
                   </p>
@@ -515,7 +571,14 @@ export default function StatsPanel({ game, youId, onClose }: Props) {
                 <div className="award-icon">🏛️</div>
                 <div className="award-body">
                   <h4>{t('ui.awardArchitect')}</h4>
-                  <div className="award-highlight">{topArchitect.name}</div>
+                  <div className="award-highlight">
+                    {topArchitect.name}
+                    {topArchitect.mayor && (
+                      <span className="tag mayor-badge award-mayor-badge">
+                        {mayorIcon(topArchitect.mayor)} {mayorName(lang, topArchitect.mayor)}
+                      </span>
+                    )}
+                  </div>
                   <p className="award-desc">
                     {t('ui.awardArchitectDesc', { amount: landmarkCount(game, topArchitect) })}
                   </p>

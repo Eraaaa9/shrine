@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLang } from '../lang';
+import { gameJuice } from '../gameJuice';
 
 const DIE_FACE = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const TUMBLE_MS = 620;
@@ -12,6 +13,8 @@ interface Props {
   rollId: number;
   /** Extra turn earned (e.g. doubles with Amusement Park). */
   extraTurn?: boolean;
+  /** Whether the active player owns the Amusement Park landmark */
+  hasAmusementPark?: boolean;
 }
 
 function reducedMotion(): boolean {
@@ -22,14 +25,21 @@ function reducedMotion(): boolean {
  * The dice tumble through random faces for a beat before settling on what the
  * server actually rolled — the result is never in doubt, it just lands late.
  */
-export default function DiceTray({ dice, total, rollId, extraTurn }: Props) {
+export default function DiceTray({ dice, total, rollId, extraTurn, hasAmusementPark }: Props) {
   const { t } = useLang();
   const [tumbling, setTumbling] = useState<number[] | null>(null);
   const seen = useRef(rollId);
+  const [shockwaveActive, setShockwaveActive] = useState(false);
   // Bots keep the room updating mid-throw; reading the dice through a ref keeps
   // those updates from restarting (or cancelling) the animation.
   const count = useRef(dice.length);
   count.current = dice.length;
+
+  useEffect(() => {
+    return gameJuice.subscribe(() => {
+      setShockwaveActive(Boolean(gameJuice.activeShockwave));
+    });
+  }, []);
 
   useEffect(() => {
     // Only animate throws that happen while we are watching: a fresh join or a
@@ -44,6 +54,16 @@ export default function DiceTray({ dice, total, rollId, extraTurn }: Props) {
     const land = setTimeout(() => {
       clearInterval(flip);
       setTumbling(null);
+
+      // Trigger Game Juice impact on landing only if doubles is mechanically relevant (Amusement Park owned)
+      const isDub = dice.length === 2 && dice[0] === dice[1];
+      if (isDub && (hasAmusementPark || extraTurn)) {
+        gameJuice.shake('medium');
+        gameJuice.shockwave(true, total);
+      } else if (total >= 10) {
+        gameJuice.shake('light');
+        gameJuice.shockwave(false, total);
+      }
     }, TUMBLE_MS);
 
     return () => {
@@ -51,26 +71,28 @@ export default function DiceTray({ dice, total, rollId, extraTurn }: Props) {
       clearTimeout(land);
       setTumbling(null);
     };
-  }, [rollId]);
+  }, [rollId, dice, total, hasAmusementPark, extraTurn]);
 
   const shown = tumbling ?? dice;
   const isDoubles = !tumbling && dice.length === 2 && dice[0] === dice[1];
+  const showDoubles = isDoubles && Boolean(hasAmusementPark || extraTurn);
 
   return (
-    <div className="dice-tray">
+    <div className={`dice-tray ${shockwaveActive ? 'tray-shockwave-active' : ''}`} data-dice-tray="true">
+      {shockwaveActive && <span className="dice-shockwave-ring" aria-hidden="true" />}
       {/* The faces are decorative: mid-tumble they are random, and a screen
           reader would spell out glyphs. The live region below says the result
           once, when it is actually true. */}
       <span className="dice-faces" aria-hidden="true">
         {shown.map((d, i) => (
-          <span key={i} className={tumbling ? 'die-face tumbling' : isDoubles ? 'die-face landed doubles' : 'die-face landed'}>
+          <span key={i} className={tumbling ? 'die-face tumbling' : showDoubles ? 'die-face landed doubles' : 'die-face landed'}>
             {DIE_FACE[d]}
           </span>
         ))}
         {dice.length > 0 && (
           <span className={tumbling ? 'dice-total pending' : 'dice-total'}>{tumbling ? '…' : total}</span>
         )}
-        {isDoubles && (
+        {showDoubles && (
           <span
             className={extraTurn ? 'doubles-badge extra-turn' : 'doubles-badge'}
             title={extraTurn ? t('ui.extraTurnBadge') : t('ui.doubles')}

@@ -1,6 +1,6 @@
 import type { CardDef } from '../../shared/cards';
 import { useLang } from '../lang';
-import { usePrefs, type CardView } from '../prefs';
+import { usePrefs } from '../prefs';
 
 export type BoardFilter = 'all' | 'affordable';
 export type BoardSort = 'number' | 'cost' | 'colour';
@@ -31,76 +31,87 @@ interface Props {
 }
 
 /**
- * Filter, sort and view mode for the supply.
+ * Streamlined, single-line compact filter and sort controls for the supply.
  */
 export default function BoardControls({ filter, sort, onFilter, onSort, shown, total }: Props) {
   const { t } = useLang();
   const { cardView, setCardView } = usePrefs();
 
-  const views: { key: CardView; label: string; icon: string }[] = [
-    { key: 'visual', label: t('ui.viewVisual'), icon: '🃏' },
-    { key: 'classic', label: t('ui.viewClassic'), icon: '📋' },
-  ];
-
-  const filters: { key: BoardFilter; label: string }[] = [
-    { key: 'all', label: t('ui.filterAll') },
-    { key: 'affordable', label: t('ui.filterAffordable') },
-  ];
-  const sorts: { key: BoardSort; label: string }[] = [
-    { key: 'number', label: t('ui.sortByNumber') },
-    { key: 'cost', label: t('ui.sortByCost') },
-    { key: 'colour', label: t('ui.sortByColour') },
-  ];
+  const isVisual = cardView === 'visual';
 
   return (
-    <div className="board-controls">
-      <div className="board-group" role="group" aria-label={t('ui.viewModeLabel')}>
-        <span className="muted">{t('ui.viewModeLabel')}</span>
-        {views.map((option) => (
-          <button
-            type="button"
-            key={option.key}
-            className={option.key === cardView ? 'chip on' : 'chip'}
-            aria-pressed={option.key === cardView}
-            onClick={() => setCardView(option.key)}
-          >
-            <span aria-hidden="true" style={{ marginRight: 4 }}>{option.icon}</span>
-            {option.label}
-          </button>
-        ))}
+    <div className="board-controls-compact" aria-label="Фильтры рынка">
+      <div className="segmented-group" title={t('ui.viewModeLabel')}>
+        <button
+          type="button"
+          className={isVisual ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => setCardView('visual')}
+          title={t('ui.viewVisual')}
+          aria-pressed={isVisual}
+        >
+          🃏
+        </button>
+        <button
+          type="button"
+          className={!isVisual ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => setCardView('classic')}
+          title={t('ui.viewClassic')}
+          aria-pressed={!isVisual}
+        >
+          📋
+        </button>
       </div>
 
-      <div className="board-group" role="group" aria-label={t('ui.filterLabel')}>
-        <span className="muted">{t('ui.filterLabel')}</span>
-        {filters.map((option) => (
-          <button
-            type="button"
-            key={option.key}
-            className={option.key === filter ? 'chip on' : 'chip'}
-            aria-pressed={option.key === filter}
-            onClick={() => onFilter(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
+      <div className="segmented-group" title={t('ui.filterLabel')}>
+        <button
+          type="button"
+          className={filter === 'all' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => onFilter('all')}
+          aria-pressed={filter === 'all'}
+        >
+          {t('ui.filterAll')}
+        </button>
+        <button
+          type="button"
+          className={filter === 'affordable' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => onFilter('affordable')}
+          aria-pressed={filter === 'affordable'}
+        >
+          💰 {t('ui.filterAffordable')}
+        </button>
       </div>
 
-      <div className="board-group" role="group" aria-label={t('ui.sortLabel')}>
-        <span className="muted">{t('ui.sortLabel')}</span>
-        {sorts.map((option) => (
-          <button
-            type="button"
-            key={option.key}
-            className={option.key === sort ? 'chip on' : 'chip'}
-            aria-pressed={option.key === sort}
-            onClick={() => onSort(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
+      <div className="segmented-group" title={t('ui.sortLabel')}>
+        <button
+          type="button"
+          className={sort === 'number' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => onSort('number')}
+          title={t('ui.sortByNumber')}
+          aria-pressed={sort === 'number'}
+        >
+          🎲 №
+        </button>
+        <button
+          type="button"
+          className={sort === 'cost' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => onSort('cost')}
+          title={t('ui.sortByCost')}
+          aria-pressed={sort === 'cost'}
+        >
+          🏷️ {t('ui.sortByCost')}
+        </button>
+        <button
+          type="button"
+          className={sort === 'colour' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => onSort('colour')}
+          title={t('ui.sortByColour')}
+          aria-pressed={sort === 'colour'}
+        >
+          🎨 {t('ui.sortByColour')}
+        </button>
       </div>
 
-      <span className="muted board-count">{t('ui.boardShowing', { shown, total })}</span>
+      <span className="board-count-pill">{t('ui.boardShowing', { shown, total })}</span>
     </div>
   );
 }

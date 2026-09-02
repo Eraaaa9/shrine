@@ -1683,30 +1683,62 @@ input:focus {
   margin-top: 4px;
 }
 
-/* ---------- board filters ---------- */
+/* ---------- board filters (compact & streamlined) ---------- */
 
-.board-controls {
+.board-controls-compact {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 2px 8px;
+  font-size: 11.5px;
+}
+
+.segmented-group {
+  display: inline-flex;
   align-items: center;
-  gap: 6px 10px;
-  padding: 0 2px 8px;
-  font-size: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
 }
-.board-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  line-height: 1.3;
 }
-.board-controls .chip {
-  padding: 3px 9px;
-  font-size: 12px;
-  display: inline;
-  border-radius: 999px;
+
+.seg-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
 }
-.board-count {
+
+.seg-btn.on {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.board-count-pill {
   margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
+
 .board-empty {
   padding: 18px 4px;
   text-align: center;
@@ -2602,5 +2634,475 @@ input:focus {
   font-style: italic;
   font-size: 13px;
 }
+
+/* ---------- Victory Standings Table ---------- */
+.victory-standings {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.victory-standings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.victory-standings-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.victory-standings-scroll {
+  overflow-x: auto;
+  margin: 0;
+}
+
+.victory-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.victory-standings-table th,
+.victory-standings-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.victory-standings-table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.victory-standings-table .th-rank,
+.victory-standings-table .td-rank {
+  width: 38px;
+  text-align: center;
+}
+
+.victory-standings-table .th-lm,
+.victory-standings-table .td-lm,
+.victory-standings-table .th-coins,
+.victory-standings-table .td-coins,
+.victory-standings-table .th-earned,
+.victory-standings-table .td-earned {
+  text-align: right;
+}
+
+.victory-standings-table tbody tr.winner-row {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.victory-standings-table tbody tr.you-row {
+  font-weight: 600;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  min-width: 22px;
+}
+
+.rank-badge.rank-1 {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.rank-badge.rank-2 {
+  background: #94a3b8;
+  color: #fff;
+}
+
+.rank-badge.rank-3 {
+  background: #b45309;
+  color: #fff;
+}
+
+.rank-badge.rank-other {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.player-cell-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-name-val {
+  font-weight: 600;
+}
+
+.mayor-standings-badge {
+  max-width: 140px;
+}
+
+/* ---------- Stats Mayor TD & Banner ---------- */
+.stats-mayor-td {
+  text-align: left !important;
+}
+
+.stats-mayor-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.12), rgba(45, 212, 191, 0.04));
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  border-radius: 9px;
+  margin: 12px 0 10px;
+}
+
+.stats-mayor-icon {
+  font-size: 26px;
+}
+
+.stats-mayor-info {
+  flex: 1;
+}
+
+.stats-mayor-role {
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+.stats-mayor-desc {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.award-mayor-badge {
+  margin-left: 6px;
+  font-size: 10px;
+}
+
+/* ==========================================================================
+   1. Flying Coins Flow
+   ========================================================================== */
+.coin-flight-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+.flying-coin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  animation: coinFlightArc var(--duration, 600ms) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.flying-coin-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fef08a, #f59e0b 60%, #b45309);
+  border: 1.5px solid #fff;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.6), inset 0 1px 2px #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #78350f;
+  font-weight: 900;
+  font-size: 11px;
+  animation: coinSpin 0.35s linear infinite;
+}
+
+.flying-coin.steal-coin .flying-coin-inner {
+  background: radial-gradient(circle at 35% 35%, #fca5a5, #ef4444 60%, #991b1b);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.7), inset 0 1px 2px #fff;
+  color: #fff;
+}
+
+@keyframes coinFlightArc {
+  0% {
+    opacity: 1;
+    transform: translate(var(--from-x), var(--from-y)) scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(var(--curve-x), var(--curve-y)) scale(1.25);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(var(--to-x), var(--to-y)) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--to-x), var(--to-y)) scale(0.8);
+  }
+}
+
+@keyframes coinSpin {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg) scaleX(0.2); }
+  100% { transform: rotateY(180deg); }
+}
+
+/* ==========================================================================
+   2. Bot Mayor Selection in Lobby
+   ========================================================================== */
+.bot-mayor-select-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bot-mayor-select {
+  background: var(--panel-2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+}
+
+.bot-mayor-select:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+/* ==========================================================================
+   3. Game Juice & Screen Impact
+   ========================================================================== */
+.shake-light {
+  animation: screenShakeLight 0.18s ease-in-out;
+}
+
+.shake-medium {
+  animation: screenShakeMedium 0.22s ease-in-out;
+}
+
+.shake-heavy {
+  animation: screenShakeHeavy 0.32s ease-in-out;
+}
+
+@keyframes screenShakeLight {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, 2px); }
+}
+
+@keyframes screenShakeMedium {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-4px, 2px) rotate(-0.5deg); }
+  40% { transform: translate(4px, -2px) rotate(0.5deg); }
+  60% { transform: translate(-3px, 1px) rotate(-0.3deg); }
+  80% { transform: translate(2px, -1px) rotate(0.2deg); }
+}
+
+@keyframes screenShakeHeavy {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-6px, 4px); }
+  30% { transform: translate(6px, -4px); }
+  50% { transform: translate(-5px, 3px); }
+  70% { transform: translate(4px, -2px); }
+  85% { transform: translate(-2px, 1px); }
+}
+
+.dice-tray {
+  position: relative;
+}
+
+.dice-shockwave-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #f59e0b;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: shockwaveExpand 0.75s ease-out forwards;
+}
+
+@keyframes shockwaveExpand {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 1;
+    border-width: 3px;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+  }
+  100% {
+    width: 220px;
+    height: 220px;
+    opacity: 0;
+    border-width: 1px;
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0);
+  }
+}
+
+/* ==========================================================================
+   4. Action Chain Feed / Micro-HUD (High Contrast & Legibility)
+   ========================================================================== */
+.action-chain-hud {
+  margin: 0 0 10px 0;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.action-chain-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.action-chain-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.action-step-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  animation: stepSlideIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+}
+
+.action-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1.5px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.action-step.step-player {
+  background: #1e3a8a;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.action-step.step-roll {
+  background: #78350f;
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+.action-step.step-doubles {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border-color: #fef08a;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
+.action-step.step-income {
+  background: #065f46;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.action-step.step-steal {
+  background: #991b1b;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.action-step.step-build {
+  background: #581c87;
+  border-color: #a855f7;
+  color: #ffffff;
+}
+
+.action-step.step-landmark {
+  background: linear-gradient(135deg, #854d0e, #a16207);
+  border-color: #facc15;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+}
+
+.step-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.step-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.step-detail {
+  font-size: 11.5px;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 2px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+}
+
+.action-step-arrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 900;
+  opacity: 0.9;
+}
+
+@keyframes stepSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.fx-switch.off,
+.chain-switch.off {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
 
 

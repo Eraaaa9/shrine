@@ -43,7 +43,13 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
 
   return (
     <div className="controls">
-      <DiceTray dice={game.dice} total={game.diceTotal} rollId={game.rollId} extraTurn={game.extraTurn} />
+      <DiceTray
+        dice={game.dice}
+        total={game.diceTotal}
+        rollId={game.rollId}
+        extraTurn={game.extraTurn}
+        hasAmusementPark={Boolean(active?.landmarks.amusement_park)}
+      />
 
       <div className="actions">
         {game.phase === 'over' ? (

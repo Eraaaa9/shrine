@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLang } from './lang';
 import { play, type Cue } from './sound';
+import { gameJuice } from './gameJuice';
+import { flyingCoins } from './flyingCoins';
 
 export type Theme = 'auto' | 'light' | 'dark';
 export const THEMES: Theme[] = ['auto', 'light', 'dark'];
@@ -11,6 +13,8 @@ export const CARD_VIEWS: CardView[] = ['classic', 'visual'];
 const THEME_KEY = 'machikoro.theme';
 const SOUND_KEY = 'machikoro.sound';
 const CARD_VIEW_KEY = 'machikoro.cardView';
+const FX_KEY = 'machikoro.fx';
+const CHAIN_KEY = 'machikoro.chain';
 
 function savedTheme(): Theme {
   try {
@@ -24,8 +28,6 @@ function savedTheme(): Theme {
 
 function savedSound(): boolean {
   try {
-    // Sound is opt-in: a board game opening in a browser tab should be quiet
-    // until somebody says otherwise.
     return localStorage.getItem(SOUND_KEY) === 'on';
   } catch {
     return false;
@@ -39,7 +41,25 @@ function savedCardView(): CardView {
   } catch {
     /* private browsing */
   }
-  return 'visual'; // Default to modern visual 3D view
+  return 'visual';
+}
+
+function savedFx(): boolean {
+  try {
+    const stored = localStorage.getItem(FX_KEY);
+    return stored === null || stored === 'on';
+  } catch {
+    return true;
+  }
+}
+
+function savedActionChain(): boolean {
+  try {
+    const stored = localStorage.getItem(CHAIN_KEY);
+    return stored === null || stored === 'on';
+  } catch {
+    return true;
+  }
 }
 
 function systemPrefersLight(): boolean {
@@ -53,6 +73,10 @@ interface PrefsValue {
   setSound: (on: boolean) => void;
   cardView: CardView;
   setCardView: (view: CardView) => void;
+  fx: boolean;
+  setFx: (on: boolean) => void;
+  actionChain: boolean;
+  setActionChain: (on: boolean) => void;
   /** Play a cue, unless the player has the sound off. */
   cue: (cue: Cue) => void;
 }
@@ -64,6 +88,10 @@ const PrefsContext = createContext<PrefsValue>({
   setSound: () => undefined,
   cardView: 'visual',
   setCardView: () => undefined,
+  fx: true,
+  setFx: () => undefined,
+  actionChain: true,
+  setActionChain: () => undefined,
   cue: () => undefined,
 });
 
@@ -71,6 +99,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const [theme, setStoredTheme] = useState<Theme>(savedTheme);
   const [sound, setStoredSound] = useState<boolean>(savedSound);
   const [cardView, setStoredCardView] = useState<CardView>(savedCardView);
+  const [fx, setStoredFx] = useState<boolean>(savedFx);
+  const [actionChain, setStoredActionChain] = useState<boolean>(savedActionChain);
 
   const setTheme = useCallback((next: Theme) => {
     setStoredTheme(next);
@@ -88,8 +118,6 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     } catch {
       /* private browsing */
     }
-    // Switching it on is a click, which is the gesture the audio context needs
-    // to start — so take the chance to prove the setting worked.
     if (on) play('coin');
   }, []);
 
@@ -102,15 +130,35 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // "Auto" is resolved here rather than in a media query, so the stylesheet only
-  // ever has to define one override block instead of the whole palette twice.
+  const setFx = useCallback((on: boolean) => {
+    setStoredFx(on);
+    gameJuice.enabled = on;
+    flyingCoins.enabled = on;
+    try {
+      localStorage.setItem(FX_KEY, on ? 'on' : 'off');
+    } catch {
+      /* private browsing */
+    }
+  }, []);
+
+  const setActionChain = useCallback((on: boolean) => {
+    setStoredActionChain(on);
+    try {
+      localStorage.setItem(CHAIN_KEY, on ? 'on' : 'off');
+    } catch {
+      /* private browsing */
+    }
+  }, []);
+
+  useEffect(() => {
+    gameJuice.enabled = fx;
+    flyingCoins.enabled = fx;
+  }, [fx]);
+
+  // "Auto" is resolved here rather than in a media query
   useEffect(() => {
     const root = document.documentElement;
     const apply = () => {
-      // The palette is swapped with transitions switched off. An element that is
-      // mid-transition on a property whose value came from a custom property that
-      // just changed does not always repaint — which left the whole card grid
-      // wearing the old theme until something else forced it to redraw.
       root.classList.add('theme-swapping');
       root.dataset.theme = theme === 'auto' ? (systemPrefersLight() ? 'light' : 'dark') : theme;
       void root.offsetWidth;
@@ -124,8 +172,20 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const value = useMemo<PrefsValue>(
-    () => ({ theme, setTheme, sound, setSound, cardView, setCardView, cue: (c: Cue) => sound && play(c) }),
-    [theme, setTheme, sound, setSound, cardView, setCardView]
+    () => ({
+      theme,
+      setTheme,
+      sound,
+      setSound,
+      cardView,
+      setCardView,
+      fx,
+      setFx,
+      actionChain,
+      setActionChain,
+      cue: (c: Cue) => sound && play(c),
+    }),
+    [theme, setTheme, sound, setSound, cardView, setCardView, fx, setFx, actionChain, setActionChain]
   );
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>;
@@ -172,6 +232,61 @@ export function SoundSwitch() {
       aria-pressed={sound}
     >
       <span aria-hidden="true">{sound ? '🔊' : '🔇'}</span>
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
+export function FxSwitch() {
+  const { t } = useLang();
+  const { fx, setFx } = usePrefs();
+  const label = t(fx ? 'ui.fxOn' : 'ui.fxOff');
+  return (
+    <button
+      type="button"
+      className={`ghost small fx-switch ${fx ? 'on' : 'off'}`}
+      onClick={() => setFx(!fx)}
+      title={label}
+      aria-pressed={fx}
+    >
+      <span aria-hidden="true">{fx ? '✨' : '💨'}</span>
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
+export function ChainSwitch() {
+  const { t } = useLang();
+  const { actionChain, setActionChain } = usePrefs();
+  const label = t(actionChain ? 'ui.chainOn' : 'ui.chainOff');
+  return (
+    <button
+      type="button"
+      className={`ghost small chain-switch ${actionChain ? 'on' : 'off'}`}
+      onClick={() => setActionChain(!actionChain)}
+      title={label}
+      aria-pressed={actionChain}
+    >
+      <span aria-hidden="true">{actionChain ? '⚡' : '💤'}</span>
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
+export function CardViewSwitch() {
+  const { t } = useLang();
+  const { cardView, setCardView } = usePrefs();
+  const isVisual = cardView === 'visual';
+  const label = t(isVisual ? 'ui.viewVisual' : 'ui.viewClassic');
+  return (
+    <button
+      type="button"
+      className="ghost small card-view-switch"
+      onClick={() => setCardView(isVisual ? 'classic' : 'visual')}
+      title={label}
+      aria-pressed={isVisual}
+    >
+      <span aria-hidden="true">{isVisual ? '🃏' : '📋'}</span>
       <span className="sr-only">{label}</span>
     </button>
   );

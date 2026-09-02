@@ -98,7 +98,7 @@ export default function PlayerPanel({
             🚀{player.investment}
           </span>
         )}
-        <span className="coins">{player.coins}</span>
+        <span className="coins" data-player-purse={player.id}>{player.coins}</span>
       </div>
 
       {player.mayor && isYou && (
