@@ -1,3 +1,9 @@
+/**
+ * Coins arcing from one purse to another. `GameView` reads the movements out of
+ * the log (see `coinFlow`) and hands them here; the overlay draws whatever is in
+ * flight. Batches clean themselves up once their last coin has landed, so a
+ * player who leaves the table mid-flight leaves nothing behind.
+ */
 export interface CoinParticle {
   id: string;
   fromX: number;
@@ -18,94 +24,73 @@ export interface CoinFlightBatch {
   isSteal?: boolean;
 }
 
+type Point = DOMRect | { x: number; y: number };
 type FlightListener = () => void;
 
-class FlyingCoinsManager {
-  private static instance: FlyingCoinsManager;
-  private listeners: Set<FlightListener> = new Set();
-  public activeBatches: CoinFlightBatch[] = [];
-  public enabled = true;
-  private nextBatchId = 1;
+const listeners = new Set<FlightListener>();
+let nextBatchId = 1;
 
-  public static get(): FlyingCoinsManager {
-    if (!FlyingCoinsManager.instance) {
-      FlyingCoinsManager.instance = new FlyingCoinsManager();
-    }
-    return FlyingCoinsManager.instance;
-  }
+function notify(): void {
+  for (const l of listeners) l();
+}
 
-  public subscribe(listener: FlightListener): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
+const centre = (at: Point): { x: number; y: number } =>
+  'left' in at ? { x: at.left + at.width / 2, y: at.top + at.height / 2 } : { x: at.x, y: at.y };
 
-  private notify(): void {
-    for (const l of this.listeners) l();
-  }
+export const flyingCoins = {
+  /** Turned off by the animation preference; see `prefs`. */
+  enabled: true,
+  activeBatches: [] as CoinFlightBatch[],
 
-  public launch(
-    fromRect: DOMRect | { x: number; y: number },
-    toRect: DOMRect | { x: number; y: number },
-    amount: number = 3,
-    toPlayerId?: string,
-    isSteal: boolean = false
-  ): void {
+  subscribe(listener: FlightListener): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  /**
+   * `amount` is the coins that actually changed hands; the flight shows a few of
+   * them rather than all — eight coins already read as "a lot" and thirty would
+   * only cover the board.
+   */
+  launch(from: Point, to: Point, amount: number, toPlayerId?: string, isSteal = false): void {
     if (!this.enabled) return;
-    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const fromX = 'left' in fromRect ? fromRect.left + fromRect.width / 2 : fromRect.x;
-    const fromY = 'top' in fromRect ? fromRect.top + fromRect.height / 2 : fromRect.y;
-    const toX = 'left' in toRect ? toRect.left + toRect.width / 2 : toRect.x;
-    const toY = 'top' in toRect ? toRect.top + toRect.height / 2 : toRect.y;
-
+    const start = centre(from);
+    const end = centre(to);
     const numCoins = Math.min(8, Math.max(2, Math.round(amount)));
-    const batchId = this.nextBatchId++;
+    const batchId = nextBatchId++;
     const particles: CoinParticle[] = [];
 
-    const midX = (fromX + toX) / 2;
-    const midY = (fromY + toY) / 2;
-    const dist = Math.hypot(toX - fromX, toY - fromY);
+    const midX = (start.x + end.x) / 2;
+    const midY = (start.y + end.y) / 2;
+    const dist = Math.hypot(end.x - start.x, end.y - start.y);
     const arcHeight = Math.min(140, Math.max(40, dist * 0.35));
 
     for (let i = 0; i < numCoins; i++) {
-      const spreadX = (Math.random() - 0.5) * 30;
-      const spreadY = (Math.random() - 0.5) * 20;
-      const curveX = midX + spreadX;
-      const curveY = midY - arcHeight + spreadY;
-
       particles.push({
         id: `${batchId}_${i}`,
-        fromX,
-        fromY,
-        toX,
-        toY,
-        curveX,
-        curveY,
+        fromX: start.x,
+        fromY: start.y,
+        toX: end.x,
+        toY: end.y,
+        // Spread so the coins do not fly as one rigid string.
+        curveX: midX + (Math.random() - 0.5) * 30,
+        curveY: midY - arcHeight + (Math.random() - 0.5) * 20,
         delay: i * 45,
         duration: 550 + Math.random() * 100,
         isSteal,
       });
     }
 
-    const batch: CoinFlightBatch = {
-      id: batchId,
-      particles,
-      toPlayerId,
-      isSteal,
-    };
+    this.activeBatches = [...this.activeBatches, { id: batchId, particles, toPlayerId, isSteal }];
+    notify();
 
-    this.activeBatches = [...this.activeBatches, batch];
-    this.notify();
-
-    // Auto cleanup after all coins land
-    const totalTime = numCoins * 45 + 750;
     window.setTimeout(() => {
       this.activeBatches = this.activeBatches.filter((b) => b.id !== batchId);
-      this.notify();
-    }, totalTime);
-  }
-}
-
-export const flyingCoins = FlyingCoinsManager.get();
+      notify();
+    }, numCoins * 45 + 750);
+  },
+};

@@ -106,6 +106,12 @@ export interface LogEntry {
   params?: Params;
   /** Player the line is about, for colouring. */
   who?: string;
+  /**
+   * The other party when coins change hands: `from` paid, `who` was paid. Names
+   * are in the params for the sentence to read; this is the id the coin flight
+   * animates between. See `coinFlow`.
+   */
+  from?: string;
   kind?: 'turn' | 'roll' | 'income' | 'build' | 'win' | 'event';
 }
 

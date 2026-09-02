@@ -38,6 +38,7 @@ import {
   supplySlots,
   type Seat,
 } from './engine';
+import { COIN_LOG_KEYS, coinFlow, namesCoinsWithoutMoving } from './coinFlow';
 import type { GameAction, GameState, PlayerState } from './types';
 
 const BASE: RuleSet = { harbor: false, millionaires: false, variableSupply: false };
@@ -170,6 +171,30 @@ function checkInvariants(state: GameState, where: string): void {
       stacks >= want || state.deck.length === 0,
       `${stacks} stacks, market opens ${want}, ${state.deck.length} in deck`
     );
+  }
+}
+
+/**
+ * The client animates coins along the log, so a line that names an amount has to
+ * say where that amount went. A new money line that nobody classified would
+ * otherwise animate as nothing, or as a payment in the wrong direction, and
+ * nothing else in the suite would notice.
+ */
+function checkCoinFlows(state: GameState, where: string): void {
+  const ids = new Set(state.players.map((p) => p.id));
+  for (const entry of state.log) {
+    const names = typeof entry.params?.amount === 'number' || typeof entry.params?.cost === 'number';
+    if (names && !COIN_LOG_KEYS.has(entry.key) && !namesCoinsWithoutMoving(entry)) {
+      check(`${where}: ${entry.key} names an amount but no coin flow`, false, JSON.stringify(entry.params));
+      continue;
+    }
+    const flow = coinFlow(entry);
+    if (!flow) continue;
+    check(`${where}: ${entry.key} moves coins somewhere`, Boolean(flow.fromId ?? flow.toId));
+    for (const id of [flow.fromId, flow.toId]) {
+      if (id !== undefined) check(`${where}: ${entry.key} names a player at the table`, ids.has(id), id);
+    }
+    check(`${where}: ${entry.key} moves a positive amount`, flow.amount > 0, String(flow.amount));
   }
 }
 
@@ -1447,6 +1472,7 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
     checkInvariants(state, `game ${i} end`);
     checkLedger(state, `game ${i} end`);
     statsSanity(state, `game ${i}`);
+    checkCoinFlows(state, `game ${i}`);
     for (const entry of state.log) seenKeys.add(entry.key);
     if (state.phase !== 'over') {
       stuck++;

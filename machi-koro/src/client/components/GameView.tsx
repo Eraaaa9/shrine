@@ -5,6 +5,7 @@ import { describeRulesIn } from '../../shared/i18n';
 import type { ClientMessage, RoomView, SeatView } from '../../shared/protocol';
 import type { GameAction } from '../../shared/types';
 import useCoinDeltas from '../coinMotion';
+import { coinFlow } from '../../shared/coinFlow';
 import { LangSwitch, useLang } from '../lang';
 import { CardViewSwitch, ChainSwitch, FxSwitch, SoundSwitch, ThemeSwitch, usePrefs } from '../prefs';
 import useSupplyMotion from '../supplyMotion';
@@ -68,59 +69,51 @@ export default function GameView({ room, youId, send }: Props) {
     });
   }, []);
 
-  // ---- Flying Coins Launch from Log ----------------------------------------
-  const processedLogId = useRef(game.log.length > 0 ? game.log[game.log.length - 1].id : 0);
+  // ---- coins flying along the log ------------------------------------------
+  // Where the coins in a line went is `coinFlow`'s to say, not this component's:
+  // the log carries the ids the flight needs, and a line that moves money
+  // without being classified fails the suite rather than animating backwards.
+  //
+  // `null` until the first view arrives, so a spectator joining a game in
+  // progress does not watch its whole history replay. A rematch numbers its log
+  // from one again, and the cursor has to fall back with it or every flight
+  // after the first game is silently skipped.
+  const processedLogId = useRef<number | null>(null);
   useEffect(() => {
-    if (game.log.length === 0) return;
-    const newLogs = game.log.filter((l) => l.id > processedLogId.current);
-    if (newLogs.length === 0) return;
-    processedLogId.current = game.log[game.log.length - 1].id;
+    const newest = game.log.length > 0 ? game.log[game.log.length - 1].id : 0;
+    const seen = processedLogId.current;
+    processedLogId.current = newest;
+    if (seen === null || newest < seen) return;
 
-    for (const l of newLogs) {
-      if (l.kind === 'income') {
-        const coins = Number(l.params?.coins ?? l.params?.n ?? 2);
-        const payerName = l.params?.payer as string | undefined;
-        const receiverName = l.params?.receiver as string | undefined;
-        const targetPlayerName = (l.params?.name ?? l.params?.player) as string | undefined;
+    const purseOf = (id?: string) => (id ? document.querySelector(`[data-player-purse="${id}"]`) : null);
+    // The bank keeps no purse at the table, so its coins come from and go back
+    // to the dice tray in the middle of it.
+    const bankRect = () => {
+      const tray = document.querySelector('[data-dice-tray="true"]');
+      return tray ? tray.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    };
 
-        if (payerName && receiverName) {
-          const payerPlayer = game.players.find((p) => p.name === payerName);
-          const receiverPlayer = game.players.find((p) => p.name === receiverName);
-          if (payerPlayer && receiverPlayer) {
-            const payerEl = document.querySelector(`[data-player-purse="${payerPlayer.id}"]`);
-            const receiverEl = document.querySelector(`[data-player-purse="${receiverPlayer.id}"]`);
-            if (payerEl && receiverEl) {
-              flyingCoins.launch(payerEl.getBoundingClientRect(), receiverEl.getBoundingClientRect(), coins, receiverPlayer.id, true);
-              gameJuice.flashSteal(payerPlayer.id);
-            }
-          }
-        } else {
-          const player = game.players.find((p) => p.name === targetPlayerName) ?? active;
-          const diceEl = document.querySelector('[data-dice-tray="true"]');
-          const purseEl = document.querySelector(`[data-player-purse="${player.id}"]`);
-          if (purseEl) {
-            const bankRect = diceEl ? diceEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-            // If coins are gained from bank: Bank ➔ Player
-            flyingCoins.launch(bankRect, purseEl.getBoundingClientRect(), coins, player.id, false);
-          }
-        }
-      } else if (l.kind === 'build') {
-        const cost = Number(l.params?.cost ?? 2);
-        const buyerName = (l.params?.name ?? l.params?.player) as string | undefined;
-        const buyer = game.players.find((p) => p.name === buyerName) ?? active;
-        const purseEl = document.querySelector(`[data-player-purse="${buyer.id}"]`);
-        const diceEl = document.querySelector('[data-dice-tray="true"]');
-        if (purseEl) {
-          // When spending money, coins fly back to the central bank / dice tray (where distribution came from)
-          const bankRect = diceEl ? diceEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-          flyingCoins.launch(purseEl.getBoundingClientRect(), bankRect, cost, undefined, false);
-        }
-        if (l.params?.landmark) {
-          gameJuice.shake('medium');
-        }
-      }
+    for (const entry of game.log) {
+      if (entry.id <= seen) continue;
+      if (entry.key === 'log.buildLandmark') gameJuice.shake('medium');
+      else if (entry.key === 'log.demolish') gameJuice.shake('heavy');
+
+      const flow = coinFlow(entry);
+      if (!flow) continue;
+      const fromEl = purseOf(flow.fromId);
+      const toEl = purseOf(flow.toId);
+      if (!fromEl && !toEl) continue;
+      flyingCoins.launch(
+        fromEl ? fromEl.getBoundingClientRect() : bankRect(),
+        toEl ? toEl.getBoundingClientRect() : bankRect(),
+        flow.amount,
+        flow.toId,
+        // One purse to another is a card taking from a player, not the bank
+        // paying out, and the coins are tinted for it.
+        Boolean(fromEl && toEl)
+      );
     }
-  }, [game.log, game.players, active]);
+  }, [game.log]);
 
   // ---- the away countdown -------------------------------------------------
   // Timestamps come from the server's clock, so the offset between the two is

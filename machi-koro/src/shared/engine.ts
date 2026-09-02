@@ -184,18 +184,19 @@ function recordCapitalSnapshot(state: GameState): void {
   });
 }
 
-/** Draw face-up stacks until 10 different cards are on offer. */
 /**
  * How many stacks the market shows right now: one on the opening turn, one more
- * with every turn after it, up to the usual ten by turn nine. It never shrinks —
- * a stack already on offer stays until it is bought out.
+ * with every turn after it, up to the usual ten by turn ten. It never shrinks —
+ * a stack already on offer stays until it is bought out. An extra turn counts
+ * like any other, so the doubles that hand a player a second turn widen the
+ * market a step early; by turn ten it is at its ceiling either way.
  *
  * This is what evens out turn order. Going first was worth +8.9pp at a four
  * player table, most of it first pick of a ten-stack market twenty-seven rounds
  * running; opening the market one stack at a time means the second seat sits
  * down to a wider board than the first, the third wider still, and the
  * compensation sizes itself to the table with no dial to set per player count.
- * The worst chair is now 2.6pp off its share instead of 8.9pp. See BALANCE.md.
+ * The worst chair is now 1.4pp under its share instead of 5.8pp. See BALANCE.md.
  */
 export function supplySlots(state: GameState): number {
   const start = state.rules.supplySlotsStart ?? SUPPLY_SLOTS_START;
@@ -209,6 +210,7 @@ export function supplySlots(state: GameState): number {
   return Math.min(SUPPLY_SLOTS, start + Math.floor(elapsed / every));
 }
 
+/** Draw face-up stacks until the market is as wide as `supplySlots` allows. */
 function refillSupply(state: GameState): void {
   if (!state.rules.variableSupply) return;
   while (state.deck.length > 0 && uniqueOnOffer(state) < supplySlots(state)) {
@@ -231,9 +233,9 @@ function log(
   state: GameState,
   key: string,
   params?: Params,
-  extra: { who?: string; kind?: LogEntry['kind'] } = {}
+  extra: { who?: string; from?: string; kind?: LogEntry['kind'] } = {}
 ): void {
-  state.log.push({ id: state.nextLogId++, key, params, who: extra.who, kind: extra.kind });
+  state.log.push({ id: state.nextLogId++, key, params, who: extra.who, from: extra.from, kind: extra.kind });
   if (state.log.length > LOG_LIMIT) state.log.splice(0, state.log.length - LOG_LIMIT);
 }
 
@@ -363,9 +365,10 @@ function drain(p: PlayerState, key: StatKey, want: number, toBank: boolean): num
 }
 
 /**
- * Coins an opponent can actually take off this player. The Restaurateur keeps
- * two back, which the income previews have to know about as much as the
- * payment itself does — a bill nobody can collect is not a bill you owe.
+ * Coins an opponent can actually take off this player. The Restaurateur keeps a
+ * couple back — two at a two-player table, one at every other — which the income
+ * previews have to know about as much as the payment itself does: a bill nobody
+ * can collect is not a bill you owe.
  */
 export function payable(state: GameState, p: PlayerState): number {
   if (p.mayor !== 'restaurateur') return p.coins;
@@ -552,7 +555,7 @@ function resolveIncome(state: GameState): void {
           state,
           logKey,
           { player: p.name, amount: paid, from: active.name, card: card.id, times: times(n) },
-          { who: p.id, kind: 'income' }
+          { who: p.id, from: active.id, kind: 'income' }
         );
       }
     }
@@ -1216,7 +1219,12 @@ export function applyAction(state: GameState, playerId: string, action: GameActi
       if (!target) return 'err.unknownPlayer';
       if (target.id === active.id) return 'err.pickAnother';
       const took = pay(state, target, active, 5, 'tv_station');
-      log(state, 'log.tvTake', { player: active.name, amount: took, target: target.name }, { who: active.id, kind: 'income' });
+      log(
+        state,
+        'log.tvTake',
+        { player: active.name, amount: took, target: target.name },
+        { who: active.id, from: target.id, kind: 'income' }
+      );
       advancePending(state);
       return null;
     }

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { GameState, LogEntry, PlayerState } from '../../shared/types';
 import type { CardId, LandmarkId } from '../../shared/cards';
 import { cardName, landmarkName } from '../../shared/i18n';
+import { coinFlow } from '../../shared/coinFlow';
 import { useLang } from '../lang';
 
 interface Props {
@@ -41,14 +42,12 @@ export default function ActionChainHUD({ game, you }: Props) {
       });
     }
 
-    // Find entries since the latest 'turn' log
-    let turnLogs: LogEntry[] = [];
+    // Back to the line that opened this turn, and no further.
+    const turnLogs: LogEntry[] = [];
     for (let i = game.log.length - 1; i >= 0; i--) {
       const entry = game.log[i];
       turnLogs.unshift(entry);
-      if (entry.kind === 'turn' || entry.key.includes('log.turn')) {
-        break;
-      }
+      if (entry.kind === 'turn') break;
     }
 
     // Step 2: Dice Roll
@@ -61,73 +60,85 @@ export default function ActionChainHUD({ game, you }: Props) {
         type: 'roll',
         icon: '🎲',
         title: `${diceDisplay} = ${game.diceTotal}`,
-        detail: isDoubles ? '✨ ДУБЛЬ (+ХОД)' : undefined,
+        detail: isDoubles ? t('ui.chainDoubles') : undefined,
         highlight: isDoubles,
         colorClass: isDoubles ? 'step-doubles' : 'step-roll',
       });
     }
 
-    // Step 3: Income / Steal Activations
-    for (const l of turnLogs) {
-      if (l.kind === 'income') {
-        const cardId = l.params?.card as string | undefined;
-        const cName = cardId ? cardName(lang, cardId as CardId) : '';
-        const coins = l.params?.coins ?? l.params?.n ?? '';
-        const payer = l.params?.payer as string | undefined;
-        const receiver = l.params?.receiver as string | undefined;
+    // Step 3: where the coins went. The log says that in `coinFlow`, not in the
+    // params — reading it here by hand is what left every step reading "+¤".
+    const nameOf = (id?: string) => game.players.find((p) => p.id === id)?.name;
 
-        if (payer && receiver) {
-          chain.push({
-            id: `steal_${l.id}`,
-            type: 'steal',
-            icon: '☕',
-            title: cName || 'Ресторан',
-            detail: `${payer} ➔ ${receiver}: ${coins}¤`,
-            colorClass: 'step-steal',
-          });
-        } else {
-          chain.push({
-            id: `income_${l.id}`,
-            type: 'income',
-            icon: '🪙',
-            title: cName || t('ui.income'),
-            detail: `+${coins}¤`,
-            colorClass: 'step-income',
-          });
-        }
+    for (const l of turnLogs) {
+      const landmarkId = l.params?.landmark as string | undefined;
+      if (landmarkId && (l.key === 'log.buildLandmark' || l.key === 'log.demolish')) {
+        const built = l.key === 'log.buildLandmark';
+        chain.push({
+          id: `landmark_${l.id}`,
+          type: 'build',
+          icon: built ? '🏛️' : '💥',
+          title: landmarkName(lang, landmarkId as LandmarkId),
+          detail: built ? t('ui.builtStatus') : t('ui.chainDemolished'),
+          highlight: built,
+          colorClass: 'step-landmark',
+        });
+        continue;
+      }
+
+      const flow = coinFlow(l);
+      if (!flow) continue;
+      const cardId = l.params?.card as string | undefined;
+      const cName = cardId ? cardName(lang, cardId as CardId) : '';
+      const payer = nameOf(flow.fromId);
+      const receiver = nameOf(flow.toId);
+
+      if (payer && receiver) {
+        chain.push({
+          id: `steal_${l.id}`,
+          type: 'steal',
+          icon: '☕',
+          title: cName || t('ui.chainTakes'),
+          detail: `${payer} ➔ ${receiver}: ${flow.amount}¤`,
+          colorClass: 'step-steal',
+        });
       } else if (l.kind === 'build') {
-        const cardId = l.params?.card as string | undefined;
-        const landmarkId = l.params?.landmark as string | undefined;
-        if (landmarkId) {
-          chain.push({
-            id: `landmark_${l.id}`,
-            type: 'build',
-            icon: '🏛️',
-            title: landmarkName(lang, landmarkId as LandmarkId),
-            detail: t('ui.builtStatus'),
-            highlight: true,
-            colorClass: 'step-landmark',
-          });
-        } else if (cardId) {
-          chain.push({
-            id: `buy_${l.id}`,
-            type: 'build',
-            icon: '🛍️',
-            title: cardName(lang, cardId as CardId),
-            detail: `-${l.params?.cost ?? ''}¤`,
-            colorClass: 'step-build',
-          });
-        }
+        chain.push({
+          id: `buy_${l.id}`,
+          type: 'build',
+          icon: '🛍️',
+          title: cName || landmarkName(lang, (l.params?.landmark ?? '') as LandmarkId),
+          detail: `-${flow.amount}¤`,
+          colorClass: 'step-build',
+        });
+      } else if (receiver) {
+        chain.push({
+          id: `income_${l.id}`,
+          type: 'income',
+          icon: '🪙',
+          title: cName || t('ui.income'),
+          detail: `+${flow.amount}¤`,
+          colorClass: 'step-income',
+        });
+      } else {
+        chain.push({
+          id: `pays_${l.id}`,
+          type: 'income',
+          icon: '💸',
+          title: cName || t('ui.chainPays'),
+          detail: `-${flow.amount}¤`,
+          colorClass: 'step-build',
+        });
       }
     }
 
     return chain;
-  }, [game.log, game.turn, game.turnCount, game.diceTotal, game.rollId, lang, you, t]);
+  }, [game.log, game.players, game.turn, game.turnCount, game.dice, game.diceTotal, game.extraTurn, game.rollId, lang, you, t]);
 
   if (steps.length === 0) return null;
 
   return (
-    <div className="action-chain-hud" aria-label="Action Chain Flow">
+    <div className="action-chain-hud" aria-label={t('ui.chainLabel')}>
       <div className="action-chain-scroll">
         {steps.map((step, idx) => (
           <div key={step.id} className="action-step-wrapper">
