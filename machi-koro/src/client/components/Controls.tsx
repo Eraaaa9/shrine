@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { landmarksFor, type LandmarkId } from '../../shared/cards';
-import { canBuild, demolishable, landmarkCost } from '../../shared/engine';
+import { canBuild, demolishable, landmarkCost, payable } from '../../shared/engine';
+import { mayorTuning } from '../../shared/mayors';
 import { landmarkName, landmarkText, type Lang } from '../../shared/i18n';
 import type { ClientMessage } from '../../shared/protocol';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
@@ -147,8 +148,9 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
               <>
                 <span className="prompt">{t('ui.tvPrompt')}</span>
                 {opponents.map((p) => {
-                  const available = p.mayor === 'restaurateur' ? Math.max(0, p.coins - 2) : p.coins;
-                  const steal = Math.min(5, available);
+                  // What the Restaurateur keeps back is a dial, not a constant:
+                  // two coins at a two-player table and one at every other.
+                  const steal = Math.min(5, payable(game, p));
                   const isProtected = p.mayor === 'restaurateur';
                   return (
                     <button
@@ -159,7 +161,11 @@ export default function Controls({ game, you, yourTurn, isHost, act, send, onSta
                       onClick={() => act({ t: 'tv', targetId: p.id })}
                     >
                       {p.name} <em>(+{steal} ¤)</em>
-                      {isProtected && <span className="tag mayor-badge" style={{ fontSize: '10px', marginLeft: '4px' }}>☕ Защита 2¤</span>}
+                      {isProtected && (
+                        <span className="tag mayor-badge shield-tag">
+                          {t('ui.shieldTag', { n: mayorTuning(game.players.length).restaurateurShield })}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

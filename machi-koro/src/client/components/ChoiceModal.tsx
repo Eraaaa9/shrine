@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { CARD_BY_ID, ICON_GLYPH, cardsFor, type CardId } from '../../shared/cards';
-import { activationValue, closedCopies, copies, exhibitCandidates, openCopies, tradeableCards } from '../../shared/engine';
+import { activationValue, closedCopies, copies, exhibitCandidates, openCopies, payable, tradeableCards } from '../../shared/engine';
+import { mayorTuning } from '../../shared/mayors';
 import { cardName, cardText } from '../../shared/i18n';
 import type { GameAction, GameState, PlayerState } from '../../shared/types';
 import { useLang } from '../lang';
@@ -174,12 +175,13 @@ function Renovation({ game, you, act }: Props) {
   const { lang, t } = useLang();
   const [pick, setPick] = useState<CardId | null>(null);
   // What closing every copy would pay: each opponent hands over a coin per copy
-  // of theirs, taking into account broke players and Restaurateur Mayor protection (2 coins).
+  // of theirs, less what a broke player has not got and what the Restaurateur
+  // keeps back. How much that is moves with the table size, so ask `payable`
+  // rather than quoting the two-player figure at every table.
   const takingsFrom = (p: PlayerState, id: CardId) => {
     const count = openCopies(p, id);
     if (count <= 0) return 0;
-    const available = p.mayor === 'restaurateur' ? Math.max(0, p.coins - 2) : p.coins;
-    return Math.min(count, available);
+    return Math.min(count, payable(game, p));
   };
   const takings = (id: CardId) =>
     game.players.filter((p) => p.id !== you.id).reduce((sum, p) => sum + takingsFrom(p, id), 0);
@@ -210,8 +212,11 @@ function Renovation({ game, you, act }: Props) {
               .map((p) => {
                 const count = openCopies(p, pick);
                 const pays = takingsFrom(p, pick);
-                const isRestaurateur = p.mayor === 'restaurateur';
-                return `${p.name} ×${count} (➔ +${pays} ¤${isRestaurateur ? ', ☕ Защита 2¤' : ''})`;
+                const shield =
+                  p.mayor === 'restaurateur'
+                    ? `, ${t('ui.shieldTag', { n: mayorTuning(game.players.length).restaurateurShield })}`
+                    : '';
+                return `${p.name} ×${count} (➔ +${pays} ¤${shield})`;
               })
               .join(' · ')}
           </div>
