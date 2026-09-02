@@ -184,6 +184,9 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
     case 'setBotMayor': {
       if (!requireHost(ws, entry)) return;
       if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
+      // Only the bots: a player's own mayor is theirs to pick, host or no host.
+      const bot = room.seats.find((s) => s.id === msg.playerId);
+      if (!bot || !bot.isBot) return fail(ws, 'err.unknownPlayer');
       room.setSeatMayor(msg.playerId, msg.mayor);
       break;
     }
@@ -227,6 +230,10 @@ function handle(ws: WebSocket, msg: ClientMessage): void {
 
     case 'toLobby': {
       if (!requireHost(ws, entry)) return;
+      // The button only appears once the game is over, and the server holds to
+      // that: a game in progress is not the host's to throw away, any more than
+      // a rematch is theirs to start early.
+      if (room.game && room.game.phase !== 'over') return fail(ws, 'err.gameRunning');
       room.toLobby();
       break;
     }
