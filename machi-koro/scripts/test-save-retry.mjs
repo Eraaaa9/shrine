@@ -50,6 +50,15 @@ const fwd = (p) => p.split(path.sep).join('/');
  * process, because that is where the real thing comes from.  A timer in this
  * process could never fire: saving is synchronous, so a save that waits holds
  * the event loop while it does.
+ *
+ * Awaiting this waits for the block to be armed, not for it to lift. Both
+ * halves of that matter. PowerShell takes a few hundred milliseconds to start,
+ * and a save that began before the block existed was really timing the
+ * console's launch against the retries — fine on an idle machine, lost on a
+ * busy one, which is a flake and not a finding. And the promise that resolves
+ * when the blocker lets go is handed back wrapped, because an async function
+ * returning it bare would adopt it, and the caller would be waiting out the
+ * whole block before saving onto a file with nothing on it.
  */
 async function blockFrom(ms) {
   const ready = path.join(dir, 'blocking.flag');
@@ -64,7 +73,7 @@ async function blockFrom(ms) {
   for (let waited = 0; waited < 10000 && !existsSync(ready); waited += 20) await sleep(20);
   if (!existsSync(ready)) throw new Error('could not start the blocker');
   rmSync(ready, { force: true });
-  return done;
+  return { lifted: done };
 }
 
 async function main() {
@@ -78,7 +87,7 @@ async function main() {
   check('a save with nothing in the way lands', savedCode() === 'AAAA', `file says ${savedCode()}`);
 
   const blocked = 400;
-  const lifted = blockFrom(blocked);
+  const { lifted } = await blockFrom(blocked);
   const started = Date.now();
   writeSnapshot([room('BBBB')]);
   const took = Date.now() - started;
