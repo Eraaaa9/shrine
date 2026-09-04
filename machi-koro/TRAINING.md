@@ -1,84 +1,81 @@
 # Trained bot strategies
 
-Produced by `npm run train` — 142 544 games in 40.8 minutes.
+Produced by `npm run train` — 300 200 games in 74.8 minutes.
 
 This run trained variable supply at a 4-player table; anything else is left as it stands.
-Search: started from `tuned`, 18 generations of 22 candidates over 264 games each, sampled at 0.2 of each weight's range, promoted on the better of two 800-game duels at 26.0%, settled on 3000 games a side.
+Search: started from `tuned`, 24 generations of 24 candidates over 400 games each, sampled at 0.2 of each weight's range, promoted on the better of two 1200-game duels at 26.0%, settled on 4000 games a side.
 
-This run shipped nothing: no candidate beat the strategy it would have replaced, so `src/shared/bot-weights.ts` is the last strategy that did win one, not the numbers below.
+This run replaced `TUNED_VARIABLE` in `src/shared/bot-weights.ts`.
 
 ## variable supply (4 players)
 
 Rules: base game + Harbor + Millionaire's Row + Events + Mayors.
 
-**Not shipped.** The candidate below did not beat the strategy it would replace, so
-`TUNED_VARIABLE` is unchanged. Everything that follows describes the rejected candidate.
-
-Trained over 133 344 self-play games.
-Against the strategy it would replace: **26.4%** of 3000 games (95% CI 24.8–28.0%), and the old strategy takes **26.2%** against a table of the new one (95% CI 24.6–27.8%). Fair share is 25.0%.
-Against the hand-written baseline: **55.4%** of 3000 games (95% CI 53.6–57.1%).
+Trained over 288 000 self-play games.
+Against the strategy it would replace: **25.3%** of 4000 games (95% CI 24.0–26.7%), and the old strategy takes **24.6%** against a table of the new one (95% CI 23.3–26.0%). Fair share is 25.0%.
+Against the hand-written baseline: **51.3%** of 4000 games (95% CI 49.7–52.8%).
 
 ```
-winner's city, average copies over 200 games (game length 106.8 turns):
-    Wheat Field                1.38
-    Bakery                     1.11
-    Vineyard                   0.81
-    Tax Office                 0.78
-    Tuna Boat                  0.76
-    Mine                       0.72
+winner's city, average copies over 200 games (game length 105.5 turns):
+    Wheat Field                1.30
+    Bakery                     1.13
+    Vineyard                   0.90
+    Mine                       0.74
+    Apple Orchard              0.70
+    Tax Office                 0.69
     Forest                     0.68
-    Pizza Joint                0.65
-    Mackerel Boat              0.63
+    Fruit & Vegetable Market   0.65
     French Restaurant          0.63
-    Family Restaurant          0.61
-    Apple Orchard              0.58
+    Tuna Boat                  0.62
+    Flower Orchard             0.61
+    Family Restaurant          0.58
   landmark order:
-    Train Station              average position 1.61   on turn 38   first 49% of the time
-    Harbor                     average position 1.91   on turn 36   first 39% of the time
-    Shopping Mall              average position 2.99   on turn 58   first 11% of the time
-    Amusement Park             average position 4.63   on turn 76   first 0% of the time
-    Radio Tower                average position 4.92   on turn 83   first 1% of the time
-    Airport                    average position 5.45   on turn 90   first 0% of the time
-    Space Port                 average position 6.49   on turn 104   first 1% of the time
+    Train Station              average position 1.54   on turn 43   first 59% of the time
+    Harbor                     average position 2.17   on turn 43   first 32% of the time
+    Shopping Mall              average position 3.10   on turn 61   first 10% of the time
+    Amusement Park             average position 4.74   on turn 78   first 0% of the time
+    Radio Tower                average position 4.83   on turn 82   first 0% of the time
+    Airport                    average position 5.21   on turn 88   first 0% of the time
+    Space Port                 average position 6.41   on turn 102   first 0% of the time
 ```
 
 ```json
 {
-  "cardValue": 2.3481456205669886,
-  "costEfficiency": 1.0413160998770095,
-  "buyThreshold": 0.35834948735022315,
-  "duplicatePenalty": 0.5590292366426556,
-  "scarcityBonus": 0.4135086835360035,
-  "denialWeight": -0.08219893229686148,
-  "futureDice": 0.294881163712487,
-  "tableDice": 0.6149949735861762,
-  "blueWeight": 1.9166206059963937,
-  "greenWeight": 0.8467830823447676,
-  "redWeight": 0.8677380120968443,
-  "purpleWeight": 2.8719219088457533,
-  "purpleRealism": 0.7961377111322271,
-  "purpleHorizon": 0.8555474370153677,
-  "purpleVolatile": 0.4849207077188846,
-  "landmarkValue": 1.02145165815845,
-  "landmarkUnlock": 0.12200865182524942,
-  "landmarkProgress": 0.13846418433773974,
-  "landmarkRush": 2.695769920003173,
-  "landmarkOrder": 0.7087943937600382,
-  "saveMargin": 0.8915803420162174,
-  "saveScore": 0.5717877841843947,
-  "twoDiceBias": 0.42632291550387474,
-  "rerollMargin": 0.7338952083996503,
-  "harborMargin": 2.1471399956812767,
-  "spacePortMargin": -0.20762537229525851,
-  "threatWeight": 0.515009562785066,
-  "exhibitThreshold": 4.607970069392038,
-  "investFloor": 3.512419202144301,
-  "investCap": 7.211079106965626,
-  "renovationSelfHarm": 0.8883459015846196,
-  "eventTrust": 0.013265016626586112,
-  "bankerHold": 0.3127111181182766,
-  "mayorRerollMargin": 0.5837938426801438,
-  "jitter": 0.015090626834398808
+  "cardValue": 2.245875904477749,
+  "costEfficiency": 1.1718552403102307,
+  "buyThreshold": 0.3807378822791296,
+  "duplicatePenalty": 0.2828166774669575,
+  "scarcityBonus": 0.63720605617756,
+  "denialWeight": -0.1289518090746327,
+  "futureDice": 0.29919803884994034,
+  "tableDice": 0.6117418891553854,
+  "blueWeight": 2.276130844176543,
+  "greenWeight": 0.9165044874589326,
+  "redWeight": 0.600179821616128,
+  "purpleWeight": 2.9797866076565227,
+  "purpleRealism": 0.7518125608860146,
+  "purpleHorizon": 0.9171368613188842,
+  "purpleVolatile": 0.4090026037122594,
+  "landmarkValue": 1.0582563582399231,
+  "landmarkUnlock": 0.2223277263595522,
+  "landmarkProgress": 0.16751347184130452,
+  "landmarkRush": 2.455696351197502,
+  "landmarkOrder": 0.5895104179445537,
+  "saveMargin": 1.6897298953854991,
+  "saveScore": 0.42672777822746394,
+  "twoDiceBias": 0.8424408034472372,
+  "rerollMargin": 0.7163664359059029,
+  "harborMargin": 1.8052008133935282,
+  "spacePortMargin": -0.058795641318003695,
+  "threatWeight": 0.44481334021987007,
+  "exhibitThreshold": 2.4749492492748013,
+  "investFloor": 2.779759731051734,
+  "investCap": 8.63449280852139,
+  "renovationSelfHarm": 0.6853968942062293,
+  "eventTrust": 0.06611590570431349,
+  "bankerHold": 0.08309679689607284,
+  "mayorRerollMargin": 0.6684591512811079,
+  "jitter": 0.016173885634126754
 }
 ```
 
@@ -95,71 +92,71 @@ Rules: base game + Harbor + Millionaire's Row + Events + Mayors.
 **Not shipped.** The candidate below did not beat the strategy it would replace, so
 `TUNED_VARIABLE_5P` is unchanged. Everything that follows describes the rejected candidate.
 
-Trained over 133 344 self-play games.
-Against the strategy it would replace: **21.8%** of 3000 games (95% CI 20.4–23.3%), and the old strategy takes **20.3%** against a table of the new one (95% CI 18.9–21.8%). Fair share is 20.0%.
-Against the hand-written baseline: **50.2%** of 3000 games (95% CI 48.4–52.0%).
+Trained over 288 000 self-play games.
+Against the strategy it would replace: **22.1%** of 4000 games (95% CI 20.8–23.4%), and the old strategy takes **23.4%** against a table of the new one (95% CI 22.1–24.7%). Fair share is 20.0%.
+Against the hand-written baseline: **44.3%** of 4000 games (95% CI 42.8–45.9%).
 
 ```
-winner's city, average copies over 200 games (game length 120.9 turns):
-    Wheat Field                1.38
-    Bakery                     1.08
-    Tax Office                 0.80
-    Vineyard                   0.72
-    Tuna Boat                  0.65
-    Forest                     0.60
-    Mine                       0.60
-    Publisher                  0.59
-    Mackerel Boat              0.58
-    French Restaurant          0.56
-    Fruit & Vegetable Market   0.56
-    Apple Orchard              0.52
+winner's city, average copies over 200 games (game length 124.8 turns):
+    Wheat Field                1.50
+    Bakery                     1.24
+    Tax Office                 0.74
+    Mine                       0.72
+    Vineyard                   0.71
+    Apple Orchard              0.66
+    Family Restaurant          0.61
+    Publisher                  0.60
+    Tuna Boat                  0.59
+    French Restaurant          0.57
+    Forest                     0.54
+    Mackerel Boat              0.53
   landmark order:
-    Train Station              average position 1.56   on turn 51   first 56% of the time
-    Harbor                     average position 2.32   on turn 53   first 28% of the time
-    Shopping Mall              average position 3.02   on turn 68   first 14% of the time
-    Amusement Park             average position 4.75   on turn 89   first 1% of the time
-    Radio Tower                average position 4.91   on turn 94   first 0% of the time
-    Airport                    average position 5.13   on turn 98   first 3% of the time
-    Space Port                 average position 6.31   on turn 116   first 0% of the time
+    Harbor                     average position 1.64   on turn 32   first 56% of the time
+    Train Station              average position 1.66   on turn 37   first 39% of the time
+    Shopping Mall              average position 3.38   on turn 72   first 3% of the time
+    Amusement Park             average position 4.54   on turn 88   first 1% of the time
+    Radio Tower                average position 4.86   on turn 97   first 0% of the time
+    Airport                    average position 5.49   on turn 105   first 1% of the time
+    Space Port                 average position 6.44   on turn 120   first 1% of the time
 ```
 
 ```json
 {
-  "cardValue": 2.227627185301531,
-  "costEfficiency": 1.1426663860393569,
-  "buyThreshold": 0.3506789150368393,
-  "duplicatePenalty": 0.7047957081032779,
-  "scarcityBonus": 0.9878574469597329,
-  "denialWeight": -0.46172062612481574,
-  "futureDice": 0.3171011863648356,
-  "tableDice": 0.6461653355516171,
-  "blueWeight": 1.970399141192685,
-  "greenWeight": 0.7431739589005522,
-  "redWeight": 0.7944482717410786,
-  "purpleWeight": 2.482421503773358,
-  "purpleRealism": 0.7784513175032801,
-  "purpleHorizon": 0.8982969006016482,
-  "purpleVolatile": 0.34222191421037756,
-  "landmarkValue": 1.145302975373074,
-  "landmarkUnlock": 0.18882608482352217,
-  "landmarkProgress": 0.07629418056936497,
-  "landmarkRush": 2.283088223994819,
-  "landmarkOrder": 0.7946504445385189,
-  "saveMargin": 1.2444613800382296,
-  "saveScore": 0.6350757625266812,
-  "twoDiceBias": 1.1826546342604354,
-  "rerollMargin": 0.9535079356930616,
-  "harborMargin": 1.2366167368345615,
-  "spacePortMargin": 0.04939015016359495,
-  "threatWeight": 0.3160636124280745,
-  "exhibitThreshold": 4.37554941996894,
-  "investFloor": 3.4125611674326186,
-  "investCap": 8.72492019795733,
-  "renovationSelfHarm": 1.1483354387670326,
-  "eventTrust": 0.08458268138706719,
-  "bankerHold": 0.31881269011319974,
-  "mayorRerollMargin": 1.1461580162330016,
-  "jitter": 0.04171750309421568
+  "cardValue": 1.7830878228982727,
+  "costEfficiency": 1.3972599787875255,
+  "buyThreshold": 1.1632013175593146,
+  "duplicatePenalty": 0.5924895270235423,
+  "scarcityBonus": 1.4808302005646279,
+  "denialWeight": -0.6576501309902618,
+  "futureDice": 0.2585819458022172,
+  "tableDice": 0.4561514093752336,
+  "blueWeight": 1.7672310896146304,
+  "greenWeight": 0.722655906586564,
+  "redWeight": 1.0938685998149145,
+  "purpleWeight": 2.932610036411679,
+  "purpleRealism": 0.9284388831872228,
+  "purpleHorizon": 0.7202618602688374,
+  "purpleVolatile": 0.14776050346080158,
+  "landmarkValue": 0.6927082706704027,
+  "landmarkUnlock": 0.9510952401909448,
+  "landmarkProgress": 0.45181734444195343,
+  "landmarkRush": 2.0879599459212104,
+  "landmarkOrder": 0.9728495420165885,
+  "saveMargin": 3.6288645914422633,
+  "saveScore": 0.13668805623586813,
+  "twoDiceBias": 1.2278506400787041,
+  "rerollMargin": 2.141561721278777,
+  "harborMargin": 2.852056672041456,
+  "spacePortMargin": 0.24990506700701512,
+  "threatWeight": 0.3330452939335481,
+  "exhibitThreshold": 3.027394130789985,
+  "investFloor": 0.7456808246493082,
+  "investCap": 13.217053483355611,
+  "renovationSelfHarm": 1.2167968733204617,
+  "eventTrust": 0.06700532781639648,
+  "bankerHold": 0.6084155824887408,
+  "mayorRerollMargin": -0.8869302035062047,
+  "jitter": 0.07817899921183857
 }
 ```
 
