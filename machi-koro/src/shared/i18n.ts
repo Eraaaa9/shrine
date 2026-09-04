@@ -281,20 +281,27 @@ const LANDMARK_TABLES: Partial<Record<Lang, Record<LandmarkId, { name: string; t
   kk: LANDMARKS_KK,
 };
 
+/*
+ * A name the tables do not have comes back as the id, the way the mayors' and
+ * events' names already do. These are called from inside renders, where a throw
+ * is not a missing label but a blank screen for the rest of the game; the suite
+ * is where an unnamed card is supposed to be caught, and it checks these
+ * against the English table rather than against a crash.
+ */
 export function cardName(lang: Lang, id: CardId): string {
-  return CARD_TABLES[lang]?.[id]?.name ?? CARD_BY_ID[id].name;
+  return CARD_TABLES[lang]?.[id]?.name ?? CARD_BY_ID[id]?.name ?? id;
 }
 
 export function cardText(lang: Lang, id: CardId): string {
-  return CARD_TABLES[lang]?.[id]?.text ?? CARD_BY_ID[id].text;
+  return CARD_TABLES[lang]?.[id]?.text ?? CARD_BY_ID[id]?.text ?? '';
 }
 
 export function landmarkName(lang: Lang, id: LandmarkId): string {
-  return LANDMARK_TABLES[lang]?.[id]?.name ?? LANDMARK_BY_ID[id].name;
+  return LANDMARK_TABLES[lang]?.[id]?.name ?? LANDMARK_BY_ID[id]?.name ?? id;
 }
 
 export function landmarkText(lang: Lang, id: LandmarkId): string {
-  return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id].text;
+  return LANDMARK_TABLES[lang]?.[id]?.text ?? LANDMARK_BY_ID[id]?.text ?? '';
 }
 
 /** Name of whatever a post-game row is about — a building, a mayor or an event. */

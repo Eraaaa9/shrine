@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { GameState, LogEntry, PlayerState } from '../../shared/types';
-import type { CardId, LandmarkId } from '../../shared/cards';
+import type { LandmarkId } from '../../shared/cards';
+import { chainLabel } from '../../shared/chain';
 import { cardName, landmarkName } from '../../shared/i18n';
 import { coinFlow } from '../../shared/coinFlow';
 import { useLang } from '../lang';
@@ -88,8 +89,12 @@ export default function ActionChainHUD({ game, you }: Props) {
 
       const flow = coinFlow(l);
       if (!flow) continue;
-      const cardId = l.params?.card as string | undefined;
-      const cName = cardId ? cardName(lang, cardId as CardId) : '';
+      // What the step is named after is `chainLabel`'s to say: a line can move
+      // coins under no card and no landmark at all — the Urbanist's building
+      // bonus does — and asking the tables for that name is what blanked the
+      // board the moment somebody won.
+      const label = chainLabel(l);
+      const cName = label.as === 'card' ? cardName(lang, label.id) : '';
       const payer = nameOf(flow.fromId);
       const receiver = nameOf(flow.toId);
 
@@ -102,12 +107,12 @@ export default function ActionChainHUD({ game, you }: Props) {
           detail: `${payer} ➔ ${receiver}: ${flow.amount}¤`,
           colorClass: 'step-steal',
         });
-      } else if (l.kind === 'build') {
+      } else if (l.kind === 'build' && label.as !== 'generic') {
         chain.push({
           id: `buy_${l.id}`,
           type: 'build',
           icon: '🛍️',
-          title: cName || landmarkName(lang, (l.params?.landmark ?? '') as LandmarkId),
+          title: label.as === 'card' ? cName : landmarkName(lang, label.id),
           detail: `-${flow.amount}¤`,
           colorClass: 'step-build',
         });

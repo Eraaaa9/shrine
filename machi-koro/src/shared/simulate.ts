@@ -4,7 +4,7 @@
  * The simulation is the safety net for the engine: it plays whole games, checks
  * invariants after every action, and fails loudly on an illegal state.
  */
-import { LANDMARK_BY_ID, cardsFor, describeRules, landmarksFor, winLandmarks, type CardId, type RuleSet } from './cards';
+import { CARD_BY_ID, LANDMARK_BY_ID, cardsFor, describeRules, landmarksFor, winLandmarks, type CardId, type RuleSet } from './cards';
 import {
   LANGS,
   cardName,
@@ -38,6 +38,7 @@ import {
   supplySlots,
   type Seat,
 } from './engine';
+import { chainLabel } from './chain';
 import { COIN_LOG_KEYS, coinFlow, namesCoinsWithoutMoving } from './coinFlow';
 import type { GameAction, GameState, PlayerState } from './types';
 
@@ -195,6 +196,24 @@ function checkCoinFlows(state: GameState, where: string): void {
       if (id !== undefined) check(`${where}: ${entry.key} names a player at the table`, ids.has(id), id);
     }
     check(`${where}: ${entry.key} moves a positive amount`, flow.amount > 0, String(flow.amount));
+  }
+}
+
+/**
+ * The action chain names every line it shows, and it names them out of the card
+ * and landmark tables. A line the chain cannot name is not the problem — it says
+ * what happened instead — but a name the table has no entry for is: the lookup
+ * throws inside a render, and a thrown render is a blank screen, not a missing
+ * label. That is what a winning move used to leave behind.
+ */
+function checkChainNames(state: GameState, where: string): void {
+  for (const entry of state.log) {
+    const label = chainLabel(entry);
+    if (label.as === 'card') {
+      check(`${where}: ${entry.key} names a card the table has`, label.id in CARD_BY_ID, `"${label.id}"`);
+    } else if (label.as === 'landmark') {
+      check(`${where}: ${entry.key} names a landmark the table has`, label.id in LANDMARK_BY_ID, `"${label.id}"`);
+    }
   }
 }
 
@@ -1473,6 +1492,7 @@ function simulate(games: number, rules: RuleSet, playerCount: number): void {
     checkLedger(state, `game ${i} end`);
     statsSanity(state, `game ${i}`);
     checkCoinFlows(state, `game ${i}`);
+    checkChainNames(state, `game ${i}`);
     for (const entry of state.log) seenKeys.add(entry.key);
     if (state.phase !== 'over') {
       stuck++;

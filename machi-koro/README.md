@@ -383,7 +383,8 @@ npm run icons            # redraw public/og.png and the app icons
 every city), that no player can go negative, that each player's per-building earnings and losses add
 up to their totals, that nobody closes more copies of a card than they own, that majors stay unique,
 that the variable supply keeps its market as wide as the turn allows, that every event and every mayor does what its rules
-text says, and that every game reaches a winner.
+text says, that every line that moves coins says where they went and is named after something the
+name tables actually have, and that every game reaches a winner.
 
 ## Layout
 
