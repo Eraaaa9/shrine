@@ -83,9 +83,18 @@ function activate(state: GameState, p: PlayerState, cardId: CardId): void {
     // without it, so that its return is what pushes the market to 11. Which
     // stacks the shuffle dealt is not this test’s business — the mayor deck
     // draws before the market does, so it is not even the same shuffle.
+    // The market opens with one stack and grows by one a turn now, so the ten
+    // have to be drawn out of the deck rather than found sitting in the supply
+    // at zero. Looking for them there found nothing, wrote the stack under the
+    // key `undefined`, and span on the spot for as long as anyone let it.
     s.supply.exhibit_hall = 0;
-    const spares = (Object.keys(s.supply) as CardId[]).filter((id) => id !== 'exhibit_hall');
-    while (onOffer(s) < 10) s.supply[spares.find((id) => (s.supply[id] ?? 0) === 0)!] = 1;
+    const held: CardId[] = [];
+    while (onOffer(s) < 10 && s.deck.length > 0) {
+      const id = s.deck.pop()!;
+      if (id === 'exhibit_hall') held.push(id);
+      else s.supply[id] = (s.supply[id] ?? 0) + 1;
+    }
+    s.deck.push(...held);
   });
   check('the market starts at 10 stacks', onOffer(state), 10);
 
